@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Arena Cedro Design System - Modern Sports Aesthetic */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+@layer base {
+  :root {
+    /* Core Colors - Green/Sports Theme */
+    --background: 160 10% 6%;
+    --foreground: 0 0% 98%;
+
+    --card: 160 12% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 160 12% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Primary - Vibrant Field Green */
+    --primary: 142 76% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Dark Slate */
+    --secondary: 160 15% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted */
+    --muted: 160 10% 18%;
+    --muted-foreground: 160 10% 60%;
+
+    /* Accent - Amber/Gold for energy */
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 15% 20%;
+    --input: 160 15% 18%;
+    --ring: 142 76% 45%;
+
+    --radius: 0.75rem;
+
+    /* Custom Status Colors */
+    --status-available: 142 76% 45%;
+    --status-pending: 45 93% 47%;
+    --status-unavailable: 0 84% 60%;
+    --status-maintenance: 220 14% 50%;
+
+    /* Custom Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 35%));
+    --gradient-accent: linear-gradient(135deg, hsl(38 92% 50%), hsl(25 95% 53%));
+    --gradient-dark: linear-gradient(180deg, hsl(160 12% 10%), hsl(160 10% 6%));
+    --gradient-hero: linear-gradient(180deg, transparent 0%, hsl(160 10% 6% / 0.8) 50%, hsl(160 10% 6%) 100%);
+
+    /* Shadows */
+    --shadow-glow: 0 0 30px hsl(142 76% 45% / 0.3);
+    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 160 12% 8%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 142 76% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 15% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 160 15% 20%;
+    --sidebar-ring: 142 76% 45%;
+  }
+
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 160 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 160 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 10% 10%;
+
+    --primary: 142 76% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 160 10% 94%;
+    --secondary-foreground: 160 10% 10%;
+
+    --muted: 160 10% 94%;
+    --muted-foreground: 160 10% 45%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 10% 88%;
+    --input: 160 10% 90%;
+    --ring: 142 76% 40%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 160 10% 10%;
+    --sidebar-primary: 142 76% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 10% 94%;
+    --sidebar-accent-foreground: 160 10% 10%;
+    --sidebar-border: 160 10% 88%;
+    --sidebar-ring: 142 76% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', sans-serif;
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg;
+  }
+
+  .status-available {
+    @apply bg-[hsl(var(--status-available))] text-white;
+  }
+
+  .status-pending {
+    @apply bg-[hsl(var(--status-pending))] text-black;
+  }
+
+  .status-unavailable {
+    @apply bg-[hsl(var(--status-unavailable))] text-white;
+  }
+
+  .status-maintenance {
+    @apply bg-[hsl(var(--status-maintenance))] text-white;
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(142 76% 50%), hsl(38 92% 50%));
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px hsl(142 76% 45% / 0.3); }
+    50% { box-shadow: 0 0 40px hsl(142 76% 45% / 0.5); }
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
