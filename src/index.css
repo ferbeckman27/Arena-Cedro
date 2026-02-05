@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+/* 1. Import atualizado com peso 900 (Black) para o título ficar grosso */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Arena Cedro Design System - Modern Sports Aesthetic */
-
 
 @layer base {
   :root {
@@ -69,45 +70,6 @@
     --sidebar-border: 160 15% 20%;
     --sidebar-ring: 142 76% 45%;
   }
-
-  .light {
-    --background: 0 0% 98%;
-    --foreground: 160 10% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 160 10% 10%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 160 10% 10%;
-
-    --primary: 142 76% 40%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 160 10% 94%;
-    --secondary-foreground: 160 10% 10%;
-
-    --muted: 160 10% 94%;
-    --muted-foreground: 160 10% 45%;
-
-    --accent: 38 92% 50%;
-    --accent-foreground: 0 0% 10%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 160 10% 88%;
-    --input: 160 10% 90%;
-    --ring: 142 76% 40%;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 160 10% 10%;
-    --sidebar-primary: 142 76% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 10% 94%;
-    --sidebar-accent-foreground: 160 10% 10%;
-    --sidebar-border: 160 10% 88%;
-    --sidebar-ring: 142 76% 40%;
-  }
 }
 
 @layer base {
@@ -116,13 +78,15 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+    /* 2. Alterado para Montserrat para seguir o padrão da imagem enviada */
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Montserrat', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Montserrat', sans-serif;
-    @apply font-bold tracking-tight;
+    /* 3. Peso máximo para o nome da arena brilhar */
+    @apply font-black tracking-tighter;
   }
 }
 
@@ -131,37 +95,18 @@
     @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg;
   }
 
-  .status-available {
-    @apply bg-[hsl(var(--status-available))] text-white;
-  }
-
-  .status-pending {
-    @apply bg-[hsl(var(--status-pending))] text-black;
-  }
-
-  .status-unavailable {
-    @apply bg-[hsl(var(--status-unavailable))] text-white;
-  }
-
-  .status-maintenance {
-    @apply bg-[hsl(var(--status-maintenance))] text-white;
-  }
-
   .gradient-primary {
     background: var(--gradient-primary);
-  }
-
-  .gradient-accent {
-    background: var(--gradient-accent);
   }
 
   .glow-primary {
     box-shadow: var(--shadow-glow);
   }
 
-  .text-gradient {
+  /* 4. Gradiente idêntico ao da logo e texto da imagem */
+  .text-gradient-arena {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(142 76% 50%), hsl(38 92% 50%));
+    background-image: linear-gradient(to right, #4ade80, #facc15);
   }
 }
 
@@ -170,26 +115,8 @@
     animation: float 6s ease-in-out infinite;
   }
 
-  .animate-pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
-
-  .animate-slide-up {
-    animation: slide-up 0.5s ease-out;
-  }
-
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-10px); }
-  }
-
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px hsl(142 76% 45% / 0.3); }
-    50% { box-shadow: 0 0 40px hsl(142 76% 45% / 0.5); }
-  }
-
-  @keyframes slide-up {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
   }
 }
