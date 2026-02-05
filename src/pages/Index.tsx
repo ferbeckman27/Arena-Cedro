@@ -1,30 +1,16 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Clock, Users, Star, ChevronRight, Phone, MapPin, Instagram, Facebook } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
+import { TodayScheduleModal } from "@/components/home/TodayScheduleModal";
+import { TestimonialForm } from "@/components/home/TestimonialForm";
+import { GallerySection } from "@/components/home/GallerySection";
 
 const Index = () => {
   const navigate = useNavigate();
-
-  const features = [
-    {
-      icon: <CalendarDays className="w-8 h-8" />,
-      title: "Agendamento Fácil",
-      description: "Reserve seu horário em segundos pelo nosso sistema online.",
-    },
-    {
-      icon: <Clock className="w-8 h-8" />,
-      title: "Horários Flexíveis",
-      description: "Funcionamos das 8h às 22h, todos os dias da semana.",
-    },
-    {
-      icon: <Users className="w-8 h-8" />,
-      title: "Campo Society",
-      description: "Gramado sintético de alta qualidade para suas partidas.",
-    },
-  ];
-
-  const testimonials = [
+  const [isTodayScheduleOpen, setIsTodayScheduleOpen] = useState(false);
+  const [testimonials, setTestimonials] = useState([
     {
       name: "Carlos Mendes",
       text: "Excelente estrutura! Gramado sintético de qualidade e iluminação perfeita para os jogos noturnos.",
@@ -40,7 +26,47 @@ const Index = () => {
       text: "Atendimento nota 10 e campo impecável. Recomendo demais!",
       rating: 5,
     },
+  ]);
+
+  const features = [
+    {
+      icon: <CalendarDays className="w-8 h-8" />,
+      title: "Agendamento Fácil",
+      description: (
+        <>
+          Reserve seu horário em segundos pelo nosso sistema online.
+          <br />
+          <a href="tel:+5598999910535" className="text-primary hover:underline font-medium">
+            📞 (98) 99991-0535
+          </a>
+        </>
+      ),
+      cta: (
+        <Button 
+          size="sm"
+          className="mt-3 gradient-primary"
+          onClick={() => navigate("/login")}
+        >
+          Agendar Agora
+          <ChevronRight className="w-4 h-4 ml-1" />
+        </Button>
+      ),
+    },
+    {
+      icon: <Clock className="w-8 h-8" />,
+      title: "Horários Flexíveis",
+      description: "Funcionamos das 8h às 22h, todos os dias. Agendamentos de 30 min a 2 horas.",
+    },
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: "Campo Society",
+      description: "Gramado sintético de alta qualidade para suas partidas.",
+    },
   ];
+
+  const handleNewTestimonial = (data: { name: string; text: string; rating: number }) => {
+    setTestimonials(prev => [data, ...prev]);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,10 +82,13 @@ const Index = () => {
         {/* Content */}
         <div className="relative z-10 container mx-auto px-4 text-center">
           <div className="animate-fade-in space-y-6 max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 text-sm">
+            <button 
+              onClick={() => setIsTodayScheduleOpen(true)}
+              className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-2 text-sm hover:bg-primary/20 transition-colors cursor-pointer"
+            >
               <span className="w-2 h-2 rounded-full bg-status-available animate-pulse" />
-              <span>Horários disponíveis hoje</span>
-            </div>
+              <span>Horários disponíveis hoje - Clique para ver</span>
+            </button>
             
             <h1 className="font-display text-5xl md:text-7xl font-bold">
               <span className="text-gradient">Arena Cedro</span>
@@ -76,12 +105,6 @@ const Index = () => {
               >
                 Agendar Agora
                 <ChevronRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button 
-                className="text-lg px-8 py-6 rounded-xl border-2 border-primary bg-background/20 text-white hover:bg-primary hover:text-white transition-all duration-300"
-                onClick={() => navigate("/admin/login")}
-              >
-                Área Admin
               </Button>
             </div>
 
@@ -136,11 +159,15 @@ const Index = () => {
                 </div>
                 <h3 className="font-display text-xl font-bold mb-3">{feature.title}</h3>
                 <p className="text-muted-foreground">{feature.description}</p>
+                {feature.cta}
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Gallery Section */}
+      <GallerySection />
 
       {/* Testimonials Section */}
       <section className="py-24">
@@ -151,8 +178,8 @@ const Index = () => {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {testimonials.slice(0, 6).map((testimonial, index) => (
               <div 
                 key={index}
                 className="glass-card rounded-2xl p-6 hover:scale-105 transition-transform duration-300"
@@ -166,6 +193,11 @@ const Index = () => {
                 <p className="text-sm font-medium text-muted-foreground">— {testimonial.name}</p>
               </div>
             ))}
+          </div>
+
+          {/* Testimonial Form */}
+          <div className="mt-12 max-w-md mx-auto">
+            <TestimonialForm onSubmit={handleNewTestimonial} />
           </div>
         </div>
       </section>
@@ -212,10 +244,10 @@ const Index = () => {
             <div>
               <h4 className="font-display font-bold mb-4">Contato</h4>
               <div className="space-y-2 text-muted-foreground">
-                <p className="flex items-center gap-2">
+                <a href="tel:+5598999910535" className="flex items-center gap-2 hover:text-primary transition-colors">
                   <Phone className="w-4 h-4" />
                   (98) 99991-0535
-                </p>
+                </a>
                 <p className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
                   Av. Trindade, 3126, Matinha, SJ de Ribamar-MA
@@ -225,7 +257,7 @@ const Index = () => {
 
             <div>
               <h4 className="font-display font-bold mb-4">Redes Sociais</h4>
-              <div className="flex gap-4">
+              <div className="flex gap-4 mb-6">
                 <a 
                   href="https://www.instagram.com/arenacedrofut7/" 
                   target="_blank" 
@@ -238,6 +270,16 @@ const Index = () => {
                   <Facebook className="w-5 h-5" />
                 </a>
               </div>
+              
+              {/* Admin Link - moved to footer */}
+              <Button 
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => navigate("/admin/login")}
+              >
+                Área Administrativa
+              </Button>
             </div>
           </div>
 
@@ -246,6 +288,13 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Today Schedule Modal */}
+      <TodayScheduleModal 
+        isOpen={isTodayScheduleOpen}
+        onClose={() => setIsTodayScheduleOpen(false)}
+        onLoginClick={() => navigate("/login")}
+      />
     </div>
   );
 };

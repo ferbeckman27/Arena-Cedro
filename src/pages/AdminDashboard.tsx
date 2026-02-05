@@ -5,7 +5,7 @@ import { ptBR } from "date-fns/locale";
 import { 
   CalendarDays, Clock, Users, DollarSign, TrendingUp, 
   LogOut, Settings, AlertTriangle, Check, X, Wrench,
-  BarChart3, FileText, Bell
+  BarChart3, FileText, Bell, Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -45,7 +45,7 @@ import {
   Legend,
 } from "recharts";
 
-// Generate mock schedule data
+// Generate mock schedule data with 30-minute intervals
 const generateMockSchedule = (): DaySchedule[] => {
   const today = startOfToday();
   const schedule: DaySchedule[] = [];
@@ -54,32 +54,40 @@ const generateMockSchedule = (): DaySchedule[] => {
     const date = addDays(today, i);
     const slots: TimeSlot[] = [];
 
+    // Diurnal slots (8h - 17h30) with 30-min intervals
     for (let hour = 8; hour < 18; hour++) {
-      const random = Math.random();
-      let status: TimeSlot["status"] = "available";
-      if (random > 0.7) status = "unavailable";
-      else if (random > 0.5) status = "pending";
+      for (let half = 0; half < 2; half++) {
+        if (hour === 17 && half === 1) continue;
+        const random = Math.random();
+        let status: TimeSlot["status"] = "available";
+        if (random > 0.7) status = "unavailable";
+        else if (random > 0.5) status = "pending";
 
-      slots.push({
-        hour,
-        status,
-        price: 80,
-        bookedBy: status !== "available" ? "João Silva" : undefined,
-      });
+        slots.push({
+          time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
+          status,
+          price: 40,
+          bookedBy: status !== "available" ? "João Silva" : undefined,
+        });
+      }
     }
 
+    // Nocturnal slots (18h - 22h) with 30-min intervals
     for (let hour = 18; hour <= 22; hour++) {
-      const random = Math.random();
-      let status: TimeSlot["status"] = "available";
-      if (random > 0.6) status = "unavailable";
-      else if (random > 0.4) status = "pending";
+      for (let half = 0; half < 2; half++) {
+        if (hour === 22 && half === 1) continue;
+        const random = Math.random();
+        let status: TimeSlot["status"] = "available";
+        if (random > 0.6) status = "unavailable";
+        else if (random > 0.4) status = "pending";
 
-      slots.push({
-        hour,
-        status,
-        price: 120,
-        bookedBy: status !== "available" ? "Carlos Mendes" : undefined,
-      });
+        slots.push({
+          time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
+          status,
+          price: 60,
+          bookedBy: status !== "available" ? "Carlos Mendes" : undefined,
+        });
+      }
     }
 
     schedule.push({ date, slots });
@@ -119,15 +127,16 @@ interface PendingBooking {
   clientName: string;
   clientPhone: string;
   date: Date;
-  hour: number;
+  time: string;
+  duration: number;
   price: number;
   paymentMethod: "pix" | "dinheiro";
 }
 
 const mockPendingBookings: PendingBooking[] = [
-  { id: "1", clientName: "João Silva", clientPhone: "(11) 99999-1234", date: addDays(startOfToday(), 1), hour: 19, price: 120, paymentMethod: "pix" },
-  { id: "2", clientName: "Maria Santos", clientPhone: "(11) 98888-5678", date: addDays(startOfToday(), 1), hour: 20, price: 120, paymentMethod: "dinheiro" },
-  { id: "3", clientName: "Carlos Oliveira", clientPhone: "(11) 97777-9012", date: addDays(startOfToday(), 2), hour: 10, price: 80, paymentMethod: "pix" },
+  { id: "1", clientName: "João Silva", clientPhone: "(11) 99999-1234", date: addDays(startOfToday(), 1), time: "19:00", duration: 60, price: 120, paymentMethod: "pix" },
+  { id: "2", clientName: "Maria Santos", clientPhone: "(11) 98888-5678", date: addDays(startOfToday(), 1), time: "20:00", duration: 90, price: 180, paymentMethod: "dinheiro" },
+  { id: "3", clientName: "Carlos Oliveira", clientPhone: "(11) 97777-9012", date: addDays(startOfToday(), 2), time: "10:00", duration: 60, price: 80, paymentMethod: "pix" },
 ];
 
 const AdminDashboard = () => {
@@ -140,6 +149,7 @@ const AdminDashboard = () => {
   const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>(mockPendingBookings);
   const [isBookingDetailOpen, setIsBookingDetailOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<PendingBooking | null>(null);
+  const [isSlotDetailOpen, setIsSlotDetailOpen] = useState(false);
   const [paymentDestination, setPaymentDestination] = useState("arena");
   const [reportPeriod, setReportPeriod] = useState("week");
 
@@ -147,13 +157,18 @@ const AdminDashboard = () => {
     ? schedule.find(s => format(s.date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd"))
     : null;
 
-  const handleSelectSlot = (slot: TimeSlot) => {
+  const handleSelectSlot = (slot: TimeSlot, duration: number) => {
     setSelectedSlot(slot);
-    if (slot.status === "pending") {
-      const booking = pendingBookings.find(b => b.hour === slot.hour);
+    
+    // If slot is pending or unavailable, show details
+    if (slot.status === "pending" || slot.status === "unavailable") {
+      const booking = pendingBookings.find(b => b.time === slot.time);
       if (booking) {
         setSelectedBooking(booking);
         setIsBookingDetailOpen(true);
+      } else {
+        // Show slot details modal for unavailable slots
+        setIsSlotDetailOpen(true);
       }
     }
   };
@@ -189,8 +204,16 @@ const AdminDashboard = () => {
 
   // Stats calculation
   const totalRevenue = revenueData.reduce((acc, day) => acc + day.diurno + day.noturno, 0);
-  const totalBookings = pendingBookings.length + 45; // Mock confirmed bookings
+  const totalBookings = pendingBookings.length + 45;
   const pendingCount = pendingBookings.length;
+
+  const formatDuration = (mins: number) => {
+    if (mins < 60) return `${mins} min`;
+    const hours = Math.floor(mins / 60);
+    const remaining = mins % 60;
+    if (remaining === 0) return `${hours}h`;
+    return `${hours}h${remaining}min`;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -356,7 +379,7 @@ const AdminDashboard = () => {
                           <p className="font-medium">{booking.clientName}</p>
                           <p className="text-sm text-muted-foreground">{booking.clientPhone}</p>
                           <p className="text-sm text-muted-foreground">
-                            {format(booking.date, "dd/MM/yyyy", { locale: ptBR })} às {booking.hour}:00 - 
+                            {format(booking.date, "dd/MM/yyyy", { locale: ptBR })} às {booking.time} ({formatDuration(booking.duration)}) - 
                             <span className="text-primary font-medium"> R$ {booking.price.toFixed(2)}</span>
                           </p>
                         </div>
@@ -365,6 +388,16 @@ const AdminDashboard = () => {
                         <span className={`text-xs px-2 py-1 rounded-full ${booking.paymentMethod === "pix" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent"}`}>
                           {booking.paymentMethod.toUpperCase()}
                         </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedBooking(booking);
+                            setIsBookingDetailOpen(true);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -521,8 +554,12 @@ const AdminDashboard = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Data/Hora:</span>
                   <span className="font-medium">
-                    {format(selectedBooking.date, "dd/MM/yyyy")} às {selectedBooking.hour}:00
+                    {format(selectedBooking.date, "dd/MM/yyyy")} às {selectedBooking.time}
                   </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Duração:</span>
+                  <span className="font-medium">{formatDuration(selectedBooking.duration)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Pagamento:</span>
@@ -565,6 +602,58 @@ const AdminDashboard = () => {
                   Confirmar
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Slot Detail Modal (for clicking booked slots) */}
+      <Dialog open={isSlotDetailOpen} onOpenChange={setIsSlotDetailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalhes do Horário</DialogTitle>
+            <DialogDescription>
+              Informações sobre este horário reservado.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSlot && selectedDate && (
+            <div className="space-y-4">
+              <div className="glass-card rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Data:</span>
+                  <span className="font-medium">{format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Horário:</span>
+                  <span className="font-medium">{selectedSlot.time}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={`font-medium capitalize ${
+                    selectedSlot.status === "available" ? "text-status-available" :
+                    selectedSlot.status === "pending" ? "text-status-pending" :
+                    "text-status-unavailable"
+                  }`}>
+                    {selectedSlot.status === "available" ? "Disponível" :
+                     selectedSlot.status === "pending" ? "Pendente" : "Reservado"}
+                  </span>
+                </div>
+                {selectedSlot.bookedBy && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Reservado por:</span>
+                    <span className="font-medium">{selectedSlot.bookedBy}</span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setIsSlotDetailOpen(false)}
+              >
+                Fechar
+              </Button>
             </div>
           )}
         </DialogContent>
