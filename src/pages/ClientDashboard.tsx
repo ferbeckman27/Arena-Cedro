@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays, startOfToday } from "date-fns";
-import { CalendarDays, Clock, User, LogOut, History, Star } from "lucide-react";
+import { CalendarDays, Clock, User, LogOut, History, Star, Trophy, Sun } from  "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookingCalendar, type DaySchedule, type TimeSlot } from "@/components/booking/BookingCalendar";
 import { TimeSlotGrid } from "@/components/booking/TimeSlotGrid";
 import { PaymentModal } from "@/components/booking/PaymentModal";
 import { useToast } from "@/hooks/use-toast";
+import { FidelityCard } from "@/components/dashboard/FidelityCard";
 
-// Generate mock schedule data
+// Mock de dados (Simulando que o usuário já tem 7 jogos para teste)
+const USER_GAMES_COUNT = 7;
+
 const generateMockSchedule = (): DaySchedule[] => {
   const today = startOfToday();
   const schedule: DaySchedule[] = [];
@@ -17,7 +20,6 @@ const generateMockSchedule = (): DaySchedule[] => {
     const date = addDays(today, i);
     const slots: TimeSlot[] = [];
 
-    // Diurnal slots (8h - 17h)
     for (let hour = 8; hour < 18; hour++) {
       const random = Math.random();
       let status: TimeSlot["status"] = "available";
@@ -32,7 +34,6 @@ const generateMockSchedule = (): DaySchedule[] => {
       });
     }
 
-    // Nocturnal slots (18h - 22h)
     for (let hour = 18; hour <= 22; hour++) {
       const random = Math.random();
       let status: TimeSlot["status"] = "available";
@@ -48,12 +49,13 @@ const generateMockSchedule = (): DaySchedule[] => {
     }
 
     schedule.push({ date, slots });
+
   }
 
   return schedule;
 };
 
-const ClientDashboard = () => {
+export const ClientDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [schedule] = useState<DaySchedule[]>(generateMockSchedule());
@@ -90,25 +92,19 @@ const ClientDashboard = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary-foreground" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-              </div>
+              <img src="/logo-arena.png" alt="Arena Cedro" className="w-10 h-10 object-contain" />
               <div>
-                <h1 className="font-display text-xl font-bold">Arena Cedro</h1>
-                <p className="text-xs text-muted-foreground">Futebol Society</p>
+                <h1 className="font-display text-xl font-bold leading-tight">Arena Cedro</h1>
+                <p className="text-[10px] uppercase tracking-wider text-green-500 font-bold">Futebol Society</p>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
-              <Button className="hidden sm:flex gap-2">
-                  <History className="w-4 h-4" />
-                  Minhas Reservas
-                </Button>
-              <Button 
-                onClick={() => navigate("/")}
-              >
+              <Button variant="ghost" className="hidden sm:flex gap-2 text-muted-foreground hover:text-primary">
+                <History className="w-4 h-4" />
+                Minhas Reservas
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => navigate("/")} className="border-border hover:bg-destructive/10 hover:text-destructive transition-colors">
                 <LogOut className="w-5 h-5" />
               </Button>
             </div>
@@ -116,79 +112,51 @@ const ClientDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8 animate-fade-in">
-          <h2 className="font-display text-3xl font-bold mb-2">
-            Olá, <span className="text-gradient">Jogador!</span>
-          </h2>
-          <p className="text-muted-foreground">
-            Escolha uma data e horário para reservar o campo.
-          </p>
-        </div>
-
-        {/* Price Cards */}
-        <div className="grid sm:grid-cols-2 gap-4 mb-8">
-          <div className="glass-card rounded-2xl p-6 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-accent/20 flex items-center justify-center">
-              <span className="text-2xl">☀️</span>
-            </div>
-            <div>
-              <h3 className="font-display font-bold">Turno Diurno</h3>
-              <p className="text-sm text-muted-foreground">08h às 17h</p>
-              <p className="text-lg font-bold text-primary">R$ 80,00/hora</p>
-            </div>
-          </div>
-          <div className="glass-card rounded-2xl p-6 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
-              <span className="text-2xl">🌙</span>
-            </div>
-            <div>
-              <h3 className="font-display font-bold">Turno Noturno</h3>
-              <p className="text-sm text-muted-foreground">18h às 22h</p>
-              <p className="text-lg font-bold text-primary">R$ 120,00/hora</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Calendar and Slots */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          <BookingCalendar
-            schedule={schedule}
-            onSelectDay={setSelectedDate}
-            selectedDate={selectedDate}
-          />
-
-          {selectedDate && selectedDaySchedule ? (
-            <TimeSlotGrid
-              date={selectedDate}
-              slots={selectedDaySchedule.slots}
-              onSelectSlot={handleSelectSlot}
-              selectedSlot={selectedSlot}
-            />
-          ) : (
-            <div className="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-              <CalendarDays className="w-16 h-16 text-muted-foreground mb-4" />
-              <h3 className="font-display text-lg font-bold mb-2">Selecione uma data</h3>
-              <p className="text-muted-foreground">
-                Clique em um dia no calendário para ver os horários disponíveis.
+        <div className="grid lg:grid-cols-3 gap-8">
+          
+          {/* Coluna da Esquerda: Perfil e Fidelidade */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="animate-fade-in">
+              <h2 className="font-display text-3xl font-bold mb-2">
+                Olá, <span className="text-gradient">Jogador!</span>
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Gerencie suas reservas e acompanhe seus benefícios.
               </p>
             </div>
-          )}
-        </div>
-      </main>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={isPaymentOpen}
-        onClose={() => setIsPaymentOpen(false)}
-        slot={selectedSlot}
-        date={selectedDate}
-        onConfirm={handleConfirmBooking}
-      />
-    </div>
-  );
-};
+            {/* SISTEMA DE FIDELIDADE (10+1) */}
+            <FidelityCard gamesPlayed={USER_GAMES_COUNT} />
 
-export default ClientDashboard;
+            {/* Informações de Preço Rápidas */}
+                        <div className="space-y-3">
+                          <div className="glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-yellow-500">
+                            <div className="flex items-center gap-3">
+                              <Sun className="w-5 h-5 text-yellow-500" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+            
+                      {/* Coluna da Direita: Calendário e Seleção */}
+                      <div className="lg:col-span-2 space-y-6">
+                        <BookingCalendar schedule={schedule} onSelectDay={setSelectedDate} selectedDate={selectedDate} />
+                        {selectedDaySchedule && (
+                          <TimeSlotGrid
+                            slots={selectedDaySchedule.slots}
+                            onSelectSlot={handleSelectSlot}
+                            date={selectedDaySchedule.date}
+                            selectedSlot={selectedSlot}
+                          />
+                        )}
+                      </div>
+                    </div>
+            
+                    <PaymentModal isOpen={isPaymentOpen} onClose={() => setIsPaymentOpen(false)} onConfirm={handleConfirmBooking} selectedSlot={selectedSlot} />
+                  </main>
+                </div>
+              );
+            };
+            
+ export default ClientDashboard;

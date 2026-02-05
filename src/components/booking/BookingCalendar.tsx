@@ -72,64 +72,39 @@ export const BookingCalendar = ({ schedule, onSelectDay, selectedDate, isAdmin =
   const emptyDays = Array(startDayOfWeek).fill(null);
 
   return (
-    <div className="glass-card rounded-2xl p-6">
-      {/* Header */}
+    <div className="glass-card rounded-2xl p-6 border border-border">
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-display text-xl font-bold capitalize">
           {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
         </h2>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          >
+          <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          >
+          <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 mb-6 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-status-available" />
-          <span>Disponível</span>
+      <div className="flex flex-wrap gap-4 mb-6 text-[10px] sm:text-sm">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-status-available" /> <span>Livre</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-status-pending" />
-          <span>Pendente</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-status-pending" /> <span>Pendente</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-status-unavailable" />
-          <span>Indisponível</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-status-maintenance" />
-          <span>Manutenção</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-status-maintenance" /> <span>Manutenção</span>
         </div>
       </div>
 
-      {/* Week days header */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {weekDays.map((day) => (
-          <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
-            {day}
-          </div>
-        ))}
+      <div className="grid grid-cols-7 gap-1 mb-2 text-center text-xs font-bold text-muted-foreground">
+        {weekDays.map((day) => <div key={day} className="py-2">{day}</div>)}
       </div>
 
-      {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1">
-        {emptyDays.map((_, index) => (
-          <div key={`empty-${index}`} className="aspect-square" />
-        ))}
+        {emptyDays.map((_, index) => <div key={`empty-${index}`} className="aspect-square" />)}
         {days.map((day) => {
           const status = getDayStatus(day);
           const isSelected = selectedDate && isSameDay(day, selectedDate);
@@ -144,18 +119,13 @@ export const BookingCalendar = ({ schedule, onSelectDay, selectedDate, isAdmin =
               className={cn(
                 "aspect-square rounded-lg border-2 flex flex-col items-center justify-center transition-all",
                 status ? getStatusColor(status) : "border-transparent",
-                isToday(day) && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                isSelected && "ring-2 ring-accent ring-offset-2 ring-offset-background",
-                isDisabled && "opacity-40 cursor-not-allowed",
+                isToday(day) && "ring-2 ring-primary ring-offset-1",
+                isSelected && "ring-2 ring-accent ring-offset-1 scale-95",
+                isDisabled && "opacity-30 cursor-not-allowed grayscale",
                 !isDisabled && "hover:scale-105 cursor-pointer"
               )}
             >
-              <span className={cn(
-                "text-sm font-medium",
-                !isSameMonth(day, currentMonth) && "text-muted-foreground"
-              )}>
-                {format(day, "d")}
-              </span>
+              <span className="text-sm font-bold">{format(day, "d")}</span>
             </button>
           );
         })}
