@@ -8,7 +8,7 @@ import { TimeSlotGrid } from "@/components/booking/TimeSlotGrid";
 import { PaymentModal } from "@/components/booking/PaymentModal";
 import { useToast } from "@/hooks/use-toast";
 
-// Generate mock schedule data
+// Generate mock schedule data with 30-minute intervals
 const generateMockSchedule = (): DaySchedule[] => {
   const today = startOfToday();
   const schedule: DaySchedule[] = [];
@@ -17,34 +17,40 @@ const generateMockSchedule = (): DaySchedule[] => {
     const date = addDays(today, i);
     const slots: TimeSlot[] = [];
 
-    // Diurnal slots (8h - 17h)
+    // Diurnal slots (8h - 17h30) with 30-min intervals
     for (let hour = 8; hour < 18; hour++) {
-      const random = Math.random();
-      let status: TimeSlot["status"] = "available";
-      if (random > 0.7) status = "unavailable";
-      else if (random > 0.5) status = "pending";
+      for (let half = 0; half < 2; half++) {
+        if (hour === 17 && half === 1) continue; // Stop at 17:30
+        const random = Math.random();
+        let status: TimeSlot["status"] = "available";
+        if (random > 0.7) status = "unavailable";
+        else if (random > 0.5) status = "pending";
 
-      slots.push({
-        hour,
-        status,
-        price: 80,
-        bookedBy: status !== "available" ? "Cliente" : undefined,
-      });
+        slots.push({
+          time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
+          status,
+          price: 40, // R$ 80/hour = R$ 40 per 30 min
+          bookedBy: status !== "available" ? "Cliente" : undefined,
+        });
+      }
     }
 
-    // Nocturnal slots (18h - 22h)
+    // Nocturnal slots (18h - 22h) with 30-min intervals
     for (let hour = 18; hour <= 22; hour++) {
-      const random = Math.random();
-      let status: TimeSlot["status"] = "available";
-      if (random > 0.6) status = "unavailable";
-      else if (random > 0.4) status = "pending";
+      for (let half = 0; half < 2; half++) {
+        if (hour === 22 && half === 1) continue; // Stop at 22:00
+        const random = Math.random();
+        let status: TimeSlot["status"] = "available";
+        if (random > 0.6) status = "unavailable";
+        else if (random > 0.4) status = "pending";
 
-      slots.push({
-        hour,
-        status,
-        price: 120,
-        bookedBy: status !== "available" ? "Cliente" : undefined,
-      });
+        slots.push({
+          time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
+          status,
+          price: 60, // R$ 120/hour = R$ 60 per 30 min
+          bookedBy: status !== "available" ? "Cliente" : undefined,
+        });
+      }
     }
 
     schedule.push({ date, slots });
@@ -59,15 +65,17 @@ const ClientDashboard = () => {
   const [schedule] = useState<DaySchedule[]>(generateMockSchedule());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState(60);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
 
   const selectedDaySchedule = selectedDate 
     ? schedule.find(s => format(s.date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd"))
     : null;
 
-  const handleSelectSlot = (slot: TimeSlot) => {
+  const handleSelectSlot = (slot: TimeSlot, duration: number) => {
     if (slot.status === "available") {
       setSelectedSlot(slot);
+      setSelectedDuration(duration);
       setIsPaymentOpen(true);
     }
   };
@@ -124,7 +132,7 @@ const ClientDashboard = () => {
             Olá, <span className="text-gradient">Jogador!</span>
           </h2>
           <p className="text-muted-foreground">
-            Escolha uma data e horário para reservar o campo.
+            Escolha uma data e horário para reservar o campo. Agendamentos flexíveis de 30 min a 2 horas.
           </p>
         </div>
 
@@ -185,6 +193,7 @@ const ClientDashboard = () => {
         onClose={() => setIsPaymentOpen(false)}
         slot={selectedSlot}
         date={selectedDate}
+        duration={selectedDuration}
         onConfirm={handleConfirmBooking}
       />
     </div>
