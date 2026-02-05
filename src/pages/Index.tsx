@@ -1,162 +1,155 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   CalendarDays, Clock, Users, ChevronRight, 
-  Instagram, Facebook, Sun, Moon, Phone, MapPin,
-  Camera, PlayCircle, Star, LogIn, ShieldCheck, Trophy
+  Instagram, Facebook, PlayCircle, Camera, Sun, Moon
 } from "lucide-react";
-
-// Importações das imagens (Verifique se os nomes estão corretos na sua pasta assets)
 import heroArena from "@/assets/hero-arena.jpg";
-import logoArena from "@/assets/logo-arena.png"; 
-import { LocationLink } from "@/components/booking/LocationLink"; 
+import logoArena from "@/assets/logo-arena.png"; // Importe a logo aqui
+import { LocationLink } from "@/components/booking/LocationLink";
+import { TodayScheduleModal } from "@/components/home/TodayScheduleModal";
 
-export const Index = () => {
+const Index = () => {
   const navigate = useNavigate();
 
-  return (
-    <div className="min-h-screen bg-[#060a08] text-white font-sans">
-      
-      {/* 1. NAVEGAÇÃO SUPERIOR (Login e Admin restaurados) */}
-      <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/5">
-        <div className="container mx-auto px-4 h-20 flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <img src={logoArena} alt="Logo" className="w-12 h-12 object-contain" />
-            <span className="font-black italic text-xl tracking-tighter uppercase">
-              Arena <span className="text-[#4ade80]">Cedro</span>
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" className="text-white hover:text-[#4ade80]" onClick={() => navigate("/login")}>
-              <LogIn className="w-4 h-4 mr-2" /> Entrar
-            </Button>
-            <Button className="bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold hidden md:flex" onClick={() => navigate("/register")}>
-              Cadastrar
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/login")} title="Painel Administrativo">
-              <ShieldCheck className="w-5 h-5 text-white/20 hover:text-white" />
-            </Button>
-          </div>
-        </div>
-      </nav>
+  const features = [
+    {
+      icon: <CalendarDays className="w-8 h-8" />,
+      title: "Agendamento Fácil",
+      description: "Reserve seu horário em segundos. Dúvidas? Ligue: (98) 99991-0535",
+      showAction: true,
+      actionText: "Agendar Agora"
+    },
+    {
+      icon: <Clock className="w-8 h-8" />,
+      title: "Horários Flexíveis",
+      description: "Agende blocos de 30min ou 1h30 conforme sua necessidade.",
+      showAction: true,
+      actionText: "Ver Agenda"
+    },
+    {
+      icon: <Users className="w-8 h-8" />,
+      title: "Campo Society",
+      description: "Gramado sintético profissional. Confira as imagens reais abaixo.",
+      showAction: false
+    },
+  ];
 
-      {/* 2. HERO SECTION (O visual robusto da imagem) */}
-      <section className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroArena})` }} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-[#060a08]/90 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/40" />
         
         <div className="relative z-10 container mx-auto px-4 text-center">
-          <div className="animate-fade-in space-y-8 max-w-4xl mx-auto flex flex-col items-center">
+          <div className="animate-fade-in space-y-6 max-w-3xl mx-auto flex flex-col items-center">
             
-            {/* Tag de Status */}
-            <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-4 py-2 text-sm text-green-400">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              Horários disponíveis hoje
-            </div>
+            {/* 1. LOGO ADICIONADA ACIMA DO NOME */}
+            <img 
+              src={logoArena} 
+              alt="Arena Cedro Logo" 
+              className="w-32 h-32 md:w-48 md:h-48 object-contain mb-2 animate-float" 
+            />
 
-            {/* Título com Degradê da Foto */}
-            <h1 className="text-6xl md:text-9xl font-black tracking-tighter leading-none uppercase italic">
-              <span className="bg-gradient-to-r from-[#4ade80] to-[#facc15] bg-clip-text text-transparent">
-                Arena Cedro
-              </span>
+            <h1 className="font-display text-5xl md:text-7xl font-bold">
+              <span className="text-gradient">Arena Cedro</span>
             </h1>
+            
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
+              O melhor campo de futebol society da região. Reserve seu horário e venha jogar!
+            </p>
 
-            <div className="space-y-2">
-              <p className="text-xl md:text-3xl font-light text-gray-200 italic">O melhor campo de futebol society da região.</p>
-              <p className="text-xl md:text-3xl font-black uppercase tracking-widest text-[#22c55e]">Reserve seu horário e venha jogar!</p>
-            </div>
-
-            {/* BOTÃO PRINCIPAL DE AGENDAMENTO */}
-            <Button 
-              className="bg-[#22c55e] hover:bg-[#16a34a] text-white text-2xl px-16 py-10 rounded-2xl shadow-2xl shadow-green-500/20 hover:scale-105 transition-all w-full max-w-md uppercase font-black"
-              onClick={() => navigate("/login")}
-            >
-              Agendar Agora <ChevronRight className="w-8 h-8 ml-2" />
+            <Button className="gradient-primary glow-primary text-lg px-8 py-6 rounded-xl" onClick={() => navigate("/login")}>
+              Agendar Agora <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
 
-            {/* Fidelidade */}
-            <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl">
-              <Trophy className="text-yellow-500 w-8 h-8" />
-              <div className="text-left">
-                <p className="font-bold text-white uppercase text-xs">Programa de Fidelidade</p>
-                <p className="text-sm text-gray-400">A cada 10 partidas, ganhe 1 horário grátis!</p>
-              </div>
-            </div>
-
-            {/* Preços Turnos */}
-            <div className="flex flex-wrap justify-center gap-4">
-              <div className="bg-black/40 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex items-center gap-4">
-                <Sun className="text-yellow-500 w-8 h-8" />
-                <div className="text-left">
-                  <p className="text-[10px] text-gray-400 uppercase font-bold">Diurno</p>
-                  <p className="font-bold text-green-400 text-2xl">R$ 80/h</p>
+            {/* 2. VALORES DOS TURNOS E BOTÃO DE HORÁRIOS ABAIXO */}
+            <div className="flex flex-col items-center gap-6 mt-8">
+              <div className="flex flex-wrap justify-center gap-4">
+                <div className="flex items-center gap-3 bg-black/40 backdrop-blur-sm border border-white/10 p-4 rounded-2xl">
+                  <Sun className="text-yellow-500 w-6 h-6" />
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">Diurno (8h-17h)</p>
+                    <p className="font-bold text-green-400">R$ 80/hora</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-black/40 backdrop-blur-sm border border-white/10 p-4 rounded-2xl">
+                  <Moon className="text-blue-400 w-6 h-6" />
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">Noturno (18h-22h)</p>
+                    <p className="font-bold text-green-400">R$ 120/hora</p>
+                  </div>
                 </div>
               </div>
-              <div className="bg-black/40 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex items-center gap-4">
-                <Moon className="text-blue-400 w-8 h-8" />
-                <div className="text-left">
-                  <p className="text-[10px] text-gray-400 uppercase font-bold">Noturno</p>
-                  <p className="font-bold text-green-400 text-2xl">R$ 120/h</p>
-                </div>
+
+              {/* BOTÃO "HORÁRIOS DISPONÍVEIS HOJE" ABAIXO DOS VALORES */}
+              <button 
+                onClick={() => navigate("/login")} 
+                className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 transition-all rounded-full px-6 py-2.5 text-sm text-green-400 font-medium"
+              >
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span>Horários disponíveis hoje - Clique para ver</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEÇÃO GALERIA (Conforme nota na Foto 2) */}
+      <section className="py-24 bg-secondary/10">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="font-display text-4xl font-bold mb-12">Estrutura Real</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="group relative rounded-2xl overflow-hidden aspect-video bg-muted flex items-center justify-center border-2 border-dashed border-primary/30">
+              <Camera className="w-10 h-10 text-primary/40 group-hover:scale-110 transition-transform" />
+              <span className="absolute bottom-4 left-4 text-sm font-medium">Fotos do Campo</span>
+            </div>
+            <div className="group relative rounded-2xl overflow-hidden aspect-video bg-muted flex items-center justify-center border-2 border-dashed border-primary/30">
+              <PlayCircle className="w-10 h-10 text-primary/40 group-hover:scale-110 transition-transform" />
+              <span className="absolute bottom-4 left-4 text-sm font-medium">Vídeo do Gramado</span>
+            </div>
+            <div className="group relative rounded-2xl overflow-hidden aspect-video bg-muted flex items-center justify-center border-2 border-dashed border-primary/30">
+              <Camera className="w-10 h-10 text-primary/40 group-hover:scale-110 transition-transform" />
+              <span className="absolute bottom-4 left-4 text-sm font-medium">Vestiários e Bar</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-24 bg-gradient-to-b from-background to-secondary/20">
+        <div className="container mx-auto px-4 text-center">
+          <div className="grid md:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <div key={index} className="glass-card rounded-2xl p-8 text-center hover:border-primary/50 transition-all">
+                <div className="w-16 h-16 rounded-2xl gradient-primary mx-auto mb-6 flex items-center justify-center text-primary-foreground">{feature.icon}</div>
+                <h3 className="font-display text-xl font-bold mb-3">{feature.title}</h3>
+                <p className="text-muted-foreground mb-6">{feature.description}</p>
+                {feature.showAction && (
+                  <Button variant="outline" className="border-primary text-primary" onClick={() => navigate("/login")}>{feature.actionText}</Button>
+                )}
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 3. GALERIA (Fotos e Vídeos) */}
-      <section className="py-24 bg-[#0a0f0d]">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-black mb-16 uppercase italic">Nossa Estrutura</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="aspect-video bg-white/5 rounded-3xl flex flex-col items-center justify-center border border-white/10 hover:border-[#4ade80]/50 transition-all cursor-pointer group">
-              <Camera className="w-12 h-12 text-gray-600 group-hover:text-[#4ade80] mb-4" />
-              <span className="font-bold uppercase text-xs tracking-widest">Fotos do Campo</span>
-            </div>
-            <div className="aspect-video bg-white/5 rounded-3xl flex flex-col items-center justify-center border border-white/10 hover:border-[#4ade80]/50 transition-all cursor-pointer group">
-              <PlayCircle className="w-12 h-12 text-gray-600 group-hover:text-[#4ade80] mb-4" />
-              <span className="font-bold uppercase text-xs tracking-widest">Vídeo Promocional</span>
-            </div>
-            <div className="aspect-video bg-white/5 rounded-3xl flex flex-col items-center justify-center border border-white/10 hover:border-[#4ade80]/50 transition-all cursor-pointer group">
-              <Users className="w-12 h-12 text-gray-600 group-hover:text-[#4ade80] mb-4" />
-              <span className="font-bold uppercase text-xs tracking-widest">Vestiários / Bar</span>
-            </div>
+      {/* Footer (Atualizado 2026) */}
+      <footer className="py-12 border-t border-border">
+        <div className="container mx-auto px-4 flex flex-col items-center gap-6 text-center">
+          <div className="flex gap-4">
+            <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="hover:text-primary transition-colors"><Instagram /></a>
+            <a href="#" className="hover:text-primary transition-colors"><Facebook /></a>
           </div>
-        </div>
-      </section>
-
-      {/* 4. COMENTÁRIOS */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-black text-center mb-16 uppercase">O que dizem os atletas</h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-             <div className="bg-white/5 p-8 rounded-3xl border border-white/5">
-                <div className="flex text-yellow-500 mb-4"><Star className="fill-current w-4" /><Star className="fill-current w-4" /><Star className="fill-current w-4" /><Star className="fill-current w-4" /><Star className="fill-current w-4" /></div>
-                <p className="text-gray-300 italic mb-4 text-lg">"Gramado impecável e o sistema de agendamento facilita muito a nossa vida!"</p>
-                <p className="font-bold text-[#4ade80] uppercase text-sm">- Ricardo Oliveira</p>
-             </div>
-             <div className="bg-white/5 p-8 rounded-3xl border border-white/5">
-                <div className="flex text-yellow-500 mb-4"><Star className="fill-current w-4" /><Star className="fill-current w-4" /><Star className="fill-current w-4" /><Star className="fill-current w-4" /><Star className="fill-current w-4" /></div>
-                <p className="text-gray-300 italic mb-4 text-lg">"Melhor arena de Ribamar. O cartão fidelidade é um diferencial gigante."</p>
-                <p className="font-bold text-[#4ade80] uppercase text-sm">- Felipe Souza</p>
-             </div>
+          <div>
+            <h4 className="font-bold mb-2">Localização</h4>
+            <LocationLink />
           </div>
-        </div>
-      </section>
-
-      {/* 5. FOOTER */}
-      <footer className="py-16 border-t border-white/5 bg-black/40">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex justify-center gap-8 mb-8">
-            <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="hover:text-[#4ade80] transition-colors"><Instagram className="w-8 h-8" /></a>
-            <a href="#" className="hover:text-[#4ade80] transition-colors"><Facebook className="w-8 h-8" /></a>
-          </div>
-          <LocationLink />
-          <p className="text-gray-600 text-[10px] uppercase tracking-[0.2em] mt-12">
-            © 2026 Arena Cedro | Matinha, São José de Ribamar - MA
-          </p>
+          <Button variant="link" className="text-muted-foreground hover:text-primary text-xs" onClick={() => navigate("/admin/login")}>
+            Acesso Restrito: Área Administrativa / Atendentes
+          </Button>
+          <p className="text-xs text-muted-foreground">© 2026 Arena Cedro. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
