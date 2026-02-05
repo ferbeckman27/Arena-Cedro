@@ -5,7 +5,7 @@ import {
   Instagram, Facebook, PlayCircle, Camera, Sun, Moon
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import logoArena from "@/assets/logo-arena.png"; // Importe a logo aqui
+import logoArena from "@/assets/logo-arena.png"; 
 import { LocationLink } from "@/components/booking/LocationLink"; 
 
 const Index = () => {

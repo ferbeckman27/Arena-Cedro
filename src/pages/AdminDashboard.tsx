@@ -113,7 +113,7 @@ const AdminDashboard = () => {
             <img src="/logo-arena.png" className="w-10 h-10 object-contain" alt="Logo" />
             <div>
               <h1 className="font-display text-lg font-bold">Arena Cedro</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold text-primary">Admin 2026</p>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-primary">Admin 2026</p>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={() => navigate("/admin/login")}><LogOut className="w-5 h-5" /></Button>

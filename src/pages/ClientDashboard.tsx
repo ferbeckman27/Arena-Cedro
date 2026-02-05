@@ -153,10 +153,16 @@ export const ClientDashboard = () => {
                       </div>
                     </div>
             
-                    <PaymentModal isOpen={isPaymentOpen} onClose={() => setIsPaymentOpen(false)} onConfirm={handleConfirmBooking} selectedSlot={selectedSlot} />
+  <PaymentModal
+    isOpen={isPaymentOpen}
+    onClose={() => setIsPaymentOpen(false)}
+    onConfirm={handleConfirmBooking}
+    slot={selectedSlot}
+    date={selectedDate}
+  />
                   </main>
                 </div>
               );
             };
-            
+
  export default ClientDashboard;
