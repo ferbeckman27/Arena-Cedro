@@ -4,13 +4,8 @@ import { format, addDays, startOfToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   CalendarDays, Clock, Users, DollarSign, TrendingUp, 
-<<<<<<< HEAD
   LogOut, AlertTriangle, Check, X, Wrench,
-  BarChart3, FileText, Trophy
-=======
-  LogOut, Settings, AlertTriangle, Check, X, Wrench,
-  BarChart3, FileText, Bell, Eye
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
+  BarChart3, FileText, Trophy, Settings, Bell, Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -38,10 +33,6 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 
-<<<<<<< HEAD
-// --- MOCK DATA ---
-
-=======
 // Generate mock schedule data with 30-minute intervals
 const generateMockSchedule = (): DaySchedule[] => {
   const today = startOfToday();
@@ -94,7 +85,6 @@ const generateMockSchedule = (): DaySchedule[] => {
 };
 
 // Mock data for charts
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
 const revenueData = [
   { name: "Seg", diurno: 320, noturno: 480 },
   { name: "Ter", diurno: 240, noturno: 360 },
@@ -110,9 +100,6 @@ const monthlyRevenueData = [
   { month: "Fev/26", receita: 19500 }, // Previsão 2026
 ];
 
-<<<<<<< HEAD
-// --- COMPONENT ---
-=======
 interface PendingBooking {
   id: string;
   clientName: string;
@@ -129,7 +116,6 @@ const mockPendingBookings: PendingBooking[] = [
   { id: "2", clientName: "Maria Santos", clientPhone: "(11) 98888-5678", date: addDays(startOfToday(), 1), time: "20:00", duration: 90, price: 180, paymentMethod: "dinheiro" },
   { id: "3", clientName: "Carlos Oliveira", clientPhone: "(11) 97777-9012", date: addDays(startOfToday(), 2), time: "10:00", duration: 60, price: 80, paymentMethod: "pix" },
 ];
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -137,110 +123,89 @@ const AdminDashboard = () => {
   
   // ESTADOS PRINCIPAIS
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(startOfToday());
-  const [isBookingDetailOpen, setIsBookingDetailOpen] = useState(false);
-<<<<<<< HEAD
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
-=======
-  const [selectedBooking, setSelectedBooking] = useState<PendingBooking | null>(null);
-  const [isSlotDetailOpen, setIsSlotDetailOpen] = useState(false);
-  const [paymentDestination, setPaymentDestination] = useState("arena");
-  const [reportPeriod, setReportPeriod] = useState("week");
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
+const [selectedDate, setSelectedDate] = useState<Date | null>(startOfToday());
+const [isBookingDetailOpen, setIsBookingDetailOpen] = useState(false);
+const [selectedBooking, setSelectedBooking] = useState<PendingBooking | null>(null);
+const [isSlotDetailOpen, setIsSlotDetailOpen] = useState(false);
+const [paymentDestination, setPaymentDestination] = useState("arena");
+const [reportPeriod, setReportPeriod] = useState("week");
+const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>(mockPendingBookings);
+const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+const [schedule] = useState<DaySchedule[]>(generateMockSchedule());
 
-  // MOCK DE FIDELIDADE (Simulando Banco de Dados)
-  const [usersFidelity, setUsersFidelity] = useState([
-    { id: "1", name: "João Silva", gamesPlayed: 7 },
-    { id: "2", name: "Maria Santos", gamesPlayed: 9 },
-  ]);
+// MOCK DE FIDELIDADE (Simulando Banco de Dados)
+const [usersFidelity, setUsersFidelity] = useState([
+  { id: "1", name: "João Silva", gamesPlayed: 7 },
+  { id: "2", name: "Maria Santos", gamesPlayed: 9 },
+]);
 
-<<<<<<< HEAD
-  // MOCK DE AGENDAMENTOS PENDENTES
-  const [pendingBookings, setPendingBookings] = useState([
-    { id: "1", clientName: "João Silva", date: new Date(), hour: 19, price: 120, paymentMethod: "pix" },
-    { id: "2", clientName: "Maria Santos", date: new Date(), hour: 20, price: 120, paymentMethod: "dinheiro" },
-  ]);
+// Get selected day schedule
+const selectedDaySchedule = selectedDate 
+  ? schedule.find(day => day.date.toDateString() === selectedDate.toDateString())
+  : null;
 
-  // FUNÇÃO PARA CONFIRMAR E DAR PONTO NA FIDELIDADE
-  const handleConfirmAndAwardPoint = (booking: any) => {
-    // 1. Remove dos pendentes
-    setPendingBookings(prev => prev.filter(b => b.id !== booking.id));
-    
-    // 2. Lógica de Fidelidade: Procura o usuário e aumenta o contador
-    setUsersFidelity(prevUsers => prevUsers.map(user => {
-      if (user.name === booking.clientName) {
-        const newCount = user.gamesPlayed + 1;
-        
+// FUNÇÃO PARA CONFIRMAR E DAR PONTO NA FIDELIDADE
+const handleConfirmBooking = (booking: PendingBooking) => {
+  // 1. Remove dos pendentes
+  setPendingBookings(prev => prev.filter(b => b.id !== booking.id));
+  
+  // 2. Lógica de Fidelidade: Procura o usuário e aumenta o contador
+  setUsersFidelity(prevUsers => prevUsers.map(user => {
+    if (user.name === booking.clientName) {
+      const newCount = user.gamesPlayed + 1;
+      
+      toast({
+        title: "Pagamento Confirmado! ✅",
+        description: `Ponto adicionado para ${user.name}. Total: ${newCount}/10`,
+      });
+
+      if (newCount === 10) {
         toast({
-          title: "Pagamento Confirmado! ✅",
-          description: `Ponto adicionado para ${user.name}. Total: ${newCount}/10`,
+          title: "🏆 PRÊMIO LIBERADO",
+          description: `O cliente ${user.name} completou 10 jogos!`,
+          variant: "default",
         });
-
-        if (newCount === 10) {
-          toast({
-            title: "🏆 PRÊMIO LIBERADO",
-            description: `O cliente ${user.name} completou 10 jogos!`,
-            variant: "default",
-          });
-        }
-        return { ...user, gamesPlayed: newCount };
-=======
-  const handleSelectSlot = (slot: TimeSlot, duration: number) => {
-    setSelectedSlot(slot);
-    
-    // If slot is pending or unavailable, show details
-    if (slot.status === "pending" || slot.status === "unavailable") {
-      const booking = pendingBookings.find(b => b.time === slot.time);
-      if (booking) {
-        setSelectedBooking(booking);
-        setIsBookingDetailOpen(true);
-      } else {
-        // Show slot details modal for unavailable slots
-        setIsSlotDetailOpen(true);
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
       }
-      return user;
-    }));
+      return { ...user, gamesPlayed: newCount };
+    }
+    return user;
+  }));
 
-    setIsBookingDetailOpen(false);
-  };
+  setIsBookingDetailOpen(false);
+};
 
-<<<<<<< HEAD
-=======
-  const handleCancelBooking = (booking: PendingBooking) => {
-    setPendingBookings(prev => prev.filter(b => b.id !== booking.id));
-    setIsBookingDetailOpen(false);
-    toast({
-      title: "Reserva cancelada",
-      description: `Agendamento de ${booking.clientName} foi cancelado.`,
-      variant: "destructive",
-    });
-  };
+const handleCancelBooking = (booking: PendingBooking) => {
+  setPendingBookings(prev => prev.filter(b => b.id !== booking.id));
+  setIsBookingDetailOpen(false);
+  toast({
+    title: "Reserva cancelada",
+    description: `Agendamento de ${booking.clientName} foi cancelado.`,
+    variant: "destructive",
+  });
+};
 
-  const handleMaintenanceToggle = (enabled: boolean) => {
-    setMaintenanceMode(enabled);
-    toast({
-      title: enabled ? "Modo manutenção ativado" : "Modo manutenção desativado",
-      description: enabled 
-        ? "Novos agendamentos estão bloqueados."
-        : "Agendamentos liberados novamente.",
-    });
-  };
+const handleMaintenanceToggle = (enabled: boolean) => {
+  setMaintenanceMode(enabled);
+  toast({
+    title: enabled ? "Modo manutenção ativado" : "Modo manutenção desativado",
+    description: enabled 
+      ? "Novos agendamentos estão bloqueados."
+      : "Agendamentos liberados novamente.",
+  });
+};
 
-  // Stats calculation
-  const totalRevenue = revenueData.reduce((acc, day) => acc + day.diurno + day.noturno, 0);
-  const totalBookings = pendingBookings.length + 45;
-  const pendingCount = pendingBookings.length;
+// Stats calculation
+const totalRevenue = revenueData.reduce((acc, day) => acc + day.diurno + day.noturno, 0);
+const totalBookings = pendingBookings.length + 45;
+const pendingCount = pendingBookings.length;
 
-  const formatDuration = (mins: number) => {
-    if (mins < 60) return `${mins} min`;
-    const hours = Math.floor(mins / 60);
-    const remaining = mins % 60;
-    if (remaining === 0) return `${hours}h`;
-    return `${hours}h${remaining}min`;
-  };
-
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
+const formatDuration = (mins: number) => {
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  const remaining = mins % 60;
+  if (remaining === 0) return `${hours}h`;
+  return `${hours}h${remaining}min`;
+};
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -284,139 +249,120 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="pendentes" className="space-y-6">
-          <TabsList className="bg-muted/50 p-1">
-            <TabsTrigger value="agenda">Agenda</TabsTrigger>
-            <TabsTrigger value="pendentes" className="relative">
-              Pendentes
-              {pendingBookings.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-[10px] text-white rounded-full flex items-center justify-center">
-                  {pendingBookings.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="relatorios">Relatórios Financeiros</TabsTrigger>
-          </TabsList>
+<Tabs defaultValue="pendentes" className="space-y-6">
+  <TabsList className="bg-muted/50 p-1">
+    <TabsTrigger value="agenda">Agenda</TabsTrigger>
+    <TabsTrigger value="pendentes" className="relative">
+      Pendentes
+      {pendingBookings.length > 0 && (
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-[10px] text-white rounded-full flex items-center justify-center">
+          {pendingBookings.length}
+        </span>
+      )}
+    </TabsTrigger>
+    <TabsTrigger value="relatorios">Relatórios Financeiros</TabsTrigger>
+  </TabsList>
 
-<<<<<<< HEAD
-          <TabsContent value="pendentes">
-            <div className="glass-card rounded-2xl overflow-hidden border">
-              <div className="p-4 bg-muted/30 border-b font-bold text-sm">Aguardando Validação de PIX / Pagamento</div>
-              <div className="divide-y">
-                {pendingBookings.map(b => (
-                  <div key={b.id} className="p-4 flex items-center justify-between hover:bg-muted/10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
-                        {b.clientName.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm">{b.clientName}</p>
-                        <p className="text-xs text-muted-foreground uppercase">{b.paymentMethod} • R$ {b.price},00</p>
-=======
-          {/* Agenda Tab */}
-          <TabsContent value="agenda" className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              <BookingCalendar
-                schedule={schedule}
-                onSelectDay={setSelectedDate}
-                selectedDate={selectedDate}
-                isAdmin
-              />
+  {/* Agenda Tab */}
+  <TabsContent value="agenda" className="space-y-6">
+    <div className="grid lg:grid-cols-2 gap-6">
+      <BookingCalendar
+        schedule={schedule}
+        onSelectDay={setSelectedDate}
+        selectedDate={selectedDate}
+        isAdmin
+      />
 
-              {selectedDate && selectedDaySchedule ? (
-                <TimeSlotGrid
-                  date={selectedDate}
-                  slots={selectedDaySchedule.slots}
-                  onSelectSlot={handleSelectSlot}
-                  selectedSlot={selectedSlot}
-                  isAdmin
-                />
-              ) : (
-                <div className="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-                  <CalendarDays className="w-16 h-16 text-muted-foreground mb-4" />
-                  <h3 className="font-display text-lg font-bold mb-2">Selecione uma data</h3>
-                  <p className="text-muted-foreground">
-                    Clique em um dia para gerenciar os horários.
+      {selectedDate && selectedDaySchedule ? (
+        <TimeSlotGrid
+          date={selectedDate}
+          slots={selectedDaySchedule.slots}
+          onSelectSlot={(slot) => {
+            setSelectedSlot(slot);
+            setIsSlotDetailOpen(true);
+          }}
+          selectedSlot={selectedSlot}
+          isAdmin
+        />
+      ) : (
+        <div className="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+          <CalendarDays className="w-16 h-16 text-muted-foreground mb-4" />
+          <h3 className="font-display text-lg font-bold mb-2">Selecione uma data</h3>
+          <p className="text-muted-foreground">
+            Clique em um dia para gerenciar os horários.
+          </p>
+        </div>
+      )}
+    </div>
+  </TabsContent>
+
+  {/* Pending Bookings Tab */}
+  <TabsContent value="pendentes" className="space-y-4">
+    <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="p-6 border-b border-border">
+        <h3 className="font-display text-lg font-bold">Reservas Pendentes</h3>
+        <p className="text-sm text-muted-foreground">Aguardando confirmação de pagamento</p>
+      </div>
+      
+      {pendingBookings.length === 0 ? (
+        <div className="p-12 text-center">
+          <Check className="w-12 h-12 text-status-available mx-auto mb-4" />
+          <p className="text-muted-foreground">Nenhuma reserva pendente!</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {pendingBookings.map((booking) => (
+            <div key={booking.id} className="p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-status-pending/20 flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-status-pending" />
+                </div>
+                <div>
+                  <p className="font-medium">{booking.clientName}</p>
+                  <p className="text-sm text-muted-foreground">{booking.clientPhone}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(booking.date, "dd/MM/yyyy", { locale: ptBR })} às {booking.time} ({formatDuration(booking.duration)}) - 
+                    <span className="text-primary font-medium"> R$ {booking.price.toFixed(2)}</span>
                   </p>
                 </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Pending Bookings Tab */}
-          <TabsContent value="pendentes" className="space-y-4">
-            <div className="glass-card rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-border">
-                <h3 className="font-display text-lg font-bold">Reservas Pendentes</h3>
-                <p className="text-sm text-muted-foreground">Aguardando confirmação de pagamento</p>
               </div>
-              
-              {pendingBookings.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Check className="w-12 h-12 text-status-available mx-auto mb-4" />
-                  <p className="text-muted-foreground">Nenhuma reserva pendente!</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {pendingBookings.map((booking) => (
-                    <div key={booking.id} className="p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-status-pending/20 flex items-center justify-center">
-                          <Clock className="w-6 h-6 text-status-pending" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{booking.clientName}</p>
-                          <p className="text-sm text-muted-foreground">{booking.clientPhone}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(booking.date, "dd/MM/yyyy", { locale: ptBR })} às {booking.time} ({formatDuration(booking.duration)}) - 
-                            <span className="text-primary font-medium"> R$ {booking.price.toFixed(2)}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-1 rounded-full ${booking.paymentMethod === "pix" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent"}`}>
-                          {booking.paymentMethod.toUpperCase()}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedBooking(booking);
-                            setIsBookingDetailOpen(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-status-available border-status-available hover:bg-status-available/10"
-                          onClick={() => handleConfirmBooking(booking)}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-status-unavailable border-status-unavailable hover:bg-status-unavailable/10"
-                          onClick={() => handleCancelBooking(booking)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" className="text-red-500" onClick={() => {}}>Recusar</Button>
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleConfirmAndAwardPoint(b)}>
-                        <Check className="w-4 h-4 mr-2" /> Confirmar e Pontuar
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-1 rounded-full ${booking.paymentMethod === "pix" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent"}`}>
+                  {booking.paymentMethod.toUpperCase()}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedBooking(booking);
+                    setIsBookingDetailOpen(true);
+                  }}
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-status-available border-status-available hover:bg-status-available/10"
+                  onClick={() => handleConfirmBooking(booking)}
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-status-unavailable border-status-unavailable hover:bg-status-unavailable/10"
+                  onClick={() => handleCancelBooking(booking)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
             </div>
-          </TabsContent>
+          ))}
+        </div>
+      )}
+    </div>
+  </TabsContent>
 
           <TabsContent value="relatorios">
             <div className="grid lg:grid-cols-2 gap-6">
@@ -460,8 +406,6 @@ const AdminDashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
-<<<<<<< HEAD
-=======
 
       {/* Booking Detail Modal */}
       <Dialog open={isBookingDetailOpen} onOpenChange={setIsBookingDetailOpen}>
@@ -591,7 +535,6 @@ const AdminDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
     </div>
   );
 };

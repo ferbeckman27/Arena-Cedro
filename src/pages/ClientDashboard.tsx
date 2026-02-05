@@ -12,10 +12,7 @@ import { FidelityCard } from "@/components/dashboard/FidelityCard";
 // Mock de dados (Simulando que o usuário já tem 7 jogos para teste)
 const USER_GAMES_COUNT = 7;
 
-<<<<<<< HEAD
-=======
 // Generate mock schedule data with 30-minute intervals
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
 const generateMockSchedule = (): DaySchedule[] => {
   const today = startOfToday();
   const schedule: DaySchedule[] = [];
@@ -24,10 +21,7 @@ const generateMockSchedule = (): DaySchedule[] => {
     const date = addDays(today, i);
     const slots: TimeSlot[] = [];
 
-<<<<<<< HEAD
-=======
     // Diurnal slots (8h - 17h30) with 30-min intervals
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
     for (let hour = 8; hour < 18; hour++) {
       for (let half = 0; half < 2; half++) {
         if (hour === 17 && half === 1) continue; // Stop at 17:30
@@ -45,10 +39,7 @@ const generateMockSchedule = (): DaySchedule[] => {
       }
     }
 
-<<<<<<< HEAD
-=======
     // Nocturnal slots (18h - 22h) with 30-min intervals
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
     for (let hour = 18; hour <= 22; hour++) {
       for (let half = 0; half < 2; half++) {
         if (hour === 22 && half === 1) continue; // Stop at 22:00
@@ -133,18 +124,6 @@ export const ClientDashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-<<<<<<< HEAD
-        <div className="grid lg:grid-cols-3 gap-8">
-          
-          {/* Coluna da Esquerda: Perfil e Fidelidade */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="animate-fade-in">
-              <h2 className="font-display text-3xl font-bold mb-2">
-                Olá, <span className="text-gradient">Jogador!</span>
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                Gerencie suas reservas e acompanhe seus benefícios.
-=======
         {/* Welcome Section */}
         <div className="mb-8 animate-fade-in">
           <h2 className="font-display text-3xl font-bold mb-2">
@@ -200,62 +179,28 @@ export const ClientDashboard = () => {
               <h3 className="font-display text-lg font-bold mb-2">Selecione uma data</h3>
               <p className="text-muted-foreground">
                 Clique em um dia no calendário para ver os horários disponíveis.
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
               </p>
             </div>
+          )}
+        </div>
 
-<<<<<<< HEAD
-            {/* SISTEMA DE FIDELIDADE (10+1) */}
-            <FidelityCard gamesPlayed={USER_GAMES_COUNT} />
-=======
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={isPaymentOpen}
-        onClose={() => setIsPaymentOpen(false)}
-        slot={selectedSlot}
-        date={selectedDate}
-        duration={selectedDuration}
-        onConfirm={handleConfirmBooking}
-      />
+        {/* Fidelity Card */}
+        <div className="mt-8">
+          <FidelityCard gamesPlayed={USER_GAMES_COUNT} />
+        </div>
+
+        {/* Payment Modal */}
+        <PaymentModal
+          isOpen={isPaymentOpen}
+          onClose={() => setIsPaymentOpen(false)}
+          slot={selectedSlot}
+          date={selectedDate}
+          duration={selectedDuration}
+          onConfirm={handleConfirmBooking}
+        />
+      </main>
     </div>
   );
 };
->>>>>>> 7a057f196b89602815a1222cd7f11df58fb94e4c
 
-            {/* Informações de Preço Rápidas */}
-                        <div className="space-y-3">
-                          <div className="glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 border-l-yellow-500">
-                            <div className="flex items-center gap-3">
-                              <Sun className="w-5 h-5 text-yellow-500" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-            
-                      {/* Coluna da Direita: Calendário e Seleção */}
-                      <div className="lg:col-span-2 space-y-6">
-                        <BookingCalendar schedule={schedule} onSelectDay={setSelectedDate} selectedDate={selectedDate} />
-                        {selectedDaySchedule && (
-                          <TimeSlotGrid
-                            slots={selectedDaySchedule.slots}
-                            onSelectSlot={handleSelectSlot}
-                            date={selectedDaySchedule.date}
-                            selectedSlot={selectedSlot}
-                          />
-                        )}
-                      </div>
-                    </div>
-            
-  <PaymentModal
-    isOpen={isPaymentOpen}
-    onClose={() => setIsPaymentOpen(false)}
-    onConfirm={handleConfirmBooking}
-    slot={selectedSlot}
-    date={selectedDate}
-  />
-                  </main>
-                </div>
-              );
-            };
-
- export default ClientDashboard;
+export default ClientDashboard;
