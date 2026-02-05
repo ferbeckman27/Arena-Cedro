@@ -9,6 +9,7 @@ import AdminLogin from "./pages/AdminLogin";
 import ClientDashboard from "./pages/ClientDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import { AdminButton } from "@/components/booking/AdminButton";
 
 const queryClient = new QueryClient();
 
@@ -46,5 +47,24 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
+
+export const Footer = () => {
+  return (
+    <footer className="bg-background py-10 border-t border-border">
+      <div className="container mx-auto px-4">
+        {/* ... Outras informações de contato e redes sociais ... */}
+        
+        <div className="mt-12 pt-8 border-t border-border/50 flex flex-col items-center">
+          <p className="text-muted-foreground text-sm mb-6">
+            © 2026 Arena Cedro - Todos os direitos reservados.
+          </p>
+          
+          {/* O BOTÃO ENTRA AQUI PARA DAR O DESTAQUE FINAL */}
+          <AdminButton />
+        </div>
+      </div>
+    </footer>
+  );
+};
 
 export default App;

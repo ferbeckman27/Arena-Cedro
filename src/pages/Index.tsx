@@ -72,7 +72,7 @@ const Index = () => {
             <img 
               src={logoArena} 
               alt="Arena Cedro Logo" 
-              className="w-32 h-32 md:w-48 md:h-48 object-contain mb-2 animate-float" 
+              className="w-48 h-48 md:w-64 md:h-64 object-contain mb-2 animate-float" 
             />
 
             {/* Nome com Degradê */}
@@ -146,17 +146,24 @@ const Index = () => {
       </section>
 
       {/* --- DEPOIMENTOS --- */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="font-display text-4xl font-black mb-16 uppercase italic">O que os atletas dizem</h2>
+      <section className="py-24">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="font-display text-4xl font-bold mb-4">O que nossos clientes dizem</h2>
+            <Button variant="ghost" className="text-primary gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Escrever um depoimento
+            </Button>
+          </div>
+
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((t, i) => (
-              <div key={i} className="glass-card p-8 rounded-3xl border border-white/5 hover:border-primary/30 transition-all shadow-xl">
-                <div className="flex justify-center gap-1 mb-4">
-                  {[...Array(t.rating)].map((_, index) => <Star key={index} className="w-4 h-4 fill-primary text-primary" />)}
+              <div key={i} className="glass-card rounded-2xl p-6">
+                <div className="flex gap-1 mb-4">
+                  {[...Array(t.rating)].map((_, idx) => <Star key={idx} className="w-4 h-4 fill-accent text-accent" />)}
                 </div>
-                <p className="italic text-gray-300 mb-6 text-lg">"{t.text}"</p>
-                <p className="font-black text-sm text-primary uppercase tracking-tighter">— {t.name}</p>
+                <p className="italic mb-4">"{t.text}"</p>
+                <p className="text-sm font-medium text-muted-foreground">— {t.name}</p>
               </div>
             ))}
           </div>
@@ -182,28 +189,38 @@ const Index = () => {
       </section>
 
       {/* --- FOOTER --- */}
-      <footer className="py-16 border-t border-border bg-black/20">
-        <div className="container mx-auto px-4 flex flex-col items-center gap-8 text-center">
-          <div className="flex gap-6">
-            <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="text-gray-400 hover:text-primary transition-all scale-125"><Instagram /></a>
-            <a href="#" className="text-gray-400 hover:text-primary transition-all scale-125"><Facebook /></a>
+      <footer className="py-12 border-t border-border">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            <div>
+              <h3 className="font-display text-xl font-bold mb-4 text-primary">Arena Cedro</h3>
+              <p className="text-muted-foreground">O melhor society da região de Matinha.</p>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4 text-white">Contato</h4>
+              <div className="space-y-2 text-muted-foreground text-sm">
+                <p className="flex items-center gap-2"><Phone className="w-4 h-4" /> (98) 99991-0535</p>
+                <p className="flex items-center gap-2"><MapPin className="w-4 h-4" /> Av. Trindade, 3126, Matinha</p>
+              </div>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4 text-white">Siga-nos</h4>
+              <div className="flex gap-4">
+                <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="hover:text-primary transition-colors"><Instagram /></a>
+                <a href="#" className="hover:text-primary transition-colors"><Facebook /></a>
+              </div>
+            </div>
           </div>
           
-          <div className="space-y-4">
-            <h4 className="font-black uppercase italic tracking-widest text-primary">Localização</h4>
-            <LocationLink />
-            <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground mt-2">
-              <Phone className="w-4 h-4 text-primary" /> (98) 99991-0535
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center gap-4">
-            <Button variant="link" className="text-muted-foreground hover:text-primary text-xs uppercase tracking-widest" onClick={() => navigate("/admin/login")}>
-              Acesso Administrativo
+          <div className="flex flex-col items-center border-t border-border pt-8 gap-4">
+            <Button 
+              variant="link" 
+              className="text-muted-foreground hover:text-primary text-xs"
+              onClick={() => navigate("/admin/login")}
+            >
+              Acesso Restrito: Área Administrativa
             </Button>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.3em]">
-              © 2026 Arena Cedro. Todos os direitos reservados.
-            </p>
+            <p className="text-xs text-muted-foreground">© 2026 Arena Cedro. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
