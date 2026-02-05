@@ -14,10 +14,11 @@ interface PaymentModalProps {
   onClose: () => void;
   slot: TimeSlot | null;
   date: Date | null;
+  duration?: number; // Duration in minutes
   onConfirm: (paymentMethod: "pix" | "dinheiro") => void;
 }
 
-export const PaymentModal = ({ isOpen, onClose, slot, date, onConfirm }: PaymentModalProps) => {
+export const PaymentModal = ({ isOpen, onClose, slot, date, duration = 60, onConfirm }: PaymentModalProps) => {
   const { toast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "dinheiro">("pix");
   const [copied, setCopied] = useState(false);
@@ -45,7 +46,27 @@ export const PaymentModal = ({ isOpen, onClose, slot, date, onConfirm }: Payment
 
   if (!slot || !date) return null;
 
-  const formatHour = (hour: number) => `${hour.toString().padStart(2, "0")}:00`;
+  const getHourFromTime = (time: string) => parseInt(time.split(":")[0]);
+  const hour = getHourFromTime(slot.time);
+  
+  // Calculate end time based on duration
+  const startMinutes = hour * 60 + parseInt(slot.time.split(":")[1] || "0");
+  const endMinutes = startMinutes + duration;
+  const endHour = Math.floor(endMinutes / 60);
+  const endMin = endMinutes % 60;
+  const endTime = `${endHour.toString().padStart(2, "0")}:${endMin.toString().padStart(2, "0")}`;
+
+  // Calculate price based on duration
+  const pricePerHour = hour >= 18 ? 120 : 80;
+  const totalPrice = (pricePerHour * duration) / 60;
+
+  const formatDuration = (mins: number) => {
+    if (mins < 60) return `${mins} min`;
+    const hours = Math.floor(mins / 60);
+    const remaining = mins % 60;
+    if (remaining === 0) return `${hours}h`;
+    return `${hours}h${remaining}min`;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -66,16 +87,20 @@ export const PaymentModal = ({ isOpen, onClose, slot, date, onConfirm }: Payment
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Horário:</span>
-              <span className="font-medium">{formatHour(slot.hour)} - {formatHour(slot.hour + 1)}</span>
+              <span className="font-medium">{slot.time} - {endTime}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Duração:</span>
+              <span className="font-medium">{formatDuration(duration)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Turno:</span>
-              <span className="font-medium">{slot.hour < 18 ? "Diurno" : "Noturno"}</span>
+              <span className="font-medium">{hour < 18 ? "Diurno" : "Noturno"}</span>
             </div>
             <div className="border-t border-border my-2" />
             <div className="flex justify-between">
               <span className="font-semibold">Total:</span>
-              <span className="text-xl font-bold text-primary">R$ {slot.price.toFixed(2)}</span>
+              <span className="text-xl font-bold text-primary">R$ {totalPrice.toFixed(2)}</span>
             </div>
           </div>
 

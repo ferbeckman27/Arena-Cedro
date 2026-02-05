@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface TimeSlot {
-  hour: number;
+  time: string; // Format: "HH:MM" (e.g., "08:00", "08:30")
   status: "available" | "pending" | "unavailable" | "maintenance";
   price: number;
   bookedBy?: string;
+  duration?: number; // Duration in minutes (30, 60, 90, etc.)
 }
 
 export interface DaySchedule {
