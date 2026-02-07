@@ -1,15 +1,14 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+// Importações das páginas
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import AdminLogin from "./pages/AdminLogin";
-import ClientDashboard from "./pages/ClientDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import NotFound from "./pages/NotFound";
-import { AdminButton } from "@/components/booking/AdminButton";
+import AtendenteDashboard from "./pages/AtendenteDashboard";
+import TestimonialForm from "@/components/home/TestimonialForm"; // Caminho que você solicitou
 
 const queryClient = new QueryClient();
 
@@ -17,54 +16,30 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Rota Pública Inicial */}
+          {/* Rota Pública - Landing Page */}
           <Route path="/" element={<Index />} />
           
-          {/* Rotas de Login */}
+          {/* Rota do Cliente */}
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Login />} /> {/* Login gerencia ambos por abas */}
+          
+          {/* Rota de Depoimentos */}
+          <Route path="/depoimentos" element={<TestimonialForm />} />
+          
+          {/* Rotas Administrativas */}
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AtendenteDashboard />} /> {/* ROTA DO PAINEL ADICIONADA */}
           
-          {/* Rotas do Cliente */}
-          <Route path="/dashboard" element={<ClientDashboard />} />
-          
-          {/* ROTA DA ÁREA ADMINISTRATIVA (Destaque) */}
-          {/* Usamos /admin para facilitar o acesso que você anotou */}
-          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          
-          {/* DICA: No futuro, para os "Relatórios Mensais" da sua lista, 
-              você adicionará as rotas aqui, como:
-              <Route path="/admin/relatorios" element={<AdminReports />} /> 
-          */}
-
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
+          {/* Rota de fallback (404) ou Dashboard (quando criar) */}
+          <Route path="*" element={<Index />} />
         </Routes>
+        {/* O Toaster deve estar FORA do Routes mas DENTRO do BrowserRouter/Provider */}
+        <Toaster />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
-
-export const Footer = () => {
-  return (
-    <footer className="bg-background py-10 border-t border-border">
-      <div className="container mx-auto px-4">
-        {/* ... Outras informações de contato e redes sociais ... */}
-        
-        <div className="mt-12 pt-8 border-t border-border/50 flex flex-col items-center">
-          <p className="text-muted-foreground text-sm mb-6">
-            © 2026 Arena Cedro - Todos os direitos reservados.
-          </p>
-          
-          {/* O BOTÃO ENTRA AQUI PARA DAR O DESTAQUE FINAL */}
-          <AdminButton />
-        </div>
-      </div>
-    </footer>
-  );
-};
 
 export default App;

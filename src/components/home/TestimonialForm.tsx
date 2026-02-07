@@ -1,124 +1,61 @@
 import { useState } from "react";
-import { Star, Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { Star, ArrowLeft } from "lucide-react";
 
-interface TestimonialFormProps {
-  onSubmit?: (data: { name: string; text: string; rating: number }) => void;
-}
-
-export const TestimonialForm = ({ onSubmit }: TestimonialFormProps) => {
-  const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [text, setText] = useState("");
+const TestimonialForm = () => {
+  const navigate = useNavigate();
   const [rating, setRating] = useState(0);
-  const [hoveredRating, setHoveredRating] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim() || !text.trim() || rating === 0) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha seu nome, avaliação e comentário.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    onSubmit?.({ name: name.trim(), text: text.trim(), rating });
-    
-    toast({
-      title: "Obrigado pelo seu feedback! ⭐",
-      description: "Sua avaliação foi enviada com sucesso.",
-    });
-    
-    // Reset form
-    setName("");
-    setText("");
-    setRating(0);
-    setIsSubmitting(false);
-  };
 
   return (
-    <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-6 space-y-4">
-      <h4 className="font-display text-lg font-bold">Deixe sua avaliação</h4>
-      
-      <div className="space-y-2">
-        <Label htmlFor="testimonial-name">Seu nome</Label>
-        <Input
-          id="testimonial-name"
-          placeholder="Digite seu nome"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={50}
-        />
-      </div>
+    <div className="min-h-screen bg-[#060a08] text-white p-6 flex items-center justify-center">
+      <div className="max-w-xl w-full bg-white/5 p-10 rounded-[2.5rem] border border-white/10 shadow-2xl backdrop-blur-md">
+        <button onClick={() => navigate("/")} className="flex items-center gap-2 text-gray-500 hover:text-white mb-8 transition-colors">
+          <ArrowLeft className="w-5 h-5" /> Voltar para o início
+        </button>
 
-      <div className="space-y-2">
-        <Label>Sua avaliação</Label>
-        <div className="flex gap-1">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              onMouseEnter={() => setHoveredRating(star)}
-              onMouseLeave={() => setHoveredRating(0)}
-              onClick={() => setRating(star)}
-              className="p-1 transition-transform hover:scale-110"
-            >
-              <Star
-                className={cn(
-                  "w-8 h-8 transition-colors",
-                  (hoveredRating || rating) >= star
-                    ? "text-accent fill-accent"
-                    : "text-muted-foreground"
-                )}
-              />
-            </button>
-          ))}
+        <h1 className="text-4xl font-black uppercase italic mb-2 tracking-tighter">Sua Opinião</h1>
+        <p className="text-gray-400 mb-8 font-medium">Conte para outros atletas como foi sua experiência na Arena Cedro.</p>
+        
+        <div className="space-y-8">
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase tracking-widest text-primary">Nome Completo</label>
+            <Input className="bg-white/5 border-white/10 h-14 rounded-2xl focus:ring-[#22c55e] text-lg" placeholder="Seu nome" />
+          </div>
+          
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase tracking-widest text-primary">Avaliação (1 a 5 estrelas)</label>
+            <div className="flex gap-4">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star 
+                  key={s} 
+                  className={`w-10 h-10 cursor-pointer transition-all ${rating >= s ? "fill-[#facc15] text-[#facc15] scale-110" : "text-gray-700 hover:text-gray-500"}`} 
+                  onClick={() => setRating(s)} 
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase tracking-widest text-primary">Seu Comentário</label>
+            <Textarea className="bg-white/5 border-white/10 rounded-2xl min-h-[120px] text-lg" placeholder="O que achou do gramado, iluminação e atendimento?" />
+          </div>
+
+          <Button 
+            className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-black font-black h-16 rounded-2xl text-xl uppercase italic shadow-lg shadow-[#22c55e]/10" 
+            onClick={() => {
+              alert("Obrigado pelo seu depoimento!");
+              navigate("/");
+            }}
+          >
+            Publicar Depoimento
+          </Button>
         </div>
       </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="testimonial-text">Seu comentário</Label>
-        <Textarea
-          id="testimonial-text"
-          placeholder="Conte sua experiência na Arena Cedro..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={3}
-          maxLength={300}
-        />
-        <p className="text-xs text-muted-foreground text-right">
-          {text.length}/300 caracteres
-        </p>
-      </div>
-
-      <Button 
-        type="submit" 
-        className="w-full gradient-primary"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? (
-          "Enviando..."
-        ) : (
-          <>
-            <Send className="w-4 h-4 mr-2" />
-            Enviar Avaliação
-          </>
-        )}
-      </Button>
-    </form>
+    </div>
   );
 };
+
+export default TestimonialForm;

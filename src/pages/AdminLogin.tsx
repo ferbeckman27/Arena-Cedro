@@ -3,224 +3,138 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, User, Mail, Phone, Lock, Shield } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Eye, EyeOff, Lock, Mail, User, ShieldCheck, Phone, Send } from "lucide-react";
+import heroArena from "@/assets/hero-arena.jpg";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
-
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-
-  // Register form state
-  const [registerName, setRegisterName] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerPhone, setRegisterPhone] = useState("");
-  const [registerPassword, setRegisterPassword] = useState("");
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Acesso administrativo",
-        description: "Bem-vinda à área administrativa.",
-      });
-      navigate("/admin/dashboard");
-    }, 1000);
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Cadastro enviado!",
-        description: "Aguarde aprovação do administrador.",
-      });
-      setActiveTab("login");
-    }, 1000);
-  };
-
-  const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, "");
-    if (numbers.length <= 11) {
-      return numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-    }
-    return value;
-  };
+  const [role, setRole] = useState<string>("");
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background via-secondary/20 to-background">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        <div className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center glow-primary mb-6">
-            <Shield className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
+      {/* Background Hero */}
+      <div className="absolute inset-0 z-0">
+        <img src={heroArena} className="w-full h-full object-cover opacity-20" alt="Arena Background" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-[#060a08]/50 to-transparent" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-lg">
+        <div className="text-center mb-8 space-y-2">
+          <div className="bg-primary/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto border border-primary/30">
+            <ShieldCheck className="w-10 h-10 text-primary" />
           </div>
-          <h1 className="font-display text-3xl font-bold">Área Administrativa</h1>
-          <p className="mt-2 text-muted-foreground">Arena Cedro - Gestão</p>
+          <h1 className="text-2xl font-black uppercase italic text-white tracking-tighter">Portal Corporativo</h1>
+          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Administração & Atendimento</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-6">
+        <div className="bg-[#0c120f] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="register">Cadastrar</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
+              <TabsTrigger value="login" className="rounded-xl font-bold uppercase data-[state=active]:bg-white data-[state=active]:text-black">Acessar</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl font-bold uppercase data-[state=active]:bg-primary data-[state=active]:text-black">Solicitar Acesso</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="login" className="space-y-4">
-              <form onSubmit={handleLogin} className="space-y-4">
+            {/* ABA DE LOGIN (Acesso por e-mail corporativo) */}
+            <TabsContent value="login" className="space-y-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="admin-email">E-mail</Label>
+                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">E-mail Corporativo (@admin ou @atend)</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="admin-email"
-                      type="email"
-                      placeholder="admin@arenacedro.com"
-                      className="pl-10"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
-                    />
+                    <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
+                    <Input placeholder="usuario@admincedro.com" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
                   </div>
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="admin-password">Senha</Label>
+                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Senha de Acesso</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="admin-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="pl-10 pr-10"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
+                    <Input type={showPassword ? "text" : "password"} placeholder="••••••••" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3.5 text-gray-600">
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full gradient-primary glow-primary hover:opacity-90 transition-opacity"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Entrando..." : "Entrar"}
+                <div className="flex items-center space-x-2 py-2">
+                  <Checkbox id="remember-admin" className="border-white/20" />
+                  <label htmlFor="remember-admin" className="text-sm text-gray-500 cursor-pointer">Lembrar credenciais neste dispositivo</label>
+                </div>
+
+                <Button className="w-full bg-white hover:bg-gray-200 text-black font-black h-14 rounded-2xl text-lg uppercase italic">
+                  Entrar no Painel
                 </Button>
-              </form>
+              </div>
             </TabsContent>
 
-            <TabsContent value="register" className="space-y-4">
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="admin-name">Nome completo</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="admin-name"
-                      type="text"
-                      placeholder="Seu nome"
-                      className="pl-10"
-                      value={registerName}
-                      onChange={(e) => setRegisterName(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
+            {/* ABA DE SOLICITAÇÃO DE CADASTRO */}
+            <TabsContent value="register" className="space-y-5">
+              <div className="bg-primary/10 border border-primary/20 p-4 rounded-2xl mb-4">
+                <p className="text-[11px] text-primary leading-tight font-medium">
+                  Seus dados serão analisados. Se aprovado, você receberá seu **E-mail Corporativo** e **Senha Temporária** no seu e-mail pessoal.
+                </p>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="admin-register-email">E-mail</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="admin-register-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      className="pl-10"
-                      value={registerEmail}
-                      onChange={(e) => setRegisterEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+                <Input placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="admin-phone">Telefone</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="admin-phone"
-                      type="tel"
-                      placeholder="(00) 00000-0000"
-                      className="pl-10"
-                      value={registerPhone}
-                      onChange={(e) => setRegisterPhone(formatPhone(e.target.value))}
-                      required
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Cargo Desejado</Label>
+                <Select onValueChange={setRole}>
+                  <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl text-white">
+                    <SelectValue placeholder="Selecione sua função" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0c120f] border-white/10 text-white">
+                    <SelectItem value="atendente">Atendente (@atendcedro.com)</SelectItem>
+                    <SelectItem value="admin">Administrador (@admincedro.com)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="admin-register-password">Senha</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="admin-register-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Mínimo 6 caracteres"
-                      className="pl-10 pr-10"
-                      value={registerPassword}
-                      onChange={(e) => setRegisterPassword(e.target.value)}
-                      minLength={6}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">E-mail Pessoal (Para receber a senha)</Label>
+                <Input type="email" placeholder="seuemail@gmail.com" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+              </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full gradient-primary glow-primary hover:opacity-90 transition-opacity"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Enviando..." : "Solicitar Cadastro"}
-                </Button>
-              </form>
+              <div className="space-y-2">
+                <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Telefone / WhatsApp</Label>
+                <Input placeholder="(98) 99999-0000" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+              </div>
+
+              <Button className="w-full bg-primary hover:bg-primary/90 text-black font-black h-14 rounded-2xl text-lg uppercase italic gap-2 transition-transform active:scale-95">
+                <Send size={20} /> Solicitar Cadastro
+              </Button>
             </TabsContent>
           </Tabs>
-        </div>
 
-        <Button 
-          className="w-full text-muted-foreground hover:text-foreground"
-          onClick={() => navigate("/")}
-        >
-          ← Voltar para área do cliente
-        </Button>
+          {/* TERMOS CORPORATIVOS */}
+          <div className="mt-8 text-center">
+             <Dialog>
+                <DialogTrigger className="text-[10px] text-gray-600 uppercase tracking-widest hover:text-primary transition-colors">
+                  Políticas de Acesso e Dados Corporativos
+                </DialogTrigger>
+                <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+                  <DialogHeader>
+                    <DialogTitle className="text-primary uppercase italic font-black">Termos de Uso Interno</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 text-xs text-gray-400 py-4 leading-relaxed">
+                    <p>1. O acesso ao sistema é restrito a funcionários autorizados da Arena Cedro.</p>
+                    <p>2. Todas as ações realizadas com seu e-mail corporativo (@admincedro ou @atendcedro) são monitoradas e registradas.</p>
+                    <p>3. Os dados dos clientes acessados neste painel são confidenciais e protegidos pela LGPD.</p>
+                    <p>4. O compartilhamento de senhas resultará em suspensão imediata do acesso.</p>
+                  </div>
+                </DialogContent>
+             </Dialog>
+          </div>
+        </div>
       </div>
     </div>
   );

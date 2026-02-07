@@ -1,173 +1,157 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { Star, Mail, Lock, User, Phone, Eye, EyeOff } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Eye, EyeOff, Lock, Mail, User, Phone, CheckCircle2, Circle } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [regPassword, setRegPassword] = useState("");
 
-  // Estados dos formulários
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Login realizado!",
-        description: "Bem-vindo à Arena Cedro!",
-      });
-      navigate("/dashboard");
-    }, 1000);
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Cadastro realizado!",
-        description: "Sua conta foi criada com sucesso.",
-      });
-      setActiveTab("login");
-    }, 1000);
-  };
+  // ESTA É A LÓGICA QUE ESTÁ FALTANDO NO SEU ARQUIVO E CAUSA O ERRO VERMELHO
+  const passwordValidations = useMemo(() => {
+    const hasMinLength = regPassword.length >= 8;
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(regPassword);
+    const noRepeatedNumbers = !/(\d)\1\1/.test(regPassword);
+    
+    return {
+      hasMinLength,
+      hasSpecialChar,
+      noRepeatedNumbers,
+      isValid: hasMinLength && hasSpecialChar && noRepeatedNumbers
+    };
+  }, [regPassword]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
-      {/* Imagem de Fundo (Hero) */}
+      {/* Fundo com a foto da Arena */}
       <div className="absolute inset-0 z-0">
         <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Arena Background" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#060a08] via-[#060a08]/80 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#060a08] via-transparent to-[#060a08]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-5xl grid md:grid-cols-2 gap-12 items-center">
-        
-        {/* Lado Esquerdo: Branding / Social Proof */}
-        <div className="hidden md:block space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary w-12 h-12 rounded-full flex items-center justify-center text-black font-black text-xl">A</div>
-            <h2 className="text-4xl font-black italic uppercase tracking-tighter text-white">Arena <span className="text-primary">Cedro</span></h2>
-          </div>
-          <p className="text-xl text-gray-400 font-medium">O melhor campo de futebol society da região. Faça seu login para reservar.</p>
-          
-          <div className="bg-white/5 p-6 rounded-3xl border border-white/10 backdrop-blur-sm">
-            <div className="flex text-yellow-500 mb-3">
-              {[...Array(5)].map((_, i) => <Star key={i} className="fill-current w-5 h-5" />)}
-            </div>
-            <p className="italic text-gray-200 text-lg">"Estrutura impecável e o processo de agendamento pelo site é muito rápido. Nota 10!"</p>
-            <p className="text-primary font-black mt-3 uppercase text-xs tracking-widest">— Carlos Mendes, Atleta</p>
-          </div>
+      <div className="relative z-10 w-full max-w-lg">
+        <div className="flex justify-center mb-8">
+          <img src="/logo-arena.png" alt="Arena Cedro" className="w-32 h-32 md:w-40 md:h-40 object-contain" />
         </div>
 
-        {/* Lado Direito: Formulário com Abas */}
-        <div className="bg-black/60 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
+        <div className="bg-black/80 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
-              <TabsTrigger value="login" className="rounded-xl font-bold uppercase tracking-tighter data-[state=active]:bg-primary data-[state=active]:text-black">Entrar</TabsTrigger>
-              <TabsTrigger value="register" className="rounded-xl font-bold uppercase tracking-tighter data-[state=active]:bg-primary data-[state=active]:text-black">Cadastrar</TabsTrigger>
+              <TabsTrigger value="login" className="rounded-xl font-black uppercase italic data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Entrar</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl font-black uppercase italic data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Cadastrar</TabsTrigger>
             </TabsList>
 
-            {/* CONTEÚDO: LOGIN */}
-            <TabsContent value="login" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="mb-6">
-                <h1 className="text-3xl font-black text-white mb-2 tracking-tight uppercase italic">Acesse sua Conta</h1>
-                <p className="text-gray-400">Insira seus dados de cliente abaixo.</p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-4">
+            {/* ABA DE LOGIN - LIMPA (Sem texto de Admin) */}
+            <TabsContent value="login" className="space-y-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-white ml-1">E-mail</Label>
+                  <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
-                    <Input id="email" type="email" placeholder="seu@email.com" className="bg-white/5 border-white/10 text-white h-12 pl-10 rounded-xl focus:ring-primary" required value={email} onChange={(e)=>setEmail(e.target.value)} />
+                    <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                    <Input type="email" placeholder="seu@email.com" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" />
                   </div>
                 </div>
+                
                 <div className="space-y-2">
-                  <Label htmlFor="pass" className="text-white ml-1">Senha</Label>
+                  <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">Senha</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
-                    <Input id="pass" type={showPassword ? "text" : "password"} placeholder="••••••••" className="bg-white/5 border-white/10 text-white h-12 pl-10 rounded-xl focus:ring-primary" required value={password} onChange={(e)=>setPassword(e.target.value)} />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-500 hover:text-white">
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                    <Input 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="••••••••" 
+                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" 
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3.5 text-gray-500 hover:text-white">
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
                 </div>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-black font-black h-14 rounded-2xl text-lg uppercase tracking-widest transition-all hover:scale-[1.02]" disabled={isLoading}>
-                  {isLoading ? "Entrando..." : "Entrar agora"}
+
+                <div className="flex items-center space-x-2 py-2">
+                  <Checkbox id="remember" className="border-white/20 data-[state=checked]:bg-[#22c55e] data-[state=checked]:text-black" />
+                  <label htmlFor="remember" className="text-sm text-gray-400 cursor-pointer select-none">
+                    Salvar senha para não precisar logar novamente
+                  </label>
+                </div>
+
+                <Button className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-black font-black h-14 rounded-2xl text-xl uppercase italic shadow-lg shadow-[#22c55e]/20">
+                  Entrar no Sistema
                 </Button>
-              </form>
+              </div>
             </TabsContent>
 
-            {/* CONTEÚDO: CADASTRO */}
-            <TabsContent value="register" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="mb-6">
-                <h1 className="text-3xl font-black text-white mb-2 tracking-tight uppercase italic">Crie sua Conta</h1>
-                <p className="text-gray-400">Cadastre-se para começar a agendar.</p>
+            {/* ABA DE CADASTRO - COM VALIDAÇÃO E OLHINHO */}
+            <TabsContent value="register" className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <Input placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+                <Input placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+              </div>
+              <Input placeholder="WhatsApp" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+              <Input type="email" placeholder="E-mail" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+              
+              <div className="space-y-2">
+                <div className="relative">
+                  <Input 
+                    type={showRegPassword ? "text" : "password"} 
+                    placeholder="Criar Senha" 
+                    className="bg-white/5 border-white/10 h-12 pr-12 rounded-xl text-white"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                  />
+                  <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-4 top-3.5 text-gray-500">
+                    {showRegPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+
+                {/* CHECKLIST QUE ESTAVA VERMELHO NO SEU PRINT */}
+                <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    {passwordValidations.hasMinLength ? <CheckCircle2 className="w-4 h-4 text-[#22c55e]" /> : <Circle className="w-4 h-4 text-gray-600" />}
+                    <span className={passwordValidations.hasMinLength ? "text-white" : "text-gray-500"}>Mínimo de 8 caracteres</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    {passwordValidations.hasSpecialChar ? <CheckCircle2 className="w-4 h-4 text-[#22c55e]" /> : <Circle className="w-4 h-4 text-gray-600" />}
+                    <span className={passwordValidations.hasSpecialChar ? "text-white" : "text-gray-500"}>Um caractere especial (@, #, !, $)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    {passwordValidations.noRepeatedNumbers ? <CheckCircle2 className="w-4 h-4 text-[#22c55e]" /> : <Circle className="w-4 h-4 text-gray-600" />}
+                    <span className={passwordValidations.noRepeatedNumbers ? "text-white" : "text-gray-500"}>Sem números repetidos</span>
+                  </div>
+                </div>
               </div>
 
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-white ml-1">Nome Completo</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
-                    <Input placeholder="Seu nome" className="bg-white/5 border-white/10 text-white h-12 pl-10 rounded-xl" required value={name} onChange={(e)=>setName(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-white ml-1">WhatsApp</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
-                    <Input placeholder="(98) 99999-0000" className="bg-white/5 border-white/10 text-white h-12 pl-10 rounded-xl" required value={phone} onChange={(e)=>setPhone(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-white ml-1">E-mail</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
-                    <Input type="email" placeholder="seu@email.com" className="bg-white/5 border-white/10 text-white h-12 pl-10 rounded-xl" required />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-white ml-1">Crie uma Senha</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-500" />
-                    <Input type="password" placeholder="••••••••" className="bg-white/5 border-white/10 text-white h-12 pl-10 rounded-xl" required />
-                  </div>
-                </div>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-black font-black h-14 rounded-2xl text-lg uppercase tracking-widest transition-all hover:scale-[1.02]" disabled={isLoading}>
-                  {isLoading ? "Criando..." : "Finalizar Cadastro"}
-                </Button>
-              </form>
-
-              {/* Card VIP exclusivo para Clientes */}
-              <div className="bg-accent/10 border border-accent/20 rounded-2xl p-4 flex items-center gap-4">
-                <Star className="w-8 h-8 text-accent fill-accent" />
-                <div>
-                  <h4 className="text-sm font-bold text-accent uppercase tracking-tighter">Seja Cliente VIP</h4>
-                  <p className="text-xs text-gray-400">Garanta seu horário fixo semanal com descontos.</p>
-                </div>
-              </div>
+              <Button 
+                className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-black font-black h-14 rounded-2xl text-xl uppercase italic disabled:opacity-30"
+                disabled={!passwordValidations.isValid}
+              >
+                Finalizar Cadastro
+              </Button>
             </TabsContent>
           </Tabs>
-          
-          <p className="mt-8 text-center text-[10px] text-gray-600 uppercase tracking-[0.2em]">
-            Ao continuar, você concorda com nossos <span className="text-primary cursor-pointer hover:underline">Termos de Uso</span>
-          </p>
+
+          <div className="mt-8 text-center">
+            <p className="text-[11px] text-gray-500 uppercase tracking-widest">
+              Ao continuar, você aceita nossos{" "}
+              <Dialog>
+                <DialogTrigger className="text-[#22c55e] hover:underline font-bold">Termos de Uso</DialogTrigger>
+                <DialogContent className="bg-[#0a0f0d] border-white/10 text-white rounded-[2rem]">
+                  <DialogHeader>
+                    <DialogTitle className="text-[#22c55e] uppercase italic font-black">Termos de Privacidade</DialogTitle>
+                  </DialogHeader>
+                  <p className="text-sm text-gray-400 p-4">Seus dados são protegidos pela LGPD e usados apenas para seus agendamentos na Arena Cedro.</p>
+                </DialogContent>
+              </Dialog>
+            </p>
+          </div>
         </div>
       </div>
     </div>
