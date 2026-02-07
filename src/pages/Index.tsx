@@ -39,7 +39,12 @@ export const Index = () => {
           </div>
 
           {/* Logo Centralizada */}
-          <img src="/logo-arena.png" alt="Arena Cedro" className="w-64 md:w-80 h-auto mb-6 object-contain" />
+          <img 
+      src="/logo-arena.png" // Se estiver na raiz da pasta public
+      onError={(e) => { e.currentTarget.src = "/media/logo-arena.png" }} // Tenta o caminho alternativo se o primeiro der erro
+      alt="Arena Cedro" 
+      className="w-64 md:w-80 h-auto mb-6 object-contain brightness-110 drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]" 
+    />
           
           <h1 className="text-lg md:text-xl text-gray-400 mb-8 max-w-2xl font-medium tracking-tight">
             O melhor campo de futebol society da região.<br/>
