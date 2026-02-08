@@ -26,8 +26,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Login />} />
           {/* ADICIONE ESTA ROTA ABAIXO: É para onde o cliente vai após o login */}
-          <Route path="/dashboard" element={<Index />} /> {/* Por enquanto mandando para Index, troque pela página certa depois */}
-          
+          <Route path="/clientdashboard" element={<ClientDashboard />} />
+
           {/* Rota de Depoimentos */}
           <Route path="/depoimentos" element={<TestimonialForm />} />
           

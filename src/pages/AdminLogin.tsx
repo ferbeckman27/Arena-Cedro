@@ -6,48 +6,71 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import { useToast } from "@/hooks/use-toast"; // Importe o toast para feedback visual
+import logoArena from "./media/logo-arena.png";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("");
 
-  // 1. FUNÇÃO PARA ACESSAR O PAINEL
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simulação de login: aqui você validaria as credenciais
-    toast({
-      title: "Acesso Autorizado",
-      description: "Bem-vindo ao portal corporativo.",
-    });
 
-    // REDIRECIONA PARA A ROTA DO APP.TSX
-    navigate("/admin/dashboard");
+    // LÓGICA DE DIRECIONAMENTO
+    if (email.toLowerCase().endsWith("@admincedro.com")) {
+      toast({
+        title: "Acesso Administrador",
+        description: "Redirecionando para o painel de controle geral...",
+      });
+      navigate("/admin/dashboard");
+    } 
+    else if (email.toLowerCase().endsWith("@atendcedro.com")) {
+      toast({
+        title: "Acesso Atendente",
+        description: "Redirecionando para o painel de agendamentos...",
+      });
+      navigate("/admin/dashboard"); // Se tiver um painel específico, mude a rota aqui
+    } 
+    else {
+      toast({
+        variant: "destructive",
+        title: "E-mail inválido",
+        description: "Use um e-mail @admincedro.com ou @atendcedro.com",
+      });
+    }
   };
 
-  // 2. FUNÇÃO PARA SOLICITAR ACESSO
   const handleRequestAccess = (e: React.FormEvent) => {
     e.preventDefault();
     toast({
       title: "Solicitação Enviada",
-      description: "Seus dados foram enviados para análise da diretoria.",
+      description: "Aguarde o e-mail de confirmação da diretoria.",
     });
-    setActiveTab("login"); // Volta para a aba de login
+    setActiveTab("login");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
+      {/* Background */}
       <div className="absolute inset-0 z-0">
         <img src={heroArena} className="w-full h-full object-cover opacity-20" alt="Arena Background" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-[#060a08]/50 to-transparent" />
       </div>
+
+      {/* Logo */}
+<div className="flex justify-center mb-10 scale-110"> {/* Adicionei scale para um ajuste fino se necessário */}
+  <img 
+    src="/media/logo-arena.png" 
+    alt="Arena Cedro" 
+    className="w-48 h-48 md:w-64 md:h-64 object-contain transition-transform hover:scale-105" 
+  />
+</div>
 
       <div className="relative z-10 w-full max-w-lg">
         <div className="text-center mb-8 space-y-2">
@@ -55,76 +78,75 @@ const AdminLogin = () => {
             <ShieldCheck className="w-10 h-10 text-[#22c55e]" />
           </div>
           <h1 className="text-2xl font-black uppercase italic text-white tracking-tighter">Portal Corporativo</h1>
-          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Administração & Atendimento</p>
+          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Arena Cedro</p>
         </div>
 
         <div className="bg-[#0c120f] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
               <TabsTrigger value="login" className="rounded-xl font-bold uppercase data-[state=active]:bg-white data-[state=active]:text-black">Acessar</TabsTrigger>
-              <TabsTrigger value="register" className="rounded-xl font-bold uppercase data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Solicitar Acesso</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl font-bold uppercase data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Solicitar</TabsTrigger>
             </TabsList>
 
-            {/* ABA DE LOGIN */}
             <TabsContent value="login">
-              <form onSubmit={handleAdminLogin} className="space-y-6"> {/* FORM ADICIONADO */}
+              <form onSubmit={handleAdminLogin} className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">E-mail Corporativo</Label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                      <Input required type="email" placeholder="usuario@admincedro.com" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" />
+                      <Input 
+                        required 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="usuario@admincedro.com" 
+                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" 
+                      />
                     </div>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Senha de Acesso</Label>
+                    <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Senha</Label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                      <Input required type={showPassword ? "text" : "password"} placeholder="••••••••" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" />
+                      <Input 
+                        required 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="••••••••" 
+                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" 
+                      />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3.5 text-gray-600">
                         {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                       </button>
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full bg-white hover:bg-gray-200 text-black font-black h-14 rounded-2xl text-lg uppercase italic mt-4 transition-transform active:scale-95">
+                  <Button type="submit" className="w-full bg-white hover:bg-gray-200 text-black font-black h-14 rounded-2xl text-lg uppercase italic transition-transform active:scale-95">
                     Entrar no Painel
                   </Button>
                 </div>
               </form>
             </TabsContent>
 
-            {/* ABA DE SOLICITAÇÃO */}
             <TabsContent value="register">
-              <form onSubmit={handleRequestAccess} className="space-y-5"> {/* FORM ADICIONADO */}
-                <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-4 rounded-2xl mb-4 text-[11px] text-[#22c55e] leading-tight font-medium">
-                   Seus dados serão analisados pela diretoria.
-                </div>
-
+              <form onSubmit={handleRequestAccess} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <Input required placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
                   <Input required placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Cargo Desejado</Label>
-                  <Select required onValueChange={setRole}>
-                    <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl text-white">
-                      <SelectValue placeholder="Selecione sua função" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0c120f] border-white/10 text-white">
-                      <SelectItem value="atendente">Atendente (@atendcedro.com)</SelectItem>
-                      <SelectItem value="admin">Administrador (@admincedro.com)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
+                <Select required onValueChange={setRole}>
+                  <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl text-white">
+                    <SelectValue placeholder="Cargo" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0c120f] border-white/10 text-white">
+                    <SelectItem value="atendente">Atendente</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input required type="email" placeholder="E-mail Pessoal" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
-                <Input required placeholder="Telefone / WhatsApp" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
-
-                <Button type="submit" className="w-full bg-[#22c55e] hover:bg-[#22c55e]/90 text-black font-black h-14 rounded-2xl text-lg uppercase italic gap-2 transition-transform active:scale-95">
-                  <Send size={20} /> Solicitar Cadastro
+                <Button type="submit" className="w-full bg-[#22c55e] hover:bg-[#22c55e]/90 text-black font-black h-14 rounded-2xl text-lg uppercase italic gap-2">
+                  <Send size={20} /> Enviar Pedido
                 </Button>
               </form>
             </TabsContent>

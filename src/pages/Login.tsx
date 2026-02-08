@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Eye, EyeOff, Lock, Mail, User, Phone, CheckCircle2, Circle } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import logoAreba from "./media/logo-arena.png";
+import logoArena from "./media/logo-arena.png";
+import { toast } from "@/components/ui/use-toast";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,19 +18,31 @@ const Login = () => {
   const [activeTab, setActiveTab] = useState("login");
   const [regPassword, setRegPassword] = useState("");
 
-  // 1. ADICIONE ESTA FUNÇÃO PARA O LOGIN
+// 1. FUNÇÃO PARA O LOGIN (CLIENTE)
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui você adicionaria a lógica de conferir e-mail/senha
-    // Como queremos que funcione agora, vamos direto para o redirecionamento:
-    navigate("/"); // Redireciona para a Home (ou crie a rota /dashboard no App.tsx)
+    
+    // Agora mandamos para o /dashboard em vez de /
+    navigate("/clientdashboard"); 
+
+    toast({
+      title: "Bem-vindo de volta!",
+      description: "Você acessou sua conta com sucesso.",
+    });
   };
 
-  // 2. ADICIONE ESTA FUNÇÃO PARA O CADASTRO
+  // 2. FUNÇÃO PARA O CADASTRO (CLIENTE)
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (passwordValidations.isValid) {
-      navigate("/"); // Redireciona após cadastrar
+      // Após o cadastro, também mandamos para o dashboard com a nova conta criada
+      navigate("/clientdashboard"); 
+
+      toast({
+        title: "Cadastro realizado!",
+        description: "Agora você já pode agendar seus horários, ver suas reservas e produtos.",
+      });
     }
   };
 
@@ -52,9 +65,13 @@ const Login = () => {
 
       <div className="relative z-10 w-full max-w-lg">
         {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img src="/media/logo-arena.png" alt="Arena Cedro" className="w-32 h-32 md:w-40 md:h-40 object-contain" />
-        </div>
+      <div className="flex justify-center mb-10 scale-110"> {/* Adicionei scale para um ajuste fino se necessário */}
+        <img 
+          src="/media/logo-arena.png" 
+          alt="Arena Cedro" 
+          className="w-48 h-48 md:w-64 md:h-64 object-contain transition-transform hover:scale-105" 
+         />
+       </div>
 
         <div className="bg-black/80 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
