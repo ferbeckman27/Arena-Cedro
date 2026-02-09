@@ -73,6 +73,12 @@ const Login = () => {
          />
        </div>
 
+       <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden border-b border-white/5 py-20">
+        <div className="absolute inset-0 z-0">
+          <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Background Arena" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-transparent to-[#060a08]" />
+        </div>
+
         <div className="bg-black/80 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
