@@ -1,217 +1,295 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { 
-  Calendar as CalendarIcon, Clock, Trophy, Star, 
-  ShoppingBag, History, CheckCircle2 
+  Calendar as CalendarIcon, 
+  MessageCircle, 
+  ShoppingCart, 
+  LogOut, 
+  Star, 
+  Package, 
+  AlertTriangle,
+  CreditCard,
+  Send
 } from "lucide-react";
-import { BookingCalendar } from "@/components/booking/BookingCalendar";
 import { useToast } from "@/hooks/use-toast";
-import { PaymentModal } from "@/components/booking/PaymentModal"; // Importe seu componente aqui
 
-const ClientDashboard = () => {
+// --- TIPOS ---
+interface Product {
+  id: number;
+  nome: string;
+  preco: number;
+  tipo: 'venda' | 'aluguel';
+  estoque: number;
+}
+
+interface Review {
+  id: string;
+  nome: string;
+  estrelas: number;
+  texto: string;
+  data: string;
+}
+
+const ClienteDashboard = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // Estados de Agendamento
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [duracao, setDuracao] = useState("60");
-  const [horarioInicio, setHorarioInicio] = useState("");
-  const [totalReserva, setTotalReserva] = useState(0);
-  
-  // Estados do Modal e Histórico
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<any>(null);
-  const [minhasReservas, setMinhasReservas] = useState<any[]>([]);
-  const [fidelidade, setFidelidade] = useState(7);
 
-  // Cálculo de Preço Dinâmico
+  // --- ESTADOS ---
+  const [cart, setCart] = useState<Product[]>([]);
+  const [fidelidade] = useState(7); 
+  const [selectedDuration, setSelectedDuration] = useState(60);
+  const [emManutencao, setEmManutencao] = useState(false);
+  const [agendaStatus, setAgendaStatus] = useState<Record<number, string>>({});
+
+  // Estados do Pix e Comentários
+  const [isPixModalOpen, setIsPixModalOpen] = useState(false);
+  const [pixCode] = useState("00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986");
+  const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
+  const [minhasAvaliacoes, setMinhasAvaliacoes] = useState<Review[]>([]);
+
   useEffect(() => {
-    if (!horarioInicio) return;
-    const hora = parseInt(horarioInicio.split(":")[0]);
-    const precoPorBloco = hora >= 18 ? 60 : 40; 
-    const blocos = parseInt(duracao) / 30;
-    setTotalReserva(precoPorBloco * blocos);
-  }, [horarioInicio, duracao]);
+    const checkStatus = () => {
+      setEmManutencao(localStorage.getItem("arena_manutencao") === "true");
+      const agendaSalva = localStorage.getItem("arena_agenda");
+      if (agendaSalva) setAgendaStatus(JSON.parse(agendaSalva));
+      
+      // Carregar avaliações globais e filtrar as minhas (simulado)
+      const reviewsSalvas = JSON.parse(localStorage.getItem("arena_reviews") || "[]");
+      setMinhasAvaliacoes(reviewsSalvas);
+    };
 
-  const handleOpenPayment = () => {
-    if (!horarioInicio) {
-      toast({ 
-        title: "Horário não selecionado", 
-        description: "Por favor, escolha um horário antes de prosseguir.",
-        variant: "destructive"
-      });
-      return;
-    }
-    setSelectedSlot({ id: "1", time: horarioInicio, available: true });
-    setIsPaymentOpen(true);
+    checkStatus();
+    window.addEventListener('focus', checkStatus);
+    return () => window.removeEventListener('focus', checkStatus);
+  }, []);
+
+  // --- LOGICA DE PRODUTOS E PREÇO ---
+  const produtos: Product[] = [
+    { id: 1, nome: "Bola Penalty S11", preco: 180, tipo: 'venda', estoque: 5 },
+    { id: 2, nome: "Aluguel de Colete (Un)", preco: 5, tipo: 'aluguel', estoque: 30 },
+    { id: 3, nome: "Gatorade 500ml", preco: 8, tipo: 'venda', estoque: 50 },
+  ];
+
+  const calculateBookingPrice = (hour: number) => {
+    const rate = (hour >= 8 && hour < 18) ? 80 : 120;
+    return (rate / 60) * selectedDuration;
   };
 
-  return (
-    <div className="min-h-screen bg-[#060a08] text-white p-4 md:p-8 space-y-6">
-      
-      {/* HEADER CLIENTE */}
-      <div className="flex justify-between items-center bg-white/5 p-6 rounded-[2rem] border border-white/10">
-        <div>
-          <h1 className="text-xl font-black uppercase italic">Olá, Jogador! ⚽</h1>
-          <p className="text-[#22c55e] text-[10px] font-bold uppercase tracking-widest">Arena Cedro - Sua área exclusiva</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] text-gray-500 uppercase font-bold">Status Fidelidade</p>
-          <div className="flex items-center gap-2">
-            <Trophy className="text-yellow-500" size={20} />
-            <span className="font-black italic text-white">{fidelidade}/10</span>
-          </div>
-        </div>
+  const totalCart = useMemo(() => cart.reduce((acc, item) => acc + item.preco, 0), [cart]);
+
+  const addToCart = (product: Product) => {
+    setCart([...cart, product]);
+    toast({ title: "Adicionado!", description: `${product.nome} no carrinho.` });
+  };
+
+  // --- FUNÇÕES DE AÇÃO ---
+  const handleFinalizePix = () => {
+    if (cart.length === 0) return toast({ variant: "destructive", title: "Carrinho vazio!" });
+    setIsPixModalOpen(true);
+  };
+
+  const copyPixCode = () => {
+    navigator.clipboard.writeText(pixCode);
+    toast({ title: "Copiado!", description: "Cole o código no seu aplicativo do banco." });
+  };
+
+  const handleSubmitReview = () => {
+    if (!review.nome || !review.texto) return toast({ title: "Ops!", description: "Preencha nome e comentário." });
+
+    const newReview: Review = {
+      id: Date.now().toString(),
+      ...review,
+      data: new Date().toLocaleDateString('pt-BR')
+    };
+
+    const reviewsExistentes = JSON.parse(localStorage.getItem("arena_reviews") || "[]");
+    const updatedReviews = [newReview, ...reviewsExistentes];
+    
+    localStorage.setItem("arena_reviews", JSON.stringify(updatedReviews));
+    setMinhasAvaliacoes(updatedReviews);
+    setReview({ nome: "", estrelas: 5, texto: "" });
+    
+    toast({ title: "Avaliação Enviada!", description: "Seu comentário já está na página inicial." });
+  };
+
+  if (emManutencao) {
+    return (
+      <div className="min-h-screen bg-[#060a08] flex flex-col items-center justify-center p-6 text-center">
+        <AlertTriangle size={60} className="text-red-500 animate-pulse mb-4" />
+        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Arena em Pausa</h1>
+        <Button onClick={() => window.location.reload()} className="mt-8 bg-[#22c55e] text-black font-bold">ATUALIZAR</Button>
       </div>
+    );
+  }
 
-      <Tabs defaultValue="agendar" className="w-full">
-        <TabsList className="grid grid-cols-4 bg-white/5 border border-white/10 h-16 rounded-2xl mb-8">
-          <TabsTrigger value="agendar" className="rounded-xl font-bold uppercase italic text-xs data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Agendar</TabsTrigger>
-          <TabsTrigger value="produtos" className="rounded-xl font-bold uppercase italic text-xs data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Loja/Aluguel</TabsTrigger>
-          <TabsTrigger value="reservas" className="rounded-xl font-bold uppercase italic text-xs data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Minhas Reservas</TabsTrigger>
-          <TabsTrigger value="vip" className="rounded-xl font-bold uppercase italic text-xs data-[state=active]:bg-yellow-500 data-[state=active]:text-black">Área VIP</TabsTrigger>
-        </TabsList>
+  return (
+    <div className="min-h-screen bg-[#060a08] text-white font-sans">
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <img src="/media/logo-arena.png" alt="Logo" className="w-12 h-12" />
+            <h1 className="text-xl font-black italic uppercase tracking-tighter text-[#22c55e]">Arena Cedro</h1>
+          </div>
+          <Button variant="ghost" onClick={() => navigate("/login")} className="text-red-500 hover:bg-red-500/10">
+            <LogOut size={22} />
+          </Button>
+        </div>
+      </header>
 
-        {/* ABA AGENDAR */}
-        <TabsContent value="agendar" className="grid lg:grid-cols-12 gap-6">
-          <Card className="lg:col-span-7 bg-white/5 border-white/10 p-6 rounded-[2rem]">
-            <h3 className="font-black uppercase italic mb-4 flex items-center gap-2"><CalendarIcon className="text-[#22c55e]" /> 1. Escolha a Data</h3>
-            <BookingCalendar isAdmin={false} onSelectDay={setSelectedDate} selectedDate={selectedDate} schedule={[]} />
-            <div className="mt-6 flex gap-3">
-              <Badge className="bg-green-500/20 text-green-500 border-green-500/30">Livre</Badge>
-              <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">Pendente</Badge>
-              <Badge className="bg-red-500/20 text-red-500 border-red-500/30">Ocupado</Badge>
+      <main className="max-w-7xl mx-auto p-4 md:p-8">
+        <Tabs defaultValue="agendar" className="space-y-8">
+          <TabsList className="bg-white/5 p-1 rounded-2xl w-full max-w-2xl mx-auto h-16 grid grid-cols-4 border border-white/5">
+            <TabsTrigger value="agendar" className="rounded-xl font-bold uppercase italic">Agenda</TabsTrigger>
+            <TabsTrigger value="loja" className="rounded-xl font-bold uppercase italic">Loja</TabsTrigger>
+            <TabsTrigger value="feedback" className="rounded-xl font-bold uppercase italic">Avaliar</TabsTrigger>
+            <TabsTrigger value="perfil" className="rounded-xl font-bold uppercase italic">Conta</TabsTrigger>
+          </TabsList>
+
+          {/* AGENDA */}
+          <TabsContent value="agendar" className="space-y-6">
+            <div className="grid lg:grid-cols-3 gap-8">
+               <Card className="bg-black/40 border-white/5 text-white p-6 rounded-[2rem]">
+                <CardHeader className="p-0 mb-4 font-black italic uppercase flex flex-row items-center gap-2">
+                  <CalendarIcon className="text-[#22c55e]" /> Dia do Jogo
+                </CardHeader>
+                <input type="date" className="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none focus:border-[#22c55e]" defaultValue="2024-05-20" />
+              </Card>
+
+              <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {Array.from({ length: 12 }, (_, i) => i + 8).map(h => (
+                  <button key={h} className="p-4 rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/5 flex flex-col items-center">
+                    <span className="font-black text-lg">{h}:00</span>
+                    <span className="text-[10px] text-[#22c55e] font-bold italic">R$ {calculateBookingPrice(h).toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </Card>
+          </TabsContent>
 
-          <Card className="lg:col-span-5 bg-white/5 border-white/10 p-6 rounded-[2rem] space-y-6">
-            <h3 className="font-black uppercase italic flex items-center gap-2"><Clock className="text-[#22c55e]" /> 2. Configurar Horário</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-[10px] uppercase font-bold text-gray-500">Duração da Partida</label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
-                  {["30", "60", "90"].map((m) => (
-                    <Button 
-                      key={m}
-                      variant={duracao === m ? "default" : "outline"}
-                      className={duracao === m ? "bg-[#22c55e] text-black border-none" : "border-white/10 text-white"}
-                      onClick={() => setDuracao(m)}
-                    >
-                      {m} min
-                    </Button>
+          {/* LOJA */}
+          <TabsContent value="loja">
+            <div className="grid lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {produtos.map(p => (
+                  <Card key={p.id} className="bg-black/40 border-white/5 text-white p-4 rounded-[2rem]">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <Package className="text-[#22c55e]" />
+                        <div><h4 className="font-bold text-sm uppercase italic">{p.nome}</h4><p className="text-[#22c55e] font-black">R$ {p.preco.toFixed(2)}</p></div>
+                      </div>
+                      <Button onClick={() => addToCart(p)} size="icon" className="bg-[#22c55e] text-black"><ShoppingCart size={18} /></Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              <Card className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] p-6 h-fit">
+                <CardTitle className="italic uppercase mb-4 flex items-center gap-2"><ShoppingCart size={20}/> Carrinho</CardTitle>
+                <div className="space-y-3 mb-6">
+                  {cart.map((item, i) => (
+                    <div key={i} className="flex justify-between text-xs border-b border-white/5 pb-2">
+                      <span>{item.nome}</span><span className="text-[#22c55e] font-bold">R$ {item.preco}</span>
+                    </div>
                   ))}
                 </div>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase font-bold text-gray-500">Horário Disponível</label>
-                <select 
-                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 mt-1 text-white outline-none"
-                  onChange={(e) => setHorarioInicio(e.target.value)}
-                  value={horarioInicio}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="09:00">09:00 (Diurno)</option>
-                  <option value="19:00">19:00 (Noturno)</option>
-                  <option value="20:00">20:00 (Noturno)</option>
-                </select>
-              </div>
+                <div className="flex justify-between font-black text-xl italic uppercase mb-4"><span>Total:</span><span className="text-[#22c55e]">R$ {totalCart.toFixed(2)}</span></div>
+                <Button onClick={handleFinalizePix} className="w-full bg-[#22c55e] text-black font-black italic uppercase h-12 rounded-xl">Finalizar PIX</Button>
+              </Card>
+            </div>
+          </TabsContent>
 
-              {totalReserva > 0 && (
-                <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 p-4 rounded-2xl text-center">
-                  <p className="text-[10px] uppercase font-bold text-gray-400">Total a pagar</p>
-                  <h2 className="text-3xl font-black italic text-[#22c55e]">R$ {totalReserva.toFixed(2)}</h2>
-                  <Button onClick={handleOpenPayment} className="w-full mt-4 bg-[#22c55e] text-black font-black uppercase italic hover:bg-[#1db053]">
-                    Ir para Pagamento
+          {/* ABA DE FEEDBACK (NOVO) */}
+          <TabsContent value="feedback" className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-8">
+              <Card className="bg-black/40 border-white/5 text-white p-6 rounded-[2rem]">
+                <CardHeader className="p-0 mb-4"><CardTitle className="italic uppercase">O que achou da Arena?</CardTitle></CardHeader>
+                <div className="space-y-4">
+                  <Input 
+                    placeholder="Seu Nome e Sobrenome" 
+                    className="bg-white/5 border-white/10" 
+                    value={review.nome}
+                    onChange={(e) => setReview({...review, nome: e.target.value})}
+                  />
+                  <div className="flex gap-2">
+                    {[1,2,3,4,5].map(num => (
+                      <Star 
+                        key={num} 
+                        size={24} 
+                        className={`cursor-pointer ${review.estrelas >= num ? "text-yellow-500 fill-yellow-500" : "text-gray-600"}`}
+                        onClick={() => setReview({...review, estrelas: num})}
+                      />
+                    ))}
+                  </div>
+                  <Textarea 
+                    placeholder="Escreva aqui seu depoimento..." 
+                    className="bg-white/5 border-white/10 h-32"
+                    value={review.texto}
+                    onChange={(e) => setReview({...review, texto: e.target.value})}
+                  />
+                  <Button onClick={handleSubmitReview} className="w-full bg-[#22c55e] text-black font-black uppercase italic gap-2">
+                    <Send size={18} /> Publicar Comentário
                   </Button>
                 </div>
-              )}
-            </div>
-          </Card>
-        </TabsContent>
-
-        {/* ABA PRODUTOS */}
-        <TabsContent value="produtos">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { nome: "Bola Penalty S11", preco: 15, tipo: "aluguel" },
-              { nome: "Kit Coletes (10un)", preco: 20, tipo: "aluguel" },
-              { nome: "Gatorade 500ml", preco: 8, tipo: "venda" },
-            ].map((prod, i) => (
-              <Card key={i} className="bg-white/5 border-white/10 p-6 rounded-[2rem] hover:border-[#22c55e] transition-all group">
-                <ShoppingBag className="text-gray-500 group-hover:text-[#22c55e] mb-4" />
-                <h4 className="font-black uppercase italic text-white">{prod.nome}</h4>
-                <p className="text-xs text-gray-500 uppercase">{prod.tipo}</p>
-                <p className="text-xl font-black text-[#22c55e] mt-2">R$ {prod.preco.toFixed(2)}</p>
-                <Button className="w-full mt-4 bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black font-bold uppercase text-[10px]">
-                  Adicionar ao PIX
-                </Button>
               </Card>
-            ))}
-          </div>
-        </TabsContent>
 
-        {/* ABA MINHAS RESERVAS */}
-        <TabsContent value="reservas">
-          <Card className="bg-white/5 border-white/10 p-6 rounded-[2rem]">
-            <h3 className="font-black uppercase italic mb-6 flex items-center gap-2"><History className="text-[#22c55e]"/> Histórico</h3>
-            <div className="space-y-4">
-              {minhasReservas.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">Nenhuma reserva recente encontrada.</p>
-              ) : (
-                minhasReservas.map((res, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-[#22c55e]/20 p-3 rounded-full"><CheckCircle2 className="text-[#22c55e]" /></div>
-                      <div>
-                        <p className="font-bold italic uppercase text-white">{res.horario}</p>
-                        <p className="text-[10px] text-gray-500">{res.valor}</p>
+              <Card className="bg-black/40 border-white/5 text-white p-6 rounded-[2rem]">
+                <CardTitle className="italic uppercase mb-6">Meus Comentários</CardTitle>
+                <ScrollArea className="h-[300px] pr-4">
+                  <div className="space-y-4">
+                    {minhasAvaliacoes.map(item => (
+                      <div key={item.id} className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <div className="flex justify-between mb-2">
+                          <span className="font-bold text-xs uppercase">{item.nome}</span>
+                          <span className="text-[10px] text-gray-500">{item.data}</span>
+                        </div>
+                        <div className="flex gap-1 mb-2">
+                          {Array.from({length: 5}).map((_, i) => (
+                            <Star key={i} size={10} className={i < item.estrelas ? "fill-yellow-500 text-yellow-500" : "text-gray-700"} />
+                          ))}
+                        </div>
+                        <p className="text-sm text-gray-300 italic">"{item.texto}"</p>
                       </div>
-                    </div>
-                    <Badge className={res.status === "Pago" ? "bg-[#22c55e] text-black" : "bg-yellow-500 text-black"}>
-                      {res.status.toUpperCase()}
-                    </Badge>
+                    ))}
                   </div>
-                ))
-              )}
+                </ScrollArea>
+              </Card>
             </div>
-          </Card>
-        </TabsContent>
+          </TabsContent>
+        </Tabs>
+      </main>
 
-        {/* ABA VIP */}
-        <TabsContent value="vip">
-          <Card className="bg-yellow-500/5 border border-yellow-500/20 p-8 rounded-[3rem] text-center max-w-2xl mx-auto">
-            <Star className="text-yellow-500 mx-auto mb-4" size={40} />
-            <h2 className="text-2xl font-black uppercase italic text-yellow-500">Área VIP - Horário Fixo</h2>
-            <p className="text-gray-400 text-sm mt-2 mb-6">Solicite um horário fixo semanal para sua equipe.</p>
-            <Button className="bg-yellow-500 text-black font-black uppercase italic w-full hover:bg-yellow-600">Solicitar Proposta</Button>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* COMPONENTE DE PAGAMENTO (MODAL) */}
-      <PaymentModal 
-        isOpen={isPaymentOpen}
-        onClose={() => setIsPaymentOpen(false)}
-        slot={selectedSlot}
-        date={selectedDate}
-        duration={Number(duracao)}
-        onConfirm={(metodo, valor) => {
-          const novaReserva = {
-            horario: `${horarioInicio} (${duracao}min)`,
-            valor: `R$ ${valor.toFixed(2)}`,
-            status: metodo === "pix" ? "Pendente" : "Confirmado"
-          };
-          setMinhasReservas([novaReserva, ...minhasReservas]);
-          toast({ 
-            title: "Sucesso!", 
-            description: "Comprovante gerado e enviado para o seu WhatsApp." 
-          });
-        }}
-      />
+      {/* MODAL PIX COPIA E COLA */}
+      <Dialog open={isPixModalOpen} onOpenChange={setIsPixModalOpen}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-sm rounded-[2rem]">
+          <DialogHeader className="items-center">
+            <DialogTitle className="italic uppercase flex gap-2"><CreditCard className="text-[#22c55e]"/> Pagamento PIX</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4 space-y-4 text-center">
+            <div className="bg-white p-3 rounded-2xl w-40 h-40">
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${pixCode}`} alt="QR" className="w-full h-full" />
+            </div>
+            <div>
+              <p className="text-gray-500 text-[10px] font-bold uppercase">Valor a pagar</p>
+              <p className="text-3xl font-black text-[#22c55e]">R$ {totalCart.toFixed(2)}</p>
+            </div>
+            <div className="w-full bg-black/40 p-3 rounded-xl border border-white/5 flex items-center gap-2">
+              <span className="text-[10px] text-gray-400 truncate flex-1">{pixCode}</span>
+              <Button onClick={copyPixCode} size="sm" className="bg-[#22c55e] text-black text-[10px] font-bold h-7">COPIAR</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default ClientDashboard;
+export default ClienteDashboard;

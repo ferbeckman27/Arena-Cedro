@@ -1,211 +1,219 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
-  Calendar, Clock, MessageSquare, QrCode, 
-  UserPlus, ShoppingBag, Search, CheckCircle, AlertCircle, Volume2 
+  Users, Calendar as LucideCalendar, ShoppingBag, AlertTriangle, 
+  LogOut, CheckCircle, XCircle, Megaphone, Star, MessageSquare, Trophy, Bell 
 } from "lucide-react";
-import { DetalhamentoReserva } from "@/components/atendente/DetalhamentoReserva";
 import { useToast } from "@/hooks/use-toast";
 
 const AtendenteDashboard = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // 1. ESTADOS E REFS
-  const [modalAberto, setModalAberto] = useState(false);
-  const [reservaSelecionada, setReservaSelecionada] = useState<any>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 2. CONFIGURAÇÃO DO SOM (APITO)
+  // --- ESTADOS ---
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [agendaStatus, setAgendaStatus] = useState<Record<number, string>>({});
+
+  // Sincronizar estados iniciais ao carregar a página
   useEffect(() => {
-    // Certifique-se de colocar o arquivo em: public/sound/apito.mp3
-    audioRef.current = new Audio("/sound/apito.mp3");
-    audioRef.current.volume = 0.5;
+    const manutencaoSalva = localStorage.getItem("arena_manutencao") === "true";
+    setIsMaintenance(manutencaoSalva);
+
+    const agendaSalva = localStorage.getItem("arena_agenda");
+    if (agendaSalva) {
+      setAgendaStatus(JSON.parse(agendaSalva));
+    }
   }, []);
 
-  const dispararAlerta = () => {
-    if (audioRef.current) {
-      audioRef.current.play().catch(err => console.error("Erro ao tocar som:", err));
-    }
+  // --- SONS ---
+  const playWhistle = () => {
+    // Certifique-se que o arquivo está em public/sounds/apito.mp3
+    new Audio('/sound/apito.mp3').play().catch(() => console.log("Som: Apito!"));
+  };
+
+  const playGoal = () => {
+    // Certifique-se que o arquivo está em public/sounds/torcida.mp3
+    new Audio('/sound/torcida.mp3').play().catch(() => console.log("Som: Torcida!"));
+  };
+
+  // --- FUNÇÕES ---
+  
+  // 1. CONFIRMAR PAGAMENTO (Muda cor para Vermelho)
+  const handleConfirmPayment = (hora: number) => {
+    const novaAgenda = { ...agendaStatus, [hora]: 'reservado' };
+    setAgendaStatus(novaAgenda);
+    
+    // Salva para o painel do cliente ler
+    localStorage.setItem("arena_agenda", JSON.stringify(novaAgenda));
+    
+    playGoal();
     toast({
-      title: "⚽ NOVA RESERVA RECEBIDA!",
-      description: "Um novo PIX pendente apareceu no mapa de quadra.",
-      className: "bg-yellow-500 text-black font-black border-none",
+      title: "Pagamento Confirmado!",
+      description: `O horário das ${hora}:00 agora está marcado como RESERVADO.`,
     });
   };
 
-  // 3. DADOS SIMULADOS
-  const horariosDia = [
-    { hora: "08:00 - 09:00", status: "livre" },
-    { hora: "09:00 - 10:00", status: "livre" },
-    { 
-      hora: "19:00 - 20:30", 
-      status: "pendente", 
-      cliente: "Novo Cliente (Site)", 
-      telefone: "98900000000",
-      pagamento: "PIX",
-      valor: 120 
-    },
-    { 
-      hora: "20:30 - 22:00", 
-      status: "ocupado", 
-      cliente: "Ricardo Oliveira (VIP)", 
-      telefone: "98911111111",
-      pagamento: "Mensalista",
-      valor: 150
-    },
-  ];
+  // 2. ATIVAR MANUTENÇÃO (Trava site do cliente)
+  const toggleMaintenance = () => {
+    const novoStatus = !isMaintenance;
+    setIsMaintenance(novoStatus);
+    
+    // Salva para o painel do cliente ler
+    localStorage.setItem("arena_manutencao", novoStatus.toString());
 
-  const abrirDetalhes = (dados: any) => {
-    setReservaSelecionada(dados);
-    setModalAberto(true);
+    toast({
+      variant: novoStatus ? "destructive" : "default",
+      title: novoStatus ? "Modo Manutenção Ativo" : "Sistema Online",
+      description: novoStatus ? "Clientes estão bloqueados de agendar." : "Agendamentos liberados.",
+    });
   };
 
-  return (
-    <div className="min-h-screen bg-[#060a08] text-white p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-      
-      {/* LADO ESQUERDO: GESTÃO DE QUADRA */}
-      <div className="lg:col-span-8 space-y-6">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-          <div>
-            <h1 className="text-2xl font-black uppercase italic tracking-tighter">Operação Atendimento</h1>
-            <p className="text-[#22c55e] text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-              <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" /> Arena Aberta - Turno Atual
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {/* BOTÃO DE TESTE DO ALERTA */}
-            <Button 
-              variant="outline" 
-              onClick={dispararAlerta}
-              className="border-white/10 bg-white/5 text-gray-400 hover:text-white rounded-xl"
-            >
-              <Volume2 size={18} />
-            </Button>
-            <Button className="bg-[#22c55e] hover:bg-[#1db053] text-black font-black uppercase italic gap-2 rounded-xl text-xs">
-              <UserPlus size={18} /> Novo Cliente Manual
-            </Button>
-          </div>
-        </header>
+  const clientes = [
+    { id: 1, nome: "João Silva", status: "bom", jogos: 8, obs: "Paga sempre no prazo, respeita as regras." },
+    { id: 2, nome: "Ricardo Melo", status: "alerta", jogos: 3, obs: "Já faltou 2 vezes sem avisar e não pagou o aluguel da bola." }
+  ];
 
-        <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem] backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="font-black uppercase italic flex items-center gap-2 text-lg">
-              <Calendar className="text-[#22c55e]" /> Mapa de Quadra
-            </h2>
-            <div className="flex gap-2 text-[10px] font-bold uppercase">
-              <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Livre</Badge>
-              <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Pendente</Badge>
-              <Badge className="bg-red-500/10 text-red-500 border-red-500/20">Ocupado</Badge>
+  return (
+    <div className="min-h-screen bg-[#0a0f0d] text-white">
+      <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <img src="/media/logo-arena.png" className="w-12 h-12" />
+            <div>
+              <h1 className="text-lg font-black uppercase italic tracking-tighter text-[#22c55e]">Arena Cedro Admin</h1>
             </div>
           </div>
+          
+          <div className="flex items-center gap-3">
+            <Button 
+              onClick={toggleMaintenance} 
+              variant={isMaintenance ? "destructive" : "outline"}
+              className={`font-bold text-xs ${isMaintenance ? 'animate-pulse' : ''}`}
+            >
+              <AlertTriangle size={16} className="mr-2" />
+              {isMaintenance ? "Manutenção Ativa" : "Status: Normal"}
+            </Button>
+            <Button onClick={() => navigate("/login")} variant="ghost" size="icon" className="text-red-500">
+              <LogOut size={20} />
+            </Button>
+          </div>
+        </div>
+      </header>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {horariosDia.map((item, i) => (
-              <Button 
-                key={i} 
-                variant="outline" 
-                onClick={() => abrirDetalhes({
-                  cliente: item.cliente || "Disponível",
-                  telefone: item.telefone || "",
-                  horario: item.hora,
-                  status: item.status === "pendente" ? "Aguardando Confirmação" : "Confirmado",
-                  valor: item.valor || 0,
-                  pagamento: item.pagamento || "N/A"
+      <main className="max-w-7xl mx-auto p-4 md:p-8">
+        <Tabs defaultValue="agenda" className="space-y-6">
+          <TabsList className="bg-white/5 w-full justify-start overflow-x-auto h-14 rounded-xl border border-white/10">
+            <TabsTrigger value="agenda" className="font-bold uppercase italic">Agenda Geral</TabsTrigger>
+            <TabsTrigger value="clientes" className="font-bold uppercase italic">Gestão de Clientes</TabsTrigger>
+            <TabsTrigger value="vendas" className="font-bold uppercase italic">Vendas/Aluguel</TabsTrigger>
+            <TabsTrigger value="vip" className="font-bold uppercase italic">Horários Fixos</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="agenda" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-[#121815] border-white/5 text-white">
+                <CardHeader><CardTitle className="text-sm uppercase text-gray-400">Status em Tempo Real</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 bg-[#22c55e] rounded-full"/> Disponível</div>
+                  <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 bg-yellow-500 rounded-full"/> Pendente (PIX)</div>
+                  <div className="flex items-center gap-2 text-xs"><div className="w-3 h-3 bg-red-600 rounded-full"/> Reservado / Pago</div>
+                </CardContent>
+              </Card>
+              
+              <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                {Array.from({ length: 12 }, (_, i) => i + 8).map(h => {
+                  const status = agendaStatus[h] || (h === 14 ? 'pendente' : 'disponivel');
+                  
+                  return (
+                    <Dialog key={h}>
+                      <DialogTrigger asChild>
+                        <button className={`p-4 rounded-xl border font-black text-sm transition-all
+                          ${status === 'reservado' ? 'bg-red-600/20 border-red-600 text-red-500' : 
+                            status === 'pendente' ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500' : 
+                            'bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e] hover:scale-105'}`}
+                        >
+                          {h}:00
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-[#121815] border-white/10 text-white">
+                        <DialogHeader>
+                          <DialogTitle className="italic uppercase">Gerenciar Horário: {h}:00</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                          <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <p className="text-xs text-gray-400 uppercase font-bold">Status Atual</p>
+                            <p className="text-lg font-black uppercase text-[#22c55e]">{status}</p>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-2">
+                            {status !== 'reservado' && (
+                              <Button className="bg-[#22c55e] text-black font-black uppercase" onClick={() => handleConfirmPayment(h)}>
+                                <CheckCircle className="mr-2" size={18} /> Confirmar Pagamento
+                              </Button>
+                            )}
+                            <Button variant="destructive" className="font-bold uppercase">
+                              <XCircle className="mr-2" size={18} /> Cancelar Reserva
+                            </Button>
+                          </div>
+                          <Separator className="bg-white/10" />
+                          <p className="text-[10px] text-gray-500 font-bold uppercase italic">
+                            Dica: Confirmar pagamento envia o PDF automaticamente para o cliente.
+                          </p>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  );
                 })}
-                className={`h-28 flex flex-col items-center justify-center gap-1 border-white/10 transition-all rounded-2xl group
-                  ${item.status === 'livre' ? 'bg-white/5 hover:border-[#22c55e]' : ''}
-                  ${item.status === 'pendente' ? 'bg-yellow-500/5 border-yellow-500/30 hover:bg-yellow-500/10 border-dashed' : ''}
-                  ${item.status === 'ocupado' ? 'bg-red-500/5 border-red-500/30 hover:bg-red-500/10' : ''}
-                `}
-              >
-                {item.status === 'pendente' && <Badge className="bg-yellow-500 text-black text-[9px] mb-1 animate-bounce px-1">PIX PENDENTE</Badge>}
-                {item.status === 'ocupado' && <Badge className="bg-red-500 text-white text-[9px] mb-1 px-1">OCUPADO</Badge>}
-                
-                <span className="text-[10px] text-gray-500 uppercase font-bold group-hover:text-white transition-colors">{item.hora}</span>
-                <span className={`text-lg font-black italic ${item.status === 'livre' ? 'text-white' : 'text-gray-200'}`}>
-                  {item.cliente ? item.cliente.split(' ')[0] : "LIVRE"}
-                </span>
-                
-                {item.status === 'livre' && <span className="text-[9px] text-[#22c55e] font-black tracking-tighter italic">RESERVAR</span>}
-              </Button>
-            ))}
-          </div>
-        </Card>
+              </div>
+            </div>
+          </TabsContent>
+          
+          {/* ... demais conteúdos das Tabs mantidos iguais ... */}
+          <TabsContent value="clientes">
+            <Card className="bg-[#121815] border-white/5 text-white p-6 rounded-3xl">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black italic uppercase">Gestão de Atletas</h3>
+                <Button className="bg-[#22c55e] text-black font-bold">Cadastrar Novo</Button>
+              </div>
+              <div className="space-y-4">
+                {clientes.map(c => (
+                  <div key={c.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-white/10 p-3 rounded-full"><Users size={20} /></div>
+                      <div>
+                        <p className="font-bold">{c.nome} {c.status === "alerta" && "⚠️"}</p>
+                        <p className="text-xs text-[#22c55e] font-bold">Fidelidade: {c.jogos}/10</p>
+                      </div>
+                    </div>
+                    {c.status === "alerta" && (
+                      <div className="max-w-[250px] text-right">
+                        <Badge variant="destructive" className="mb-1 text-[9px]">BLACKLIST / ALERTA</Badge>
+                        <p className="text-[10px] text-gray-400 italic">"{c.obs}"</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
 
-        <Card className="bg-gradient-to-r from-[#22c55e]/10 to-transparent border-white/10 p-6 rounded-[2rem] flex flex-col md:flex-row items-center gap-4">
-          <div className="flex-1">
-            <h3 className="text-sm font-black uppercase italic mb-1 flex items-center gap-2 text-white">
-              <Search size={16} className="text-[#22c55e]" /> Check-in de Jogador
-            </h3>
-            <p className="text-[10px] text-gray-500 uppercase">Consultar histórico e fidelidade</p>
-          </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <input className="bg-black/60 border border-white/10 rounded-xl px-4 py-3 text-xs flex-1 md:w-64 outline-none focus:border-[#22c55e]" placeholder="CPF ou Telefone..." />
-            <Button className="bg-white text-black font-black uppercase text-[10px] px-6 rounded-xl hover:bg-[#22c55e] transition-all">Buscar</Button>
-          </div>
-        </Card>
+      <div className="fixed bottom-4 left-4 flex gap-2">
+         <Button onClick={playWhistle} size="sm" variant="secondary" className="rounded-full opacity-30 hover:opacity-100 bg-white/10 border-white/10">
+           <Bell size={16} />
+         </Button>
       </div>
-
-      {/* LADO DIREITO: FINANCEIRO E CONVENIÊNCIA */}
-      <div className="lg:col-span-4 space-y-6">
-        <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem] text-center border-b-4 border-b-[#22c55e]">
-          <h2 className="font-black uppercase italic mb-6 flex items-center justify-center gap-2 text-xs">
-            <QrCode className="text-[#22c55e]" size={16} /> Terminal de Cobrança
-          </h2>
-          <div className="bg-white p-4 rounded-3xl w-40 h-40 mx-auto mb-6 shadow-[0_0_40px_rgba(34,197,94,0.15)] flex items-center justify-center">
-              <QrCode size={110} className="text-black opacity-10" />
-          </div>
-          <div className="space-y-2">
-            <Button className="w-full bg-[#22c55e] text-black font-black uppercase italic py-7 text-sm rounded-2xl shadow-lg hover:scale-[1.02] transition-transform">
-              Gerar PIX Arena
-            </Button>
-            <Button variant="ghost" className="w-full text-[9px] text-gray-500 hover:text-white uppercase font-black">
-              Confirmar Recebimento Manual
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem]">
-          <h2 className="font-black uppercase italic mb-4 flex items-center gap-2 text-xs">
-            <ShoppingBag size={18} className="text-[#22c55e]" /> PDV - Venda Rápida
-          </h2>
-          <div className="space-y-2">
-             {[
-               { n: "Água Mineral", v: "4,00" },
-               { n: "Aluguel Kit Coletes", v: "15,00" },
-               { n: "Gatorade (Sabores)", v: "8,50" }
-             ].map((prod, i) => (
-               <div key={i} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 hover:border-[#22c55e]/50 cursor-pointer transition-all group">
-                  <span className="text-[10px] font-bold uppercase group-hover:text-[#22c55e]">{prod.n}</span>
-                  <span className="font-black text-[#22c55e] text-xs font-mono">R$ {prod.v}</span>
-               </div>
-             ))}
-          </div>
-        </Card>
-
-        <Card className="bg-yellow-500/5 border-yellow-500/20 p-5 rounded-[2rem]">
-          <h3 className="text-[10px] font-black uppercase text-yellow-500 mb-3 flex items-center gap-2">
-            <AlertCircle size={14} /> Notas do Atendimento
-          </h3>
-          <textarea 
-            className="w-full bg-black/40 border border-white/5 rounded-2xl p-4 text-[11px] text-gray-400 h-24 resize-none focus:outline-none focus:border-yellow-500/50 transition-all" 
-            placeholder="Anotações do turno..." 
-          />
-        </Card>
-      </div>
-
-      {/* MODAL DE DETALHAMENTO INTEGRADO */}
-      {reservaSelecionada && (
-        <DetalhamentoReserva 
-          isOpen={modalAberto}
-          onClose={() => setModalAberto(false)}
-          reserva={reservaSelecionada}
-        />
-      )}
     </div>
   );
 };
+
+const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
 export default AtendenteDashboard;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -14,6 +14,8 @@ export const Index = () => {
   const navigate = useNavigate();
   const [mostrarAgenda, setMostrarAgenda] = useState(false);
   const [duracaoDesejada, setDuracaoDesejada] = useState(60); // Padrão 1h (60 min)
+  const [comentarios, setComentarios] = useState<any[]>([]);
+  const PALAVRAS_BLOQUEADAS = ["Porra", "Merda", "Lixo", "Bosta"]; // Adicione aqui as palavras que deseja bloquear nos depoimentos
 
   // Lógica de Blocos Flexíveis (Simulação)
   const slotsBase = [
@@ -24,6 +26,29 @@ export const Index = () => {
     { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:30", s: "livre" },
   ];
 
+  const filtrarTexto = (texto: string) => {
+    let textoLimpo = texto;
+    PALAVRAS_BLOQUEADAS.forEach(palavra => {
+      const regex = new RegExp(palavra, "gi");
+      textoLimpo = textoLimpo.replace(regex, "****");
+    });
+    return textoLimpo;
+  };
+
+  useEffect(() => {
+    const carregarDepoimentos = () => {
+      const salvos = JSON.parse(localStorage.getItem("arena_reviews") || "[]");
+      // Filtramos cada comentário antes de exibir
+      const filtrados = salvos.map((c: any) => ({
+        ...c,
+        texto: filtrarTexto(c.texto),
+        nome: filtrarTexto(c.nome)
+      }));
+      setComentarios(filtrados.slice(0, 3)); // Exibe os 3 mais recentes
+    };
+
+    carregarDepoimentos();
+  }, []);
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans selection:bg-[#22c55e]/30">
       
@@ -270,22 +295,37 @@ export const Index = () => {
 
       {/* 4. DEPOIMENTOS */}
       <section className="py-24 container mx-auto px-4 text-center">
-        <h2 className="text-3xl md:text-5xl font-black mb-16 italic uppercase text-white leading-none">
-          O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
-        </h2>
-        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {["Carlos Mendes", "João Silva", "Pedro Santos"].map((n, i) => (
-            <div key={i} className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] text-left">
-              <div className="flex text-yellow-500 mb-4 gap-1"><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /></div>
-              <p className="text-gray-300 text-sm italic mb-6">"Excelente estrutura e agendamento prático!"</p>
-              <p className="font-bold text-gray-500 text-xs uppercase tracking-widest">— {n}</p>
+    <h2 className="text-3xl md:text-5xl font-black mb-16 italic uppercase text-white leading-none">
+      O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
+    </h2>
+    
+    <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+      {comentarios.length > 0 ? (
+        comentarios.map((c, i) => (
+          <div key={i} className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] text-left animate-in fade-in zoom-in duration-500">
+            <div className="flex text-yellow-500 mb-4 gap-1">
+              {Array.from({ length: c.estrelas }).map((_, st) => (
+                <Star key={st} size={14} fill="currentColor" />
+              ))}
             </div>
-          ))}
-        </div>
-        <Button onClick={() => navigate("/depoimentos")} variant="ghost" className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2">
-          <MessageSquare size={16} /> Escrever Depoimento
-        </Button>
-      </section>
+            <p className="text-gray-300 text-sm italic mb-6">"{c.texto}"</p>
+            <p className="font-bold text-[#22c55e] text-xs uppercase tracking-widest">— {c.nome}</p>
+          </div>
+        ))
+      ) : (
+        // Caso não existam comentários reais ainda, mostra um padrão
+        <div className="col-span-3 text-gray-600 italic">Ainda não há avaliações. Seja o primeiro!</div>
+      )}
+    </div>
+
+    <Button 
+      onClick={() => navigate("/login")} 
+      variant="ghost" 
+      className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2"
+    >
+      <MessageSquare size={16} /> Escrever Depoimento
+    </Button>
+  </section>
 
       {/* 5. PRONTO PARA JOGAR? */}
       <section className="py-24 container mx-auto px-4 text-center">
