@@ -1,19 +1,47 @@
 # 🏟️ Arena Cedro - Sistema de Agendamento
 
-Este é o site oficial da **Arena Cedro**, o melhor campo de futebol society da região de São José de Ribamar-MA. O projeto foi desenvolvido para oferecer uma experiência de agendamento rápida, moderna e totalmente responsiva.
+Este é o portal oficial da **Arena Cedro**, o complexo esportivo de futebol society referência em São José de Ribamar - MA. Desenvolvido para oferecer uma experiência de reserva rápida, moderna e profissional.
 
-## 🚀 Tecnologias Utilizadas
+## 📍 Sobre a Arena
 
-O projeto utiliza o que há de mais moderno no desenvolvimento web:
+A Arena Cedro combina infraestrutura de elite com a paixão pelo futebol, oferecendo um ambiente completo para o seu racha:
 
-* **React + Vite**: Para uma interface rápida e reativa.
-* **Tailwind CSS**: Estilização moderna com foco em performance.
-* **Lucide React**: Ícones elegantes e leves.
-* **Shadcn/UI**: Componentes de interface de alta qualidade.
-* **React Router Dom**: Navegação suave entre páginas.
+-   **Gramado Sintético High-Tech**: Utilizamos fibra monofilamento de polietileno com preenchimento em borracha granulada SBR. Isso garante absorção de impacto superior, preservando as articulações dos atletas e mantendo o quique da bola perfeito em qualquer condição climática. Campo 20x40m, podendo ter 14 jogadores(c/ goleiro).
+-   **Iluminação LED Profissional**: Sistema de projetores LED de alta eficiência com temperatura de cor fria (5000K-6000K). Garante visibilidade total em todos os cantos do campo, eliminando áreas de sombra e permitindo gravações de vídeos com qualidade profissional à noite.
+-   **Localização**: Av. Trindade, 3126, SJ de Ribamar-MA. Um ponto de fácil acesso com ambiente seguro para toda a família.
 
-## 🛠️ Como rodar o projeto localmente
+## 🚀 Funcionalidades do Sistema
 
-1. **Clone o repositório:**
-   ```bash
-   git clone [https://github.com/ferbeckman27/Arena-Cedro.git](https://github.com/ferbeckman27/Arena-Cedro.git)
+-   **Agenda Flexível**: Escolha entre slots de 30, 60 ou 90 minutos com atualização dinâmica de horários.
+-   **Galeria de Mídia Inteligente**: Grid que suporta fotos panorâmicas e vídeos curtos (estilo Reels) que dão vida à experiência do campo.
+-   **Filtro de Depoimentos**: Sistema de segurança que limpa automaticamente palavras impróprias das avaliações dos clientes.
+-   **Responsividade Total**: Interface otimizada para smartphones, facilitando o agendamento direto do vestiário ou do trabalho.
+
+## 📜 Documentos e Regras
+
+Para garantir a melhor convivência e durabilidade do nosso gramado, todos os usuários devem seguir nossas diretrizes:
+
+-   [📄 **Regras de Uso da Arena (PDF)**](./regras-arena.pdf) - *Consulte sobre calçados permitidos, cancelamentos e normas de conduta.*
+
+## 🛠️ Tecnologias Utilizadas
+
+-   **React + TypeScript** (Front-end robusto)
+-   **Tailwind CSS** (Design moderno e Dark Mode)
+-   **Lucide React** (Iconografia técnica)
+-   **Shadcn/UI** (Componentes de alta fidelidade)
+
+## 🔧 Estrutura de Pastas de Mídia
+
+Certifique-se de que os arquivos abaixo estão em `/public/media/`:
+
+-   `campo-1.jpg`, `campo-2.jpg`, `campo-4.jpg` (Fotos verticais)
+-   `campohorizontal-3.jpg` (Vista panorâmica)
+-   `video-1.mp4` até `video-6.mp4` (Destaques em vídeo)
+-   `regras-arena.pdf` (Manual de normas da arena)
+
+---
+### 📞 Contato e Reservas
+- **WhatsApp**: (98) 99991-0535
+- **Instagram**: [@arenacedrofut7](https://www.instagram.com/arenacedrofut7/)
+
+**"Onde o racha vira espetáculo."** ⚽🏆
