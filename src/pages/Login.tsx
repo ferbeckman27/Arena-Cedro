@@ -3,12 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Eye, EyeOff, Lock, Mail, User, Phone, CheckCircle2, Circle } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import logoArena from "./media/logo-arena.png";
 import { toast } from "@/components/ui/use-toast";
 
 const Login = () => {
@@ -18,30 +15,24 @@ const Login = () => {
   const [activeTab, setActiveTab] = useState("login");
   const [regPassword, setRegPassword] = useState("");
 
-// 1. FUNÇÃO PARA O LOGIN (CLIENTE)
+  // 1. FUNÇÃO PARA O LOGIN
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Agora mandamos para o /dashboard em vez de /
     navigate("/clientdashboard"); 
-
     toast({
       title: "Bem-vindo de volta!",
       description: "Você acessou sua conta com sucesso.",
     });
   };
 
-  // 2. FUNÇÃO PARA O CADASTRO (CLIENTE)
+  // 2. FUNÇÃO PARA O CADASTRO
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (passwordValidations.isValid) {
-      // Após o cadastro, também mandamos para o dashboard com a nova conta criada
       navigate("/clientdashboard"); 
-
       toast({
         title: "Cadastro realizado!",
-        description: "Agora você já pode agendar seus horários, ver suas reservas e produtos.",
+        description: "Agora você já pode agendar seus horários.",
       });
     }
   };
@@ -60,25 +51,28 @@ const Login = () => {
   }, [regPassword]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
-      {/* ... Fundo e Logo permanecem iguais ... */}
+    // DIV PRINCIPAL (ROOT)
+    <div className="min-h-screen w-full bg-[#060a08] relative overflow-hidden flex items-center justify-center p-4">
+      
+      {/* BACKGROUND COM IMAGEM E GRADIENTE */}
+      <div className="absolute inset-0 z-0">
+        <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Background Arena" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-transparent to-[#060a08]" />
+      </div>
 
+      {/* CONTAINER DO CONTEÚDO */}
       <div className="relative z-10 w-full max-w-lg">
-        {/* Logo */}
-      <div className="flex justify-center mb-10 scale-110"> {/* Adicionei scale para um ajuste fino se necessário */}
-        <img 
-          src="/media/logo-arena.png" 
-          alt="Arena Cedro" 
-          className="w-48 h-48 md:w-64 md:h-64 object-contain transition-transform hover:scale-105" 
-         />
-       </div>
-
-       <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden border-b border-white/5 py-20">
-        <div className="absolute inset-0 z-0">
-          <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Background Arena" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-transparent to-[#060a08]" />
+        
+        {/* LOGO */}
+        <div className="flex justify-center mb-10">
+          <img 
+            src="/media/logo-arena.png" 
+            alt="Arena Cedro" 
+            className="w-48 h-48 md:w-56 md:h-56 object-contain transition-transform hover:scale-105" 
+          />
         </div>
 
+        {/* CARD DE LOGIN/REGISTRO */}
         <div className="bg-black/80 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
@@ -88,7 +82,7 @@ const Login = () => {
 
             {/* ABA DE LOGIN */}
             <TabsContent value="login">
-              <form onSubmit={handleLoginSubmit} className="space-y-6"> {/* ADICIONADO FORM E ONSUBMIT */}
+              <form onSubmit={handleLoginSubmit} className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail</Label>
@@ -123,7 +117,7 @@ const Login = () => {
 
             {/* ABA DE CADASTRO */}
             <TabsContent value="register">
-              <form onSubmit={handleRegisterSubmit} className="space-y-5"> {/* ADICIONADO FORM E ONSUBMIT */}
+              <form onSubmit={handleRegisterSubmit} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <Input required placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
                   <Input required placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
@@ -146,9 +140,15 @@ const Login = () => {
                     </button>
                   </div>
 
-                  {/* Checklist visual permanece igual */}
                   <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
-                     {/* ... seu checklist ... */}
+                    <div className="flex items-center gap-2 text-xs">
+                      {passwordValidations.hasMinLength ? <CheckCircle2 className="w-4 h-4 text-[#22c55e]" /> : <Circle className="w-4 h-4 text-gray-600" />}
+                      <span className={passwordValidations.hasMinLength ? "text-white" : "text-gray-500"}>Mínimo 8 caracteres</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      {passwordValidations.hasSpecialChar ? <CheckCircle2 className="w-4 h-4 text-[#22c55e]" /> : <Circle className="w-4 h-4 text-gray-600" />}
+                      <span className={passwordValidations.hasSpecialChar ? "text-white" : "text-gray-500"}>Um caractere especial</span>
+                    </div>
                   </div>
                 </div>
 
@@ -162,11 +162,19 @@ const Login = () => {
               </form>
             </TabsContent>
           </Tabs>
-          {/* ... Footer de Termos ... */}
-        </div>
-      </div>
-    </div>
+
+          {/* FOOTER DE TERMOS */}
+          <div className="mt-8 text-center text-xs text-muted-foreground">
+            <p>© 2026 Arena Cedro. Todos os direitos reservados.</p>
+            <a href="/regras-arena.pdf" target="_blank" className="underline hover:text-primary">
+              Regras de Uso
+            </a>
+          </div>
+        </div> 
+      </div> 
+    </div> 
   );
 };
+
 
 export default Login;
