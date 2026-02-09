@@ -20,7 +20,7 @@ const Login = () => {
     e.preventDefault();
     navigate("/clientdashboard"); 
     toast({
-      title: "Bem-vindo de volta!",
+      title: "Bem-vindo de volta, jogador!",
       description: "Você acessou sua conta com sucesso.",
     });
   };
@@ -66,9 +66,9 @@ const Login = () => {
         {/* LOGO */}
         <div className="flex justify-center mb-10">
           <img 
-            src="/media/logo-arena.png" 
+            src="/media/logo-arena2.png" 
             alt="Arena Cedro" 
-            className="w-48 h-48 md:w-56 md:h-56 object-contain transition-transform hover:scale-105" 
+            className="w-[320px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" 
           />
         </div>
 

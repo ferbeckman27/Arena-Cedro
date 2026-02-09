@@ -10,7 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { 
-  Calendar as CalendarIcon, 
+  Calendar as CalendarIcon,  
+  Clock, 
+  ChevronLeft, 
+  ChevronRight,
   MessageCircle, 
   ShoppingCart, 
   LogOut, 
@@ -21,6 +24,7 @@ import {
   Send
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 // --- TIPOS ---
 interface Product {
@@ -49,6 +53,8 @@ const ClienteDashboard = () => {
   const [selectedDuration, setSelectedDuration] = useState(60);
   const [emManutencao, setEmManutencao] = useState(false);
   const [agendaStatus, setAgendaStatus] = useState<Record<number, string>>({});
+  const [mesAtual, setMesAtual] = useState(new Date());
+  const [diaSelecionado, setDiaSelecionado] = useState(new Date());
 
   // Estados do Pix e Comentários
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
@@ -75,8 +81,8 @@ const ClienteDashboard = () => {
   // --- LOGICA DE PRODUTOS E PREÇO ---
   const produtos: Product[] = [
     { id: 1, nome: "Bola Penalty S11", preco: 180, tipo: 'venda', estoque: 5 },
-    { id: 2, nome: "Aluguel de Colete (Un)", preco: 5, tipo: 'aluguel', estoque: 30 },
-    { id: 3, nome: "Gatorade 500ml", preco: 8, tipo: 'venda', estoque: 50 },
+    { id: 2, nome: "Aluguel de Colete (Un)", preco: 8, tipo: 'aluguel', estoque: 30 },
+    { id: 3, nome: "Gatorade 500ml", preco: 10, tipo: 'venda', estoque: 50 },
   ];
 
   const calculateBookingPrice = (hour: number) => {
@@ -137,7 +143,7 @@ const ClienteDashboard = () => {
       <header className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <img src="/media/logo-arena.png" alt="Logo" className="w-12 h-12" />
+            <img src="/media/logo-arena2.png" alt="Logo" className="w-12 h-12" />
             <h1 className="text-xl font-black italic uppercase tracking-tighter text-[#22c55e]">Arena Cedro</h1>
           </div>
           <Button variant="ghost" onClick={() => navigate("/login")} className="text-red-500 hover:bg-red-500/10">
@@ -157,21 +163,154 @@ const ClienteDashboard = () => {
 
           {/* AGENDA */}
           <TabsContent value="agendar" className="space-y-6">
-            <div className="grid lg:grid-cols-3 gap-8">
-               <Card className="bg-black/40 border-white/5 text-white p-6 rounded-[2rem]">
-                <CardHeader className="p-0 mb-4 font-black italic uppercase flex flex-row items-center gap-2">
-                  <CalendarIcon className="text-[#22c55e]" /> Dia do Jogo
-                </CardHeader>
-                <input type="date" className="w-full bg-white/5 border border-white/10 p-3 rounded-xl outline-none focus:border-[#22c55e]" defaultValue="2024-05-20" />
-              </Card>
+            <div className="grid lg:grid-cols-12 gap-8">
+              
+              {/* COLUNA 1: CALENDÁRIO MENSAL (ESTILO FOLHINHA) */}
+              <div className="lg:col-span-7">
+                <Card className="bg-white border-none overflow-hidden rounded-[2.5rem] shadow-2xl">
+                  {/* Cabeçalho do Mês */}
+                  <div className="bg-[#22c55e] p-6 flex items-center justify-between text-black">
+                    <button 
+                      onClick={() => {
+                        const novoMes = new Date(mesAtual.setMonth(mesAtual.getMonth() - 1));
+                        setMesAtual(new Date(novoMes));
+                      }}
+                      className="hover:scale-110 transition-transform"
+                    >
+                      <ChevronLeft size={24} strokeWidth={3} />
+                    </button>
+                    <h2 className="text-xl font-black uppercase italic tracking-tighter">
+                      {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}
+                    </h2>
+                    <button 
+                      onClick={() => {
+                        const novoMes = new Date(mesAtual.setMonth(mesAtual.getMonth() + 1));
+                        setMesAtual(new Date(novoMes));
+                      }}
+                      className="hover:scale-110 transition-transform"
+                    >
+                      <ChevronRight size={24} strokeWidth={3} />
+                    </button>
+                  </div>
 
-              <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {Array.from({ length: 12 }, (_, i) => i + 8).map(h => (
-                  <button key={h} className="p-4 rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/5 flex flex-col items-center">
-                    <span className="font-black text-lg">{h}:00</span>
-                    <span className="text-[10px] text-[#22c55e] font-bold italic">R$ {calculateBookingPrice(h).toFixed(2)}</span>
-                  </button>
-                ))}
+                  {/* Dias da Semana */}
+                  <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50">
+                    {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map((dia) => (
+                      <div key={dia} className={cn(
+                        "py-3 text-center text-[10px] font-black",
+                        dia === "DOM" ? "text-red-500" : "text-gray-400"
+                      )}>
+                        {dia}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grade de Dias */}
+                  <div className="grid grid-cols-7">
+                    {useMemo(() => {
+                      const start = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1);
+                      const end = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0);
+                      const startDay = start.getDay();
+                      const days = [];
+
+                      // Espaços vazios do mês anterior
+                      for (let i = 0; i < startDay; i++) days.push(null);
+                      // Dias do mês atual
+                      for (let i = 1; i <= end.getDate(); i++) days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
+
+                      return days.map((date, i) => {
+                        if (!date) return <div key={`empty-${i}`} className="h-14 md:h-20 bg-gray-50/50 border-r border-b border-gray-50" />;
+                        
+                        const isToday = new Date().toDateString() === date.toDateString();
+                        const isSelected = diaSelecionado?.toDateString() === date.toDateString();
+                        const isPast = date < new Date(new Date().setHours(0,0,0,0));
+
+                        return (
+                          <button
+                            key={i}
+                            disabled={isPast}
+                            onClick={() => setDiaSelecionado(date)}
+                            className={cn(
+                              "h-14 md:h-20 border-r border-b border-gray-50 flex flex-col items-center justify-center relative transition-all",
+                              isPast ? "opacity-10 cursor-not-allowed bg-gray-100" : "hover:bg-[#22c55e]/10",
+                              isSelected ? "bg-[#22c55e] text-black" : "bg-white text-black"
+                            )}
+                          >
+                            <span className={cn(
+                              "text-lg md:text-2xl font-black",
+                              isSelected ? "text-black" : (date.getDay() === 0 ? "text-red-500" : "text-black")
+                            )}>
+                              {date.getDate()}
+                            </span>
+                            {isToday && !isSelected && <div className="absolute bottom-1 w-1 h-1 bg-[#22c55e] rounded-full" />}
+                          </button>
+                        );
+                      });
+                    }, [mesAtual, diaSelecionado])}
+                  </div>
+                </Card>
+              </div>
+
+              {/* COLUNA 2: SELEÇÃO DE HORÁRIOS */}
+              <div className="lg:col-span-5 space-y-4">
+                <Card className="bg-black/40 border-white/5 text-white p-6 rounded-[2.5rem]">
+                  <div className="flex flex-col gap-6">
+                    {/* Seletor de Duração */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="text-[#22c55e]" size={20} />
+                        <h3 className="font-black uppercase italic text-sm">Tempo</h3>
+                      </div>
+                      <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                        {[30, 60, 90].map(m => (
+                          <button
+                            key={m}
+                            onClick={() => setSelectedDuration(m)}
+                            className={cn(
+                              "px-4 py-2 rounded-lg text-[10px] font-black transition-all",
+                              selectedDuration === m ? "bg-[#22c55e] text-black" : "text-gray-500 hover:text-white"
+                            )}
+                          >
+                            {m}M
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Separator className="bg-white/5" />
+
+                    {/* Grid de Horários */}
+                    <ScrollArea className="h-[320px] pr-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        {Array.from({ length: 15 }, (_, i) => i + 8).map(h => {
+                          const isNight = h >= 18;
+                          const price = (isNight ? 120 : 80) * (selectedDuration / 60);
+                          
+                          return (
+                            <button 
+                              key={h} 
+                              onClick={() => toast({ title: "Horário Selecionado", description: `Agendado para às ${h}:00` })}
+                              className="group p-4 rounded-2xl border border-white/5 bg-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/10 transition-all flex flex-col items-center"
+                            >
+                              <span className="font-black text-xl italic tracking-tighter">{h}:00</span>
+                              <span className="text-[10px] font-bold text-[#22c55e] mt-1">R$ {price.toFixed(2)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+
+                    <Button className="w-full bg-[#22c55e] hover:bg-[#1db053] text-black font-black uppercase italic h-14 rounded-2xl text-lg shadow-lg shadow-[#22c55e]/10">
+                      Reservar Agora
+                    </Button>
+                  </div>
+                </Card>
+                
+                <div className="text-center">
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest italic">
+                    📅 Selecionado: {diaSelecionado.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                  </p>
+                </div>
               </div>
             </div>
           </TabsContent>

@@ -32,8 +32,9 @@ const App = () => (
           <Route path="/depoimentos" element={<TestimonialForm />} />
           
           {/* Rotas Administrativas */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AtendenteDashboard />} />
+          <Route path="/adminlogin" element={<AdminLogin />} />
+          <Route path="/atendente/dashboard" element={<AtendenteDashboard />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
           
           {/* Rota de fallback */}
           <Route path="*" element={<Index />} />
