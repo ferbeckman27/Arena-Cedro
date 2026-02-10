@@ -33,8 +33,8 @@ const App = () => (
           
           {/* Rotas Administrativas */}
           <Route path="/adminlogin" element={<AdminLogin />} />
-          <Route path="/atendente/dashboard" element={<AtendenteDashboard />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/atendentedashboard" element={<AtendenteDashboard />} />
+          <Route path="/admindashboard" element={<AdminDashboard />} />
           
           {/* Rota de fallback */}
           <Route path="*" element={<Index />} />

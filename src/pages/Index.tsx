@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Calendar, Clock, Users, ChevronRight, Star,
   Instagram, Facebook, Phone, MapPin, Camera, 
-  PlayCircle, MessageSquare, ArrowRight 
+  PlayCircle, MessageSquare, ArrowDown 
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { Badge } from "@/components/ui/badge";
@@ -147,35 +147,62 @@ export const Index = () => {
       </section>
 
       {/* 2. POR QUE ESCOLHER */}
-      <section className="py-24 container mx-auto px-4 text-center">
-        <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">POR QUE ESCOLHER A <span className="text-[#22c55e]">ARENA CEDRO?</span></h2>
-        <p className="text-gray-500 mb-16 font-medium">Infraestrutura completa para suas partidas.</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center">
-            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6"><Calendar className="text-black" /></div>
-            <h3 className="text-xl font-bold mb-3 uppercase italic">Agendamento Fácil</h3>
-            <a href="tel:98999910535" className="text-[#22c55e] font-black text-lg block hover:scale-105 transition-transform tracking-tighter">(98) 99991-0535</a>
-          </div>
+<section className="py-24 container mx-auto px-4 text-center">
+  <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
+    POR QUE ESCOLHER A <span className="text-[#22c55e]">ARENA CEDRO?</span>
+  </h2>
+  <p className="text-gray-500 mb-16 font-medium">Infraestrutura completa para suas partidas.</p>
+  
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+    {/* AGENDAMENTO */}
+    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
+      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+        <Calendar className="text-black" />
+      </div>
+      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Agendamento Fácil</h3>
+      <p className="text-gray-500 text-sm mb-6">Reserve seu horário online em segundos, sem complicações ou espera.</p>
+      
+      <Button 
+        onClick={() => navigate("/login")} 
+        className="w-full bg-[#22c55e] hover:bg-[#1db053] text-black font-black uppercase italic py-6 rounded-xl mb-4"
+      >
+        Fazer Reserva
+      </Button>
+      
+      <a href="tel:98999910535" className="text-[#22c55e]/50 font-bold text-xs hover:text-[#22c55e] transition-colors tracking-widest">
+        OU LIGUE: (98) 99991-0535
+      </a>
+    </div>
 
-          <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center">
-            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6"><Clock className="text-black" /></div>
-            <h3 className="text-xl font-bold mb-3 uppercase italic">Horários Flexíveis</h3>
-            <Button onClick={() => setMostrarAgenda(!mostrarAgenda)} variant="outline" className="w-full border-[#22c55e]/30 text-[#22c55e] uppercase text-[10px] font-black italic py-6">
-              {mostrarAgenda ? "Fechar Agenda" : "Ver Horários Hoje"}
-            </Button>
-          </div>
+    {/* HORÁRIOS */}
+    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
+      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+        <Clock className="text-black" />
+      </div>
+      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
+      <p className="text-gray-500 text-sm mb-6">Funcionamos todos os dias, das 08h às 23h, para o seu racha nunca parar.</p>
+      
+      <Button onClick={() => setMostrarAgenda(!mostrarAgenda)} variant="outline" className="w-full border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e] hover:text-black uppercase text-[10px] font-black italic py-6 transition-all">
+        {mostrarAgenda ? "Fechar Agenda" : "Ver Horários Hoje"}
+      </Button>
+    </div>
 
-          <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center">
-            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6"><Users className="text-black" /></div>
-            <h3 className="text-xl font-bold mb-3 uppercase italic">Campo Society</h3>
-            <button onClick={() => document.getElementById('estrutura')?.scrollIntoView({ behavior: 'smooth' })} className="p-4 rounded-full bg-white/5 border border-white/10 hover:bg-[#22c55e] hover:text-black transition-all">
-              <ArrowRight />
-            </button>
-          </div>
-        </div>
-      </section>
+    {/* ESTRUTURA */}
+    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
+      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+        <Users className="text-black" />
+      </div>
+      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Campo Society</h3>
+      <p className="text-gray-500 text-sm mb-6">Grama sintética premium e iluminação profissional para o seu melhor jogo.</p>
+      
+      <button onClick={() => document.getElementById('estrutura')?.scrollIntoView({ behavior: 'smooth' })} className="p-4 rounded-full bg-white/5 border border-white/10 hover:bg-[#22c55e] hover:text-black transition-all">
+        <ArrowDown />
+      </button>
+    </div>
+  </div>
+</section>
 
-      {/* 3. ESTRUTURA (VÍDEOS E FOTOS ATUALIZADOS) */}
+      {/* 4. ESTRUTURA (VÍDEOS E FOTOS ATUALIZADOS) */}
       <section id="estrutura" className="py-24 bg-[#0a0f0d] border-y border-white/5">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -206,26 +233,40 @@ export const Index = () => {
         </div>
       </section>
 
-      {/* 4. DEPOIMENTOS */}
-      <section className="py-24 container mx-auto px-4 text-center">
-        <h2 className="text-3xl md:text-5xl font-black mb-16 italic uppercase text-white">O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM</h2>
-        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {comentarios.length > 0 ? comentarios.map((c, i) => (
-            <div key={i} className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] text-left animate-in fade-in zoom-in">
-              <div className="flex text-yellow-500 mb-4 gap-1">
-                {Array.from({ length: c.estrelas }).map((_, st) => <Star key={st} size={14} fill="currentColor" />)}
-              </div>
-              <p className="text-gray-300 text-sm italic mb-6">"{c.texto}"</p>
-              <p className="font-bold text-[#22c55e] text-xs uppercase tracking-widest">— {c.nome}</p>
-            </div>
-          )) : <div className="col-span-3 text-gray-600 italic">Ainda não há avaliações.</div>}
+      {/* 5. DEPOIMENTOS */}
+      <section className="py-24 bg-black/20">
+  <div className="container mx-auto px-4">
+    <div className="text-center mb-16">
+      <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
+        O QUE OS NOSSOS <span className="text-[#22c55e]">CLEINTES</span> DIZEM
+      </h2>
+      <p className="text-gray-500 font-medium">Quem joga na Arena Cedro, aprova.</p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+      {[
+        { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente. O sistema de reserva pelo site é o melhor da cidade.", estrelas: 5 },
+        { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado. Os coletes estão sempre limpos e a cerveja gelada!", estrelas: 5 },
+        { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total para marcar o horário do pessoal do trabalho.", estrelas: 5 }
+      ].map((review, i) => (
+        <div key={i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
+          <div className="flex gap-1 mb-4 text-[#22c55e]">
+            {Array.from({ length: review.estrelas }).map((_, s) => (
+              <Star key={s} size={14} fill="currentColor" />
+            ))}
+          </div>
+          <p className="text-gray-300 italic mb-6">"{review.texto}"</p>
+          <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.nome}</p>
         </div>
-        <Button onClick={() => navigate("/login")} variant="ghost" className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2">
+      ))}
+    </div>
+    <Button onClick={() => navigate("/login")} variant="ghost" className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2">
           <MessageSquare size={16} /> Escrever Depoimento
         </Button>
-      </section>
+  </div>
+</section>
 
-      {/* 5. PRONTO PARA JOGAR? */}
+      {/* 6. PRONTO PARA JOGAR? */}
       <section className="py-24 container mx-auto px-4 text-center">
         <div className="bg-gradient-to-b from-[#111614] to-transparent border border-white/10 rounded-[3rem] p-12 md:p-20">
           <h2 className="text-4xl md:text-6xl font-black italic uppercase mb-6 text-white">PRONTO PARA <span className="text-[#22c55e]">JOGAR?</span></h2>
@@ -235,7 +276,7 @@ export const Index = () => {
         </div>
       </section>
 
-      {/* 6. FOOTER FINAL */}
+      {/* 7. FOOTER FINAL */}
       <footer className="py-24 bg-black border-t border-white/5">
         <div className="container mx-auto px-4 flex flex-col items-center">
           <div className="flex items-center gap-3 mb-12">
@@ -264,7 +305,7 @@ export const Index = () => {
             </div>
             <div className="space-y-4">
               <h4 className="text-[10px] uppercase font-black text-gray-500">Acesso Restrito</h4>
-              <Button variant="link" onClick={() => navigate("/admin/login")} className="text-gray-600 hover:text-white text-[10px] font-black uppercase italic p-0">Administração</Button>
+              <Button variant="link" onClick={() => navigate("/adminlogin")} className="text-gray-600 hover:text-white text-[10px] font-black uppercase italic p-0">Area Administrativa</Button>
             </div>
           </div>
           <p className="mt-20 text-[9px] text-gray-800 font-bold uppercase italic tracking-widest">© 2026 Arena Cedro.</p>

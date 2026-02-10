@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import logoArena from "./media/logo-arena.png";
+import logoArena from "./media/logo-arena2.png";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -26,16 +26,16 @@ const AdminLogin = () => {
     if (email.toLowerCase().endsWith("@admincedro.com")) {
       toast({
         title: "Acesso Administrador",
-        description: "Redirecionando para o painel de controle geral...",
+        description: "Redirecionando para o painel administrativo...",
       });
-      navigate("/admin/dashboard");
+      navigate("/admindashboard");
     } 
     else if (email.toLowerCase().endsWith("@atendcedro.com")) {
       toast({
         title: "Acesso Atendente",
-        description: "Redirecionando para o painel de agendamentos...",
+        description: "Redirecionando para o painel de atendente...",
       });
-      navigate("/admin/dashboard"); // Se tiver um painel específico, mude a rota aqui
+      navigate("/atendentedashboard"); // Se tiver um painel específico, mude a rota aqui
     } 
     else {
       toast({
@@ -66,10 +66,9 @@ const AdminLogin = () => {
       {/* Logo */}
 <div className="flex justify-center mb-10 scale-110"> {/* Adicionei scale para um ajuste fino se necessário */}
   <img 
-    src="/media/logo-arena.png" 
+    src="/media/logo-arena2.png" 
     alt="Arena Cedro" 
-    className="w-48 h-48 md:w-64 md:h-64 object-contain transition-transform hover:scale-105" 
-  />
+    className="w-[320px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
 </div>
 
       <div className="relative z-10 w-full max-w-lg">
