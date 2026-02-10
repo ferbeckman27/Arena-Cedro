@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { Badge } from "@/components/ui/badge";
-
+import  TestimonialForm  from "@/components/home/TestimonialForm";
 // Função auxiliar para evitar erro de compilação na variável slotsHoje
 const gerarSlotsAgenda = (duracao: number) => {
   // Esta função pode ser personalizada, aqui ela retorna um placeholder 
@@ -260,7 +260,7 @@ export const Index = () => {
         </div>
       ))}
     </div>
-    <Button onClick={() => navigate("/login")} variant="ghost" className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2">
+    <Button onClick={() => navigate("/testimonialform")} variant="ghost" className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2">
           <MessageSquare size={16} /> Escrever Depoimento
         </Button>
   </div>
@@ -270,7 +270,7 @@ export const Index = () => {
       <section className="py-24 container mx-auto px-4 text-center">
         <div className="bg-gradient-to-b from-[#111614] to-transparent border border-white/10 rounded-[3rem] p-12 md:p-20">
           <h2 className="text-4xl md:text-6xl font-black italic uppercase mb-6 text-white">PRONTO PARA <span className="text-[#22c55e]">JOGAR?</span></h2>
-          <Button onClick={() => navigate("/login")} className="bg-[#22c55e] hover:bg-[#1db053] text-black px-12 py-8 rounded-2xl font-black uppercase italic text-xl shadow-2xl transition-transform hover:scale-105">
+          <Button onClick={() => navigate("/testimonialform")} className="bg-[#22c55e] hover:bg-[#1db053] text-black px-12 py-8 rounded-2xl font-black uppercase italic text-xl shadow-2xl transition-transform hover:scale-105">
             Fazer Reserva <ChevronRight className="ml-1" />
           </Button>
         </div>
