@@ -237,140 +237,191 @@ const resumoFinanceiro = useMemo(() => {
             <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">👑 VIPs/Fixos</TabsTrigger>
           </TabsList>
 
-          {/* ABA AGENDA: FORMATO FOLHINHA + AGENDAMENTO */}
-          <TabsContent value="agenda" className="grid lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-7 space-y-4">
-              <Card className="bg-[#0c120f] border-white/5 overflow-hidden rounded-[2.5rem]">
-                <div className="bg-[#22c55e] p-6 flex justify-between items-center text-black font-black uppercase">
-                  <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))}><ChevronLeft /></button>
-                  <h2 className="italic">{new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}</h2>
-                  <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() + 1)))}><ChevronRight /></button>
-                </div>
-                <div className="grid grid-cols-7 p-4 gap-1">
-                  {["D","S","T","Q","Q","S","S"].map(d => <div key={d} className="text-center text-[10px] text-gray-500 font-bold mb-2">{d}</div>)}
-                  {diasMes.map((date, i) => (
-                    <button
-                      key={i}
-                      disabled={!date}
-                      onClick={() => date && setDiaSelecionado(date)}
-                      className={cn(
-                        "h-12 rounded-xl flex items-center justify-center font-black transition-all",
-                        !date ? "opacity-0" : "hover:bg-[#22c55e]/20 border border-white/5",
-                        date?.toDateString() === diaSelecionado.toDateString() ? "bg-[#22c55e] text-black" : "text-white"
-                      )}
-                    >
-                      {date?.getDate()}
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-5 space-y-4">
-              <h3 className="font-black italic uppercase text-[#22c55e]">Horários: {diaSelecionado.toLocaleDateString()}</h3>
-              <ScrollArea className="h-[450px] pr-4">
-                <div className="space-y-3">
-                  {Array.from({ length: 15 }, (_, i) => i + 8).map(h => {
-                    const idAgendamento = `${diaSelecionado.toDateString()}-${h}`;
-                    const reserva = agendaStatus[idAgendamento];
-                    
-                    return (
-  <Dialog key={h} onOpenChange={() => { setItensTemp([]); setDuracao("60"); }}>
-    <DialogTrigger asChild>
-      <button className={cn(
-        "w-full p-4 rounded-2xl border flex justify-between items-center transition-all",
-        agendaStatus[`${diaSelecionado.toDateString()}-${h}`] 
-          ? "bg-red-500/10 border-red-500 text-red-500" 
-          : "bg-white/5 border-white/10 hover:border-[#22c55e]"
-      )}>
-        <span className="font-black italic">{h}</span>
-        {agendaStatus[`${diaSelecionado.toDateString()}-${h}`] ? (
-          <div className="text-right">
-            <p className="text-[10px] font-bold uppercase">
-              {agendaStatus[`${diaSelecionado.toDateString()}-${h}`].cliente}
-            </p>
-            <Badge className="bg-red-500 text-white text-[8px]">OCUPADO</Badge>
-          </div>
-        ) : (
-          <Plus size={18} className="text-[#22c55e]" />
-        )}
+          {/* ABA AGENDA: ESTILO GRID PREMIUM (IGUAL À FOTO) */}
+<TabsContent value="agenda" className="space-y-8">
+  
+  {/* 1. SEÇÃO CALENDÁRIO (OCUPANDO O TOPO) */}
+  <Card className="bg-[#0c120f] border-white/5 overflow-hidden rounded-[2.5rem]">
+    <div className="bg-[#22c55e] p-4 flex justify-between items-center text-black font-black uppercase text-sm">
+      <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))} className="hover:scale-110 transition-transform">
+        <ChevronLeft />
       </button>
-    </DialogTrigger>
-
-    <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-      <DialogHeader>
-        <DialogTitle className="italic uppercase">Novo Agendamento - {h}</DialogTitle>
-      </DialogHeader>
-      
-      <div className="space-y-4 pt-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-500">Nome do Cliente</label>
-            {/* O ID AQUI DEVE SER O MESMO DO GETELEMENTBYID ABAIXO */}
-            <Input placeholder="Ex: João Silva" className="bg-white/5 border-white/10" id={`atleta-${h}`} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-gray-500">Pagamento</label>
-            <Select onValueChange={(val) => setMetodoPgto(val)} defaultValue="pix">
-              <SelectTrigger className="bg-white/5 border-white/10"><SelectValue placeholder="Forma" /></SelectTrigger>
-              <SelectContent className="bg-[#0c120f] border-white/10 text-white">
-                <SelectItem value="pix">PIX (50%)</SelectItem>
-                <SelectItem value="money">Dinheiro (100%)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-500">Duração</label>
-          <Select onValueChange={(val) => setDuracao(val)} defaultValue="60">
-            <SelectTrigger className="bg-white/5 border-white/10"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-[#0c120f] border-white/10 text-white">
-              <SelectItem value="30">30 Minutos</SelectItem>
-              <SelectItem value="60">1 Hora</SelectItem>
-              <SelectItem value="90">1h 30min</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Separator className="bg-white/5" />
-        
-        <h4 className="text-[10px] font-bold uppercase text-[#22c55e]">Oferecer Produto:</h4>
-        <div className="grid grid-cols-2 gap-2">
-          {produtos.map(p => (
-            <Button 
-              key={p.id} 
-              variant="outline" 
-              className="border-white/5 bg-white/5 text-[10px] justify-between"
-              onClick={() => setItensTemp([...itensTemp, p])}
-            >
-              {p.nome} <span className="text-[#22c55e]">R$ {p.preco}</span>
-            </Button>
-          ))}
-        </div>
-
-        <Button 
-  className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl shadow-[0_0_20px_rgba(34,197,94,0.2)]"
-  onClick={() => {
-    // Aqui garantimos que o ID use 'h' para bater com o Input
-    const elemento = document.getElementById(`atleta-${h}`) as HTMLInputElement | null;
-    const nomeAtleta = elemento?.value || "";
+      <h2 className="italic tracking-widest">
+        {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}
+      </h2>
+      <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() + 1)))} className="hover:scale-110 transition-transform">
+        <ChevronRight />
+      </button>
+    </div>
     
-    // Passamos 'h' (que é a string do horário, ex: "08:00") e o nome
-    handleAgendar(String(h), nomeAtleta);
-  }}
->
-  Confirmar Reserva e Gerar PIX
-</Button>
-      </div>
-    </DialogContent>
-  </Dialog>
-                    );
-                  })}
+    <div className="grid grid-cols-7 p-6 gap-2">
+      {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map(d => (
+        <div key={d} className="text-center text-[10px] text-gray-500 font-black mb-2">{d}</div>
+      ))}
+      {diasMes.map((date, i) => (
+        <button
+          key={i}
+          disabled={!date}
+          onClick={() => date && setDiaSelecionado(date)}
+          className={cn(
+            "h-14 rounded-2xl flex items-center justify-center font-black text-sm transition-all border",
+            !date ? "opacity-0" : "hover:bg-[#22c55e]/10 border-white/5",
+            date?.toDateString() === diaSelecionado.toDateString() 
+              ? "bg-[#22c55e] text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] border-[#22c55e]" 
+              : "text-white bg-white/5"
+          )}
+        >
+          {date?.getDate()}
+        </button>
+      ))}
+    </div>
+  </Card>
+
+  {/* 2. SELETOR DE DURAÇÃO (CENTRALIZADO) */}
+  <div className="flex flex-col items-center gap-4 py-4">
+    <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Selecione a Duração do Jogo</p>
+    <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
+      {[30, 60, 90].map((min) => (
+        <button
+          key={min}
+          onClick={() => setDuracao(String(min))}
+          className={cn(
+            "px-8 py-3 rounded-xl text-[11px] font-black uppercase transition-all",
+            duracao === String(min) 
+              ? "bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.3)]" 
+              : "text-gray-500 hover:text-white"
+          )}
+        >
+          {min} MIN
+        </button>
+      ))}
+    </div>
+  </div>
+
+  {/* 3. GRID DE HORÁRIOS (ESTILO CARDS) */}
+  <div className="space-y-6">
+    <div className="flex justify-between items-center border-b border-white/5 pb-4">
+      <h3 className="font-black italic uppercase text-[#22c55e] flex items-center gap-2">
+        <LucideCalendar size={18} /> Disponibilidade: {diaSelecionado.toLocaleDateString()}
+      </h3>
+      <Badge variant="outline" className="text-[10px] border-[#22c55e] text-[#22c55e] px-4 py-1">
+        {duracao} MINUTOS SELECIONADOS
+      </Badge>
+    </div>
+
+    {/* ScrollArea para não esticar a página infinitamente no mobile */}
+    <ScrollArea className="h-[600px] pr-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {listaHorarios.map((h) => {
+          const idAgendamento = `${diaSelecionado.toDateString()}-${h}`;
+          const reserva = agendaStatus[idAgendamento];
+          
+          // Cálculo do horário de término para exibir no card
+          const [hora, min] = h.split(":").map(Number);
+          const dataFim = new Date(0, 0, 0, hora, min + parseInt(duracao));
+          const fimFormatado = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
+
+          return (
+            <Dialog key={h} onOpenChange={() => setItensTemp([])}>
+              <DialogTrigger asChild>
+                <button 
+                  disabled={reserva}
+                  className={cn(
+                    "relative group flex flex-col items-center justify-center p-6 rounded-[2.5rem] border transition-all h-36",
+                    reserva 
+                      ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
+                      : "bg-[#0c120f] border-white/10 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
+                  )}
+                >
+                  <span className={cn(
+                    "text-xl font-black italic tracking-tighter",
+                    reserva ? "text-red-500/50" : "text-white"
+                  )}>
+                    {h}
+                  </span>
+                  <span className="text-[9px] font-bold text-gray-600 mb-3 uppercase">até {fimFormatado}</span>
+                  
+                  {reserva ? (
+                    <div className="flex flex-col items-center">
+                       <span className="text-[8px] font-black uppercase text-red-600 bg-red-500/10 px-3 py-1 rounded-full">Ocupado</span>
+                       <p className="text-[7px] text-gray-500 mt-1 font-bold truncate w-20 text-center">{reserva.cliente}</p>
+                    </div>
+                  ) : (
+                    <span className="text-[8px] font-black uppercase text-[#22c55e] border border-[#22c55e]/30 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">
+                      Livre
+                    </span>
+                  )}
+                </button>
+              </DialogTrigger>
+
+              <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="italic uppercase flex items-center gap-2">
+                    <Plus className="text-[#22c55e]" /> Novo Jogo - {h}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Nome do Atleta Responsável</label>
+                    <Input placeholder="Quem vai pagar?" className="bg-white/5 border-white/10 h-12" id={`atleta-${h}`} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Pagamento</label>
+                      <Select onValueChange={(val) => setMetodoPgto(val)} defaultValue="pix">
+                        <SelectTrigger className="bg-white/5 border-white/10 h-12"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#0c120f] border-white/10 text-white">
+                          <SelectItem value="pix">PIX (Sinal 50%)</SelectItem>
+                          <SelectItem value="money">Dinheiro (100%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Duração</label>
+                      <div className="h-12 flex items-center px-4 bg-white/5 border border-white/10 rounded-md text-sm font-bold text-[#22c55e]">
+                        {duracao} MIN
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator className="bg-white/5" />
+                  
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-gray-500">Adicionar Consumo:</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {produtos.map(p => (
+                        <Button 
+                          key={p.id} 
+                          variant="outline" 
+                          className="border-white/5 bg-white/5 text-[9px] justify-between h-10 hover:border-[#22c55e]"
+                          onClick={() => setItensTemp([...itensTemp, p])}
+                        >
+                          {p.nome} <span className="text-[#22c55e]">R$ {p.preco}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl shadow-[0_10px_20px_rgba(34,197,94,0.2)] hover:scale-[1.02] transition-transform"
+                    onClick={() => {
+                      const input = document.getElementById(`atleta-${h}`) as HTMLInputElement;
+                      handleAgendar(h, input?.value);
+                    }}
+                  >
+                    Confirmar e Gerar Comprovante
+                  </Button>
                 </div>
-              </ScrollArea>
-            </div>
-          </TabsContent>
+              </DialogContent>
+            </Dialog>
+          );
+        })}
+      </div>
+    </ScrollArea>
+  </div>
+</TabsContent>
 
           {/* ABA CLIENTES: BLACKLIST E COMENTÁRIOS */}
           <TabsContent value="clientes">
