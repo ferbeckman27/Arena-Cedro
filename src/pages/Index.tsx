@@ -153,7 +153,8 @@ const censurarTexto = (texto: string) => {
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans selection:bg-[#22c55e]/30">
-      
+      <PromoPopup />
+
       {/* 1. HERO SECTION */}
       <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden border-b border-white/5 py-20">
         <div className="absolute inset-0 z-0">
@@ -163,48 +164,57 @@ const censurarTexto = (texto: string) => {
 
         <div className="relative z-10 container mx-auto px-4 text-center flex flex-col items-center">
           
+          {/* BOTÃO PRINCIPAL COM SETA DINÂMICA */}
           <button 
             onClick={() => setMostrarAgenda(!mostrarAgenda)}
             className="mb-8 px-6 py-2.5 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 flex items-center gap-2 hover:bg-[#22c55e]/20 transition-all active:scale-95 group"
           >
             <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" />
             <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#22c55e]">
-              {mostrarAgenda ? "Fechar Agenda" : "Ver Horários Disponíveis Hoje"}
+              {mostrarAgenda ? "FECHAR AGENDA" : "VER HORÁRIOS DISPONÍVEIS HOJE"}
             </span>
-            <ChevronRight className={`w-4 h-4 text-[#22c55e] transition-transform ${mostrarAgenda ? 'rotate-90' : ''}`} />
+            {/* Troca de ícone: ChevronUp quando aberto */}
+            {mostrarAgenda ? (
+              <ArrowDown className="w-4 h-4 text-[#22c55e] rotate-180 transition-transform duration-300" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-[#22c55e]" />
+            )}
           </button>
 
+          {/* GRADE DE HORÁRIOS QUE ATUALIZA */}
           {mostrarAgenda && (
             <div className="w-full max-w-4xl mb-12 animate-in fade-in zoom-in duration-500">
               <div className="bg-black/60 backdrop-blur-md border border-white/10 p-6 rounded-[2.5rem] shadow-2xl">
                 
+                {/* SELETOR DE MINUTOS - ATUALIZA O duracaoFiltro */}
                 <div className="flex justify-center gap-2 mb-6 bg-white/5 p-1.5 rounded-2xl w-fit mx-auto">
                   {[30, 60, 90].map(m => (
                     <button 
                       key={m} 
-                      onClick={() => setDuracaoDesejada(m)}
-                      className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${duracaoDesejada === m ? 'bg-[#22c55e] text-black' : 'text-gray-500'}`}
+                      onClick={() => setDuracaoFiltro(m)} // Agora altera a variável correta
+                      className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${duracaoFiltro === m ? 'bg-[#22c55e] text-black shadow-lg shadow-[#22c55e]/40' : 'text-gray-500'}`}
                     >
                       {m} MIN
                     </button>
                   ))}
                 </div>
 
+                {/* GRID QUE MUDE CONFORME OS MINUTOS */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {slotsCalculados.map((slot, i) => (
                     <button
                       key={i}
                       disabled={slot.status === 'reservado'} 
-  onClick={() => navigate("/login")}
-  className={`p-4 rounded-2xl border flex flex-col items-center justify-center transition-all 
-    ${slot.status === 'reservado' 
-      ? 'border-red-500/20 bg-red-500/5 opacity-40 cursor-not-allowed' 
-      : 'border-[#22c55e]/30 bg-[#22c55e]/5 hover:bg-[#22c55e] hover:text-black group'}`}
->
+                      onClick={() => navigate("/login")}
+                      className={`p-4 rounded-2xl border flex flex-col items-center justify-center transition-all 
+                        ${slot.status === 'reservado' 
+                          ? 'border-red-500/20 bg-red-500/5 opacity-40 cursor-not-allowed' 
+                          : 'border-[#22c55e]/30 bg-[#22c55e]/5 hover:bg-[#22c55e] hover:text-black group'}`}
+                    >
                       <span className="text-xs font-black italic">
                         {slot.inicio} - {slot.fim}
                       </span>
-                     <span className={`text-[8px] font-bold uppercase mt-1 ${slot.status === 'reservado' ? 'text-red-500' : 'text-[#22c55e] group-hover:text-black'}`}>
+                      <span className={`text-[8px] font-bold uppercase mt-1 ${slot.status === 'reservado' ? 'text-red-500' : 'text-[#22c55e] group-hover:text-black'}`}>
                         {slot.status === 'reservado' ? 'Reservado' : 'Livre'}
                       </span>
                     </button>
@@ -279,28 +289,30 @@ const censurarTexto = (texto: string) => {
       </a>
     </div>
 
-    {/* HORÁRIOS FLEXIVEIS */}
-<div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all w-full max-w-4xl mx-auto">
-  <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
-    <Clock className="text-black" />
-  </div>
-  
-  <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
-  <p className="text-gray-500 text-sm mb-8 text-center">
-    Funcionamos todos os dias, das 08h às 22h, para o seu racha nunca parar. Veja nossos horários disponíveis e escolha o melhor para você e seu time!
-  </p>
+    {/* CARD HORÁRIOS FLEXÍVEIS - AJUSTADO TAMBÉM */}
+            <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all w-full max-w-4xl mx-auto">
+              <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+                <Clock className="text-black" />
+              </div>
+              <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
+              <p className="text-gray-500 text-sm mb-8 text-center">
+                Funcionamos todos os dias, das 08h às 22h, para o seu racha nunca parar.
+              </p>
 
-  {/* BOTÃO ESTILIZADO COM BOLINHA PULSANTE */}
-  <button 
-    onClick={() => setMostrarAgenda(!mostrarAgenda)}
-    className="mb-8 px-6 py-2.5 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 flex items-center gap-2 hover:bg-[#22c55e]/20 transition-all active:scale-95 group"
-  >
-    <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" />
-    <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#22c55e]">
-      {mostrarAgenda ? "Fechar Agenda" : "Ver Horários Disponíveis Hoje"}
-    </span>
-    <ChevronRight className={`w-4 h-4 text-[#22c55e] transition-transform duration-300 ${mostrarAgenda ? 'rotate-90' : ''}`} />
-  </button>
+              {/* MESMO BOTÃO DINÂMICO AQUI */}
+              <button 
+                onClick={() => {
+                   setMostrarAgenda(!mostrarAgenda);
+                   if (!mostrarAgenda) window.scrollTo({top: 0, behavior: 'smooth'});
+                }}
+                className="px-6 py-2.5 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 flex items-center gap-2 hover:bg-[#22c55e]/20 transition-all group"
+              >
+                <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" />
+                <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#22c55e]">
+                  {mostrarAgenda ? "FECHAR AGENDA" : "VER HORÁRIOS DISPONÍVEIS HOJE"}
+                </span>
+                {mostrarAgenda ? <ArrowDown className="w-4 h-4 text-[#22c55e] rotate-180" /> : <ChevronRight className="w-4 h-4 text-[#22c55e]" />}
+              </button>
 
   {/* CONTEÚDO DA AGENDA (SÓ APARECE SE CLICAR) */}
   {mostrarAgenda && (
