@@ -5,7 +5,9 @@ import {
   LogOut, ShieldCheck, Download, AlertOctagon, 
   UserCheck, Star, Search, DollarSign, Clock, 
   MessageSquare, AlertTriangle, FileText, TrendingUp, 
-  Info, Plus, X, Check, ChevronLeft, ChevronRight
+  Info, Plus, X, Check, ChevronLeft, ChevronRight,
+  Trash2,
+  CheckCircle2
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,12 +26,13 @@ import { cn } from "@/lib/utils";
 const CLIENTES_VIP = [
   { id: 1, nome: "Racha do Morro", responsavel: "Carlos Silva", dia: "Segunda", hora: "20:00", status: "Pago" },
   { id: 2, nome: "Amigos do Edinho", responsavel: "Edson Jr", dia: "Quarta", hora: "19:00", status: "Atrasado" },
+  { id: 3, nome: "Amigos da Bola", responsavel: "Jose Luis", dia: "Sexta", hora: "18:30", status: "Pago" },
 ];
 
 const PRODUTOS = [
   { id: 1, nome: "Bola S11 Pro", tipo: "Venda", preco: 180, estoque: 4 },
-  { id: 2, nome: "Aluguel Colete", tipo: "Aluguel", preco: 5, estoque: 30 },
-  { id: 3, nome: "Gatorade", tipo: "Venda", preco: 8, estoque: 45 },
+  { id: 2, nome: "Aluguel Colete", tipo: "Aluguel", preco: 8, estoque: 30 },
+  { id: 3, nome: "Gatorade", tipo: "Venda", preco: 10, estoque: 45 },
 ];
 
 const AdminDashboard = () => {
@@ -45,9 +48,9 @@ const AdminDashboard = () => {
   const [promoTexto, setPromoTexto] = useState(localStorage.getItem("arena_promo_texto") || "Promoção Relâmpago!");
   const [promoLink, setPromoLink] = useState(localStorage.getItem("arena_promo_link") || "");
   const [depoimentos, setDepoimentos] = useState([
-    { id: 1, autor: "Marcos Silva", texto: "Arena nota 10!", data: "15/02/2026" },
-    { id: 2, autor: "Ricardo Souza", texto: "Melhor campo da região!", data: "16/02/2026" },
-    { id: 3, autor: "Jhonny", texto: "Não gostei do atendimento", data: "17/02/2026" },
+    { id: 1, autor: "Marcos Silva", texto: "Arena nota 10!", data: "15/02/2026", status: "pendente" },
+    { id: 2, autor: "Ricardo Souza", texto: "Melhor campo da região!", data: "16/02/2026", status: "aprovado" },
+    { id: 3, autor: "Jhonny", texto: "Não gostei do atendimento", data: "17/02/2026", status: "rejeitado" },
   ]);
 
   interface Depoimento {
@@ -55,7 +58,23 @@ const AdminDashboard = () => {
   autor: string;
   texto: string;
   data: string;
+  status: 'pendente' | 'aprovado' | 'rejeitado'; // Tipagem estrita
 }
+
+  const playApito = () => {
+    const audio = new Audio('/sound/apito.mp3'); // Caminho da sua pasta media
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("Erro ao tocar som:", e));
+  };
+ 
+   useEffect(() => {
+  const pendentes = depoimentos.filter(d => d.status === 'pendente').length;
+  
+  // Se houver depoimentos pendentes, toca o apito para alertar o Admin
+  if (pendentes > 0) {
+    playApito();
+  }
+   }, [depoimentos.length]);
 
   // --- GERADOR DE SLOTS DINÂMICOS ---
   const slotsCalculados = useMemo(() => {
@@ -66,12 +85,20 @@ const AdminDashboard = () => {
         const h = Math.floor(hora);
         const m = (hora % 1) * 60;
         const dataFim = new Date(0, 0, 0, h, m + duracaoFiltro);
+        const isReservado = Math.random() > 0.5;
         slots.push({
           inicio: `${h.toString().padStart(2, '0')}:${m === 0 ? '00' : '30'}`,
           fim: `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`,
           turno: j.t,
           valor: j.p * (duracaoFiltro / 60),
-          status: Math.random() > 0.8 ? 'reservado' : 'livre'
+          status: Math.random() > 0.8 ? 'reservado' : 'livre',
+          reserva: isReservado ? {
+            cliente: "Racha do tico",
+            quemFeu: Math.random() > 0.5 ? "Atendente Bruna" : "Cliente (Site)",
+            pagamento: "PIX",
+            isVip: Math.random() > 0.7,
+            obs: "Cliente chato com o horário, não deixar passar nem 1 minuto."
+          } : null
         });
       }
     });
@@ -114,6 +141,18 @@ const AdminDashboard = () => {
     });
   };
 
+  const adicionarNovoComentarioParaAnalise = (autor: string, texto: string) => {
+  const novo = {
+    id: Date.now(),
+    autor,
+    texto,
+    data: new Date().toLocaleDateString('pt-BR'),
+    status: 'pendente' as const
+  };
+
+  setDepoimentos(prev => [...prev, novo]);
+};
+
   const handleLogout = () => {
     localStorage.removeItem("isAdmin"); // Exemplo de limpeza de auth
     toast({ title: "Saindo...", description: "Retornando à página inicial." });
@@ -141,7 +180,7 @@ const AdminDashboard = () => {
         <div className="max-w-[1600px] mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-center">
-              <img src="/logo-arena.png" alt="Logo" className="w-16 h-16 object-contain" />
+              <img src="/media/logo-arena.png" alt="Logo" className="w-20 h-20 object-contain" />
               <span className="text-[8px] font-black uppercase text-[#22c55e] tracking-[0.2em]">Arena Cedro</span>
             </div>
           </div>
@@ -187,6 +226,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic">Marketing</TabsTrigger>
             <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic">Relatórios</TabsTrigger>
             <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic">Equipe</TabsTrigger>
+            <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic">Depoimentos</TabsTrigger>
           </TabsList>
 
           {/* CONTEÚDO AGENDA */}
@@ -310,65 +350,117 @@ const AdminDashboard = () => {
             </div>
           </TabsContent>
 
-          {/* ABA COMENTÁRIOS (DEPOIMENTOS) */}
-          <TabsContent value="depoimentos">
-            <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
-              <div className="flex items-center gap-3 mb-8">
-                <MessageSquare className="text-[#22c55e]" size={28} />
-                <h2 className="text-2xl font-black italic uppercase">Moderação de Comentários</h2>
-              </div>
-              
-              <div className="grid gap-4">
-                {depoimentos.length > 0 ? depoimentos.map((d) => (
-                  <div key={d.id} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[#22c55e] font-black uppercase text-xs italic">{d.autor}</span>
-                        <span className="text-[10px] text-gray-600 font-bold">{d.data}</span>
-                      </div>
-                      <p className="text-gray-300 italic text-sm">"{d.texto}"</p>
-                    </div>
-                    <div className="flex gap-2 w-full md:w-auto">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => gerenciarDepoimento(d.id, 'rejeitar')}
-                        className="flex-1 md:flex-none border-red-500/50 text-red-500 hover:bg-red-500/10 rounded-xl"
-                      >
-                        <X size={16} className="mr-1" /> Rejeitar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        onClick={() => gerenciarDepoimento(d.id, 'aprovar')}
-                        className="flex-1 md:flex-none bg-[#22c55e] text-black font-bold rounded-xl"
-                      >
-                        <Check size={16} className="mr-1" /> Aprovar
-                      </Button>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-center py-20 text-gray-600">
-                    <MessageSquare size={48} className="mx-auto mb-4 opacity-20" />
-                    <p className="italic font-bold">Nenhum novo comentário para moderar.</p>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </TabsContent>
+          {/* ABA DEPOIMENTOS MODERADOS */}
+<TabsContent value="depoimentos">
+  <div className="grid md:grid-cols-2 gap-6 outline-none">
+    {['pendente', 'aprovado'].map((tipo) => (
+      <Card key={tipo} className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] min-h-[500px]">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-black italic uppercase flex items-center gap-3">
+            {tipo === 'pendente' ? (
+              <><AlertTriangle className="text-yellow-500" size={24} /> Em Análise</>
+            ) : (
+              <><CheckCircle2 className="text-[#22c55e]" size={24} /> Publicados</>
+            )}
+          </h3>
+          <Badge className={cn(
+            "font-black px-3 py-1 rounded-full text-[10px]",
+            tipo === 'pendente' ? "bg-yellow-500/10 text-yellow-500" : "bg-[#22c55e]/10 text-[#22c55e]"
+          )}>
+            {depoimentos.filter(d => d.status === tipo).length}
+          </Badge>
+        </div>
 
-          {/* ABA VIP */}
+        <ScrollArea className="h-[450px] pr-4">
+          <div className="space-y-4">
+            {depoimentos.filter(d => d.status === tipo).length === 0 ? (
+              <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem] opacity-20">
+                <p className="italic font-bold">Nenhum item aqui</p>
+              </div>
+            ) : (
+              depoimentos.filter(d => d.status === tipo).map(d => (
+                <div key={d.id} className="p-5 bg-white/5 border border-white/10 rounded-[2rem] group hover:border-white/20 transition-all">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[10px] text-[#22c55e] font-black uppercase tracking-tighter">{d.autor}</p>
+                      <p className="text-[9px] text-gray-500 font-bold">{d.data}</p>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => processarComentario(d.id, 'rejeitado')}
+                        className="h-8 w-8 text-red-500 hover:bg-red-500/10 rounded-full"
+                      >
+                        <Trash2 size={14}/>
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm italic text-gray-300 leading-relaxed mb-4">"{d.texto}"</p>
+                  
+                  <div className="flex gap-2">
+                    {tipo === 'pendente' ? (
+                      <Button 
+                        onClick={() => processarComentario(d.id, 'aprovado')} 
+                        className="w-full bg-[#22c55e] hover:bg-[#1da850] text-black font-black text-[10px] uppercase h-10 rounded-xl"
+                      >
+                        <Check size={14} className="mr-2" /> Aprovar no Site
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => {
+                          // Função para voltar para pendente se precisar re-avaliar
+                          setDepoimentos(prev => prev.map(item => item.id === d.id ? {...item, status: 'pendente'} : item));
+                        }} 
+                        variant="outline"
+                        className="w-full border-white/10 text-gray-400 font-black text-[10px] uppercase h-10 rounded-xl hover:bg-white/5"
+                      >
+                        Remover do Mural
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </Card>
+    ))}
+  </div>
+</TabsContent>
+
+          {/* ABA VIP COM BOTÃO DE ENGRENAGEM */}
           <TabsContent value="vip">
             <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
               <Table>
-                <TableHeader><TableRow className="border-white/5 uppercase font-bold text-[10px]">
-                  <TableHead>Grupo</TableHead><TableHead>Dia/Hora</TableHead><TableHead>Financeiro</TableHead>
+                <TableHeader><TableRow className="border-white/5 uppercase font-black text-[10px]">
+                  <TableHead>Grupo</TableHead><TableHead>Dia/Hora</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
-                  {CLIENTES_VIP.map(vip => (
-                    <TableRow key={vip.id} className="border-white/5">
-                      <TableCell className="font-black italic">{vip.nome}</TableCell>
+                  {[
+                    { nome: "Amigos do Edinho", dia: "Qua", hora: "19:00", pgto: "Mensal/Dinheiro", resp: "Atendente Marcos", obs: "Sempre trazem colete próprio." }
+                  ].map((vip, i) => (
+                    <TableRow key={i} className="border-white/5">
+                      <TableCell className="font-black italic uppercase">{vip.nome}</TableCell>
                       <TableCell>{vip.dia} às {vip.hora}</TableCell>
-                      <TableCell><Badge className={vip.status === 'Pago' ? "bg-[#22c55e]" : "bg-red-500"}>{vip.status}</Badge></TableCell>
+                      <TableCell><Badge className="bg-[#22c55e]">Em dia</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <Dialog>
+                          <DialogTrigger asChild><Button variant="ghost" size="sm"><Settings size={18} className="text-[#22c55e]" /></Button></DialogTrigger>
+                          <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+                            <DialogHeader><DialogTitle className="italic uppercase font-black">Dados do Cliente VIP</DialogTitle></DialogHeader>
+                            <div className="space-y-4 pt-4">
+                              <div><p className="text-[10px] text-gray-500 font-black uppercase">Responsável pela Reserva</p><p className="font-bold">{vip.resp}</p></div>
+                              <div><p className="text-[10px] text-gray-500 font-black uppercase">Modo de Pagamento</p><p className="font-bold">{vip.pgto}</p></div>
+                              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2"><Info size={12}/> Alerta / Observação</p>
+                                <p className="text-sm italic mt-1">"{vip.obs}"</p>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -398,18 +490,25 @@ const AdminDashboard = () => {
                          <TableHead>Atendente</TableHead>
                          <TableHead>Total de Vendas</TableHead>
                          <TableHead>Avaliação</TableHead>
-                         <TableHead className="text-right">Status</TableHead>
+                         <TableHead>Reservas</TableHead>
+                         <TableHead className="text-right">Turno</TableHead>
                       </TableRow>
                    </TableHeader>
                    <TableBody>
                       <TableRow className="border-white/5">
                          <TableCell className="font-bold italic">Bruna Oliveira</TableCell>
                          <TableCell className="text-[#22c55e] font-black">R$ 7.840,00</TableCell>
+                         <TableCell className="font-bold italic">Marina Pereira</TableCell>
+                         <TableCell className="text-[#22c55e] font-black">R$ 5.600,00</TableCell>
                          <TableCell className="flex gap-1 items-center">
                             <Star size={12} fill="#eab308" className="text-yellow-500" />
                             <span className="text-xs font-black">4.9</span>
+                            <span className="text-xs font-black">3.6</span>
                          </TableCell>
-                         <TableCell className="text-right text-[10px] font-black text-gray-500">TURNO NOITE</TableCell>
+                         <TableCell className="font-bold italic">142</TableCell>
+                         <TableCell className="text-right text-[10px] font-black text-gray-500">DIURNO</TableCell>
+                         <TableCell className="font-bold italic">118</TableCell>
+                         <TableCell className="text-right text-[10px] font-black text-gray-500">NOTURNO</TableCell>
                       </TableRow>
                    </TableBody>
                 </Table>

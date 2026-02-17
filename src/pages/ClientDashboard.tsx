@@ -172,10 +172,12 @@ const ClienteDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#060a08]/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#22c55e] rounded-xl flex items-center justify-center font-black text-black italic">A</div>
+      <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex flex-col items-center">
+            <img src="/media/logo-arena.png" alt="Logo" className="w-20 h-20 object-contain" />
           <span className="text-[#22c55e] font-black italic uppercase tracking-tighter text-sm">Arena Cedro</span>
+        </div>
         </div>
         <button onClick={handleLogout} className="text-red-500 hover:bg-red-500/10 p-2 rounded-xl transition-all">
           <LogOut size={20} />
@@ -234,31 +236,61 @@ const ClienteDashboard = () => {
                     <h3 className="font-black uppercase italic text-sm">Horários Disponíveis</h3>
                   </div>
                   <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
-                    {[60, 90].map(m => (
-                      <button key={m} onClick={() => setSelectedDuration(m)} className={cn("px-4 py-2 rounded-lg text-[10px] font-black transition-all", selectedDuration === m ? "bg-[#22c55e] text-black" : "text-gray-500")}>{m}M</button>
-                    ))}
-                  </div>
+  {[30, 60, 90].map(m => (
+    <button 
+      key={m} 
+      onClick={() => {
+        setSelectedDuration(m);
+        setHorarioSelecionado(""); // Limpa seleção ao mudar duração
+      }} 
+      className={cn(
+        "px-4 py-2 rounded-lg text-[10px] font-black transition-all", 
+        selectedDuration === m ? "bg-[#22c55e] text-black shadow-[0_0_10px_rgba(34,197,94,0.3)]" : "text-gray-500 hover:text-gray-300"
+      )}
+    >
+      {m}M
+    </button>
+  ))}
+</div>
                 </div>
                 
                 <ScrollArea className="h-[400px] pr-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    {gerarHorarios().map((hora) => (
-                      <button
-                        key={hora}
-                        onClick={() => setHorarioSelecionado(hora)}
-                        className={cn(
-                          "p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all",
-                          horarioSelecionado === hora 
-                            ? "border-[#22c55e] bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]" 
-                            : "border-white/5 bg-white/5 text-white hover:border-white/20"
-                        )}
-                      >
-                        <span className="text-sm font-black italic">{hora}</span>
-                        <span className={cn("text-[9px] font-bold uppercase mt-1", horarioSelecionado === hora ? "text-black/60" : "text-[#22c55e]")}>Livre</span>
-                      </button>
-                    ))}
-                  </div>
-                </ScrollArea>
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {gerarHorarios().map((hora) => {
+      // Cálculo do Horário de Término
+      const [h, m] = hora.split(":").map(Number);
+      const dataFim = new Date(0, 0, 0, h, m + selectedDuration);
+      const fim = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
+      
+      const isSelecionado = horarioSelecionado === hora;
+
+      return (
+        <button
+          key={hora}
+          onClick={() => setHorarioSelecionado(hora)}
+          className={cn(
+            "p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all h-20",
+            isSelecionado 
+              ? "border-[#22c55e] bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]" 
+              : "border-white/5 bg-white/5 text-white hover:border-white/20"
+          )}
+        >
+          {/* Exibição: 09:00 - 09:30 */}
+          <span className="text-sm font-black italic tracking-tighter">
+            {hora} — {fim}
+          </span>
+          
+          <span className={cn(
+            "text-[9px] font-bold uppercase mt-1", 
+            isSelecionado ? "text-black/60" : "text-[#22c55e]"
+          )}>
+            Livre
+          </span>
+        </button>
+      );
+    })}
+  </div>
+</ScrollArea>
 
                 <Button 
                   disabled={!horarioSelecionado}

@@ -32,6 +32,31 @@ const AtendenteDashboard = () => {
   const [duracao, setDuracao] = useState<string>("60");
   const [metodoPgto, setMetodoPgto] = useState<string>("pix");
 
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  
+  const [isModalAberto, setIsModalAberto] = useState(false);
+
+  const [isModalVipAberto, setIsModalVipAberto] = useState(false);
+  const [novoVip, setNovoVip] = useState({
+     nome: '',
+     dia: 'SEG',
+     horario: '19:00',
+     pagamento: 'Dinheiro'
+  });
+
+  const [mensalistas, setMensalistas] = useState<Mensalista[]>([
+  // Adicione um exemplo para teste ou deixe vazio []
+  { id: 1, nome: "João Silva", dia: "SEG", horario: "19:00", metodoPgto: "Dinheiro" }
+ ]);
+
+  interface Mensalista {
+  id: number;
+  nome: string;
+  dia: string;
+  horario: string;
+  metodoPgto: string;
+  };
+
   // Dados Simulados (Em um app real viriam do Banco/API)
   const produtos = [
     { id: 1, nome: "Gatorade", preco: 10 },
@@ -91,33 +116,67 @@ const listaHorarios = useMemo(() => {
   });
 };
 
+const playApito = () => {
+  const audio = new Audio('/sound/apito.mp3');
+  audio.volume = 0.5;
+  audio.play().catch(e => console.log("Erro som:", e));
+};
+
+const playTorcida = () => {
+  const audio = new Audio('/sound/torcida.mp3');
+  audio.volume = 0.4;
+  audio.play().catch(e => console.log("Erro som:", e));
+};
+
+const verificarDisponibilidade = (horaInicio: string, min: number) => {
+  const indexInicio = listaHorarios.indexOf(horaInicio);
+  const slotsNecessarios = min / 30;
+  for (let i = 0; i < slotsNecessarios; i++) {
+    const horaCheck = listaHorarios[indexInicio + i];
+    const idCheck = `${diaSelecionado.toDateString()}-${horaCheck}`;
+    if (agendaStatus[idCheck]) return false;
+  }
+  return true;
+};
+
+// 2. SEGUNDO: A Função de Agendar Completa
 const handleAgendar = (horaInicio: string, clienteNome: string) => {
-    if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
-    
-    const duracaoMin = parseInt(duracao, 10);
-    if (!verificarDisponibilidade(horaInicio, duracaoMin)) {
-      return toast({ variant: "destructive", title: "Conflito de Horário!", description: "Este período invade uma reserva existente." });
-    }
+  if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
 
-    const horaH = parseInt(horaInicio.split(":")[0]);
-    const valorBase = horaH >= 18 ? 120 : 80;
-    const valorReserva = valorBase * (duracaoMin / 60);
-    const totalProdutos = itensTemp.reduce((acc, item) => acc + item.preco, 0);
-    const totalGeral = valorReserva + totalProdutos;
+  const duracaoMin = parseInt(duracao, 10);
+  
+  // Verifica se o horário está livre antes de seguir
+  if (!verificarDisponibilidade(horaInicio, duracaoMin)) {
+    return toast({ 
+      variant: "destructive", 
+      title: "Conflito de Horário!", 
+      description: "Este período invade uma reserva existente." 
+    });
+  }
 
-    // Regra de Pagamento
-    const valorSinal = metodoPgto === "pix" ? totalGeral * 0.5 : totalGeral;
+  // Toca o som baseado no pagamento
+  if (metodoPgto === 'pix') {
+    playApito();
+  } else {
+    playTorcida();
+  }
 
-    const idDataRaiz = `${diaSelecionado.toDateString()}-${horaInicio}`;
-    const slotsNecessarios = duracaoMin / 30;
-    const novaAgenda = { ...agendaStatus };
+  // Cálculos de Valores
+  const horaH = parseInt(horaInicio.split(":")[0]);
+  const valorBase = horaH >= 18 ? 120 : 80;
+  const valorReserva = valorBase * (duracaoMin / 60);
+  const totalProdutos = itensTemp.reduce((acc, item) => acc + item.preco, 0);
+  const totalGeral = valorReserva + totalProdutos;
+  const valorSinal = metodoPgto === "pix" ? totalGeral * 0.5 : totalGeral;
 
-    // Marca o slot principal e os slots subsequentes como "BLOQUEADO"
-    for (let i = 0; i < slotsNecessarios; i++) {
-    const indexBase = listaHorarios.indexOf(horaInicio);
+  const idDataRaiz = `${diaSelecionado.toDateString()}-${horaInicio}`;
+  const slotsNecessarios = duracaoMin / 30;
+  const novaAgenda = { ...agendaStatus };
+  const indexBase = listaHorarios.indexOf(horaInicio);
+
+  // LOOP para marcar todos os blocos de 30min necessários
+  for (let i = 0; i < slotsNecessarios; i++) {
     const horaOcupada = listaHorarios[indexBase + i];
-
-    // Se a horaOcupada não existir (fim da lista), paramos o loop
     if (!horaOcupada) break;
 
     const idOcupado = `${diaSelecionado.toDateString()}-${horaOcupada}`;
@@ -131,48 +190,41 @@ const handleAgendar = (horaInicio: string, clienteNome: string) => {
       valorTotal: totalGeral,
       valorPagoAgora: valorSinal,
       restante: totalGeral - valorSinal,
-      // Se quiser salvar os itens apenas no primeiro bloco:
       itens: i === 0 ? itensTemp : [] 
     };
   }
 
-    setAgendaStatus(novaAgenda);
-    toast({ title: "Reserva Confirmada!" });
-  };
+  // ATUALIZA ESTADOS E FECHA MODAL
+  setAgendaStatus(novaAgenda);
+  setItensTemp([]); // Limpa o "carrinho"
+  setIsModalAberto(false); // Fecha o modal
+  toast({ title: "Reserva Confirmada!" });
+};
 
-  const limparHorario = (id: string) => {
-    const reserva = agendaStatus[id];
-    const novaAgenda = { ...agendaStatus };
-    
-    // Remove todos os slots vinculados a essa reserva
-    Object.keys(novaAgenda).forEach(key => {
-      if (novaAgenda[key].referenciaRaiz === (reserva.referenciaRaiz || id)) {
-        delete novaAgenda[key];
-      }
-    });
-
-    setAgendaStatus(novaAgenda);
-    toast({ title: "Horário Liberado!" });
-  };
-
-// --- LÓGICA DE CONFLITO E BLOQUEIO ---
-  const verificarDisponibilidade = (horaInicio: string, min: number) => {
-    const indexInicio = listaHorarios.indexOf(horaInicio);
-    const slotsNecessarios = min / 30;
-    
-    for (let i = 0; i < slotsNecessarios; i++) {
-      const horaCheck = listaHorarios[indexInicio + i];
-      const idCheck = `${diaSelecionado.toDateString()}-${horaCheck}`;
-      if (agendaStatus[idCheck]) return false;
+// 3. TERCEIRO: Outras funções de Gestão
+const limparHorario = (id: string) => {
+  const reserva = agendaStatus[id];
+  const novaAgenda = { ...agendaStatus };
+  Object.keys(novaAgenda).forEach(key => {
+    if (novaAgenda[key].referenciaRaiz === (reserva.referenciaRaiz || id)) {
+      delete novaAgenda[key];
     }
-    return true;
-  };
+  });
+  setAgendaStatus(novaAgenda);
+  toast({ title: "Horário Liberado!" });
+};
 
+const handleToggleAlerta = (id: number) => {
+  setClientes(prev => prev.map(c => 
+    c.id === id ? { ...c, status: c.status === "ruim" ? "bom" : "ruim" } : c
+  ));
+};
+
+// FINANCEIRO (Memoizado para performance)
 const resumoFinanceiro = useMemo(() => {
   const reservasDoDia = Object.keys(agendaStatus).filter(key => 
     key.startsWith(diaSelecionado.toDateString()) && agendaStatus[key].isRaiz
   );
-
   return reservasDoDia.reduce((acc, key) => {
     const reserva = agendaStatus[key];
     if (reserva.metodo === "pix") {
@@ -191,8 +243,8 @@ const resumoFinanceiro = useMemo(() => {
       <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex flex-col items-center">
-            <img src="/logo-arena.png" alt="Logo" className="w-40 h-40 object-contain" />
-            <span className="text-[10px] font-black uppercase text-[#22c55e]">Painel Atendente Arena</span>
+            <img src="/media/logo-arena.png" alt="Logo" className="w-20 h-20 object-contain" />
+            <span className="text-[30px] font-black uppercase text-[#22c55e]">PAINEL ATENDENTE ARENA</span>
           </div>
           </div>
           <div className="flex gap-2">
@@ -232,13 +284,13 @@ const resumoFinanceiro = useMemo(() => {
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         <Tabs defaultValue="agenda" className="space-y-6">
           <TabsList className="bg-white/5 p-1 rounded-2xl border border-white/5 w-full md:w-fit overflow-x-auto">
-            <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">📅 Agenda Mensal</TabsTrigger>
-            <TabsTrigger value="clientes" className="px-6 font-bold uppercase italic">👥 Clientes</TabsTrigger>
-            <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">👑 VIPs/Fixos</TabsTrigger>
+            <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">Agenda Mensal</TabsTrigger>
+            <TabsTrigger value="clientes" className="px-6 font-bold uppercase italic">Clientes</TabsTrigger>
+            <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">VIPs/Fixos</TabsTrigger>
           </TabsList>
 
           {/* ABA AGENDA: ESTILO GRID PREMIUM (IGUAL À FOTO) */}
-<TabsContent value="agenda" className="space-y-8">
+           <TabsContent value="agenda" className="space-y-8">
   
   {/* 1. SEÇÃO CALENDÁRIO (OCUPANDO O TOPO) */}
   <Card className="bg-[#0c120f] border-white/5 overflow-hidden rounded-[2.5rem]">
@@ -309,188 +361,334 @@ const resumoFinanceiro = useMemo(() => {
       </Badge>
     </div>
 
-    {/* ScrollArea para não esticar a página infinitamente no mobile */}
     <ScrollArea className="h-[600px] pr-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {listaHorarios.map((h) => {
-          const idAgendamento = `${diaSelecionado.toDateString()}-${h}`;
-          const reserva = agendaStatus[idAgendamento];
-          
-          // Cálculo do horário de término para exibir no card
-          const [hora, min] = h.split(":").map(Number);
-          const dataFim = new Date(0, 0, 0, hora, min + parseInt(duracao));
-          const fimFormatado = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
+  {/* Aumentei o número de colunas para 4 no mobile e 8 em telas grandes para compactar */}
+  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+    {listaHorarios.map((h) => {
+      const idAgendamento = `${diaSelecionado.toDateString()}-${h}`;
+      const reserva = agendaStatus[idAgendamento];
+      
+      const [hora, min] = h.split(":").map(Number);
+      const dataFim = new Date(0, 0, 0, hora, min + parseInt(duracao));
+      const fimFormatado = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
 
-          return (
-            <Dialog key={h} onOpenChange={() => setItensTemp([])}>
-              <DialogTrigger asChild>
-                <button 
-                  disabled={reserva}
-                  className={cn(
-                    "relative group flex flex-col items-center justify-center p-6 rounded-[2.5rem] border transition-all h-36",
-                    reserva 
-                      ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
-                      : "bg-[#0c120f] border-white/10 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
-                  )}
-                >
-                  <span className={cn(
-                    "text-xl font-black italic tracking-tighter",
-                    reserva ? "text-red-500/50" : "text-white"
-                  )}>
-                    {h}
+      return (
+        <Dialog key={h} onOpenChange={() => setItensTemp([])}>
+          <DialogTrigger asChild>
+            <button 
+              disabled={reserva}
+              className={cn(
+                "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24", // Altura reduzida de 36 para 24
+                reserva 
+                  ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
+                  : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
+              )}
+            >
+              {/* Turno ou Label Superior */}
+              <span className="text-[7px] font-black uppercase text-gray-600 mb-1">Horário</span>
+
+              {/* Horário unificado: 09:00 - 09:30 */}
+              <span className={cn(
+                "text-sm font-black italic tracking-tighter leading-none",
+                reserva ? "text-red-500/50" : "text-white"
+              )}>
+                {h} - {fimFormatado}
+              </span>
+              
+              <div className="mt-2">
+                {reserva ? (
+                  <div className="flex flex-col items-center">
+                     <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Ocupado</span>
+                     <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center">{reserva.cliente}</p>
+                  </div>
+                ) : (
+                  <span className="text-[7px] font-black uppercase text-[#22c55e] border border-[#22c55e]/20 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">
+                    Livre
                   </span>
-                  <span className="text-[9px] font-bold text-gray-600 mb-3 uppercase">até {fimFormatado}</span>
-                  
-                  {reserva ? (
-                    <div className="flex flex-col items-center">
-                       <span className="text-[8px] font-black uppercase text-red-600 bg-red-500/10 px-3 py-1 rounded-full">Ocupado</span>
-                       <p className="text-[7px] text-gray-500 mt-1 font-bold truncate w-20 text-center">{reserva.cliente}</p>
-                    </div>
-                  ) : (
-                    <span className="text-[8px] font-black uppercase text-[#22c55e] border border-[#22c55e]/30 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">
-                      Livre
-                    </span>
-                  )}
-                </button>
-              </DialogTrigger>
+                )}
+              </div>
+            </button>
+          </DialogTrigger>
 
-              <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="italic uppercase flex items-center gap-2">
-                    <Plus className="text-[#22c55e]" /> Novo Jogo - {h}
-                  </DialogTitle>
-                </DialogHeader>
-                
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Nome do Atleta Responsável</label>
-                    <Input placeholder="Quem vai pagar?" className="bg-white/5 border-white/10 h-12" id={`atleta-${h}`} />
-                  </div>
+          {/* O Dialog permanece igual, pois é o formulário de preenchimento */}
+          <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md">
+            <DialogHeader>
+              <DialogTitle className="italic uppercase flex items-center gap-2">
+                <Plus className="text-[#22c55e]" size={18} /> Novo Jogo - {h} às {fimFormatado}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Nome do Atleta Responsável</label>
+                <Input placeholder="Quem vai pagar?" className="bg-white/5 border-white/10 h-12" id={`atleta-${h}`} />
+              </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Pagamento</label>
-                      <Select onValueChange={(val) => setMetodoPgto(val)} defaultValue="pix">
-                        <SelectTrigger className="bg-white/5 border-white/10 h-12"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-[#0c120f] border-white/10 text-white">
-                          <SelectItem value="pix">PIX (Sinal 50%)</SelectItem>
-                          <SelectItem value="money">Dinheiro (100%)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Duração</label>
-                      <div className="h-12 flex items-center px-4 bg-white/5 border border-white/10 rounded-md text-sm font-bold text-[#22c55e]">
-                        {duracao} MIN
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator className="bg-white/5" />
-                  
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase text-gray-500">Adicionar Consumo:</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {produtos.map(p => (
-                        <Button 
-                          key={p.id} 
-                          variant="outline" 
-                          className="border-white/5 bg-white/5 text-[9px] justify-between h-10 hover:border-[#22c55e]"
-                          onClick={() => setItensTemp([...itensTemp, p])}
-                        >
-                          {p.nome} <span className="text-[#22c55e]">R$ {p.preco}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Button 
-                    className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl shadow-[0_10px_20px_rgba(34,197,94,0.2)] hover:scale-[1.02] transition-transform"
-                    onClick={() => {
-                      const input = document.getElementById(`atleta-${h}`) as HTMLInputElement;
-                      handleAgendar(h, input?.value);
-                    }}
-                  >
-                    Confirmar e Gerar Comprovante
-                  </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Pagamento</label>
+                  {/* Select Code Here... */}
                 </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })}
-      </div>
-    </ScrollArea>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Duração</label>
+                  <div className="h-12 flex items-center px-4 bg-white/5 border border-white/10 rounded-md text-sm font-bold text-[#22c55e]">
+                    {duracao} MIN
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
+                onClick={() => {
+                  const input = document.getElementById(`atleta-${h}`) as HTMLInputElement;
+                  handleAgendar(h, input?.value);
+                }}
+              >
+                Confirmar e Gerar Comprovante
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
+    })}
+  </div>
+</ScrollArea>
   </div>
 </TabsContent>
 
           {/* ABA CLIENTES: BLACKLIST E COMENTÁRIOS */}
           <TabsContent value="clientes">
-            <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <h3 className="text-2xl font-black italic uppercase">Gestão de Atletas</h3>
-                <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
-                  <Input placeholder="Buscar por nome..." className="pl-10 bg-white/5 border-white/10" onChange={(e) => setFiltroNome(e.target.value)} />
-                </div>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {clientes.filter(c => c.nome.toLowerCase().includes(filtroNome.toLowerCase())).map(c => (
-                  <div key={c.id} className={cn(
-                    "p-6 rounded-[2rem] border transition-all",
-                    c.status === "ruim" ? "bg-red-500/5 border-red-500/20" : "bg-white/5 border-white/10"
+  <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+      <div>
+        <h3 className="text-2xl font-black italic uppercase">Gestão de Atletas</h3>
+        <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter">Total de {clientes.length} cadastrados</p>
+      </div>
+      <div className="relative w-full md:w-64">
+        <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
+        <Input 
+          placeholder="Buscar por nome ou fone..." 
+          className="pl-10 bg-white/5 border-white/10 rounded-xl" 
+          onChange={(e) => setFiltroNome(e.target.value)} 
+        />
+      </div>
+    </div>
+
+    <div className="grid md:grid-cols-2 gap-4">
+      {clientes
+        .filter(c => c.nome.toLowerCase().includes(filtroNome.toLowerCase()) || c.telefone.includes(filtroNome))
+        .map(c => {
+          // Verificamos se este card específico está em modo de edição
+          const isEditando = editandoId === c.id;
+
+          function handleToggleAlerta(id: number): void {
+            throw new Error("Function not implemented.");
+          }
+
+          function handleSalvarObs(id: number, novaObs: string) {
+            throw new Error("Function not implemented.");
+          }
+
+          return (
+            <div key={c.id} className={cn(
+              "p-6 rounded-[2.5rem] border transition-all duration-300",
+              c.status === "ruim" 
+                ? "bg-red-500/5 border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.05)]" 
+                : "bg-white/5 border-white/10"
+            )}>
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-3 rounded-full border",
+                    c.status === "ruim" ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-white/5 border-white/10 text-gray-400"
                   )}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-white/5 rounded-full"><Users size={20} /></div>
-                        <div>
-                          <p className="font-black uppercase italic">{c.nome}</p>
-                          <p className="text-xs text-gray-500 font-bold">{c.telefone}</p>
-                        </div>
-                      </div>
-                      {c.isVip && <Badge className="bg-[#22c55e] text-black font-black">VIP</Badge>}
-                    </div>
-                    <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Nota do Atendente:</p>
-                      <p className="text-xs italic text-gray-300">"{c.obs}"</p>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button variant="outline" size="sm" className="w-full border-white/10 text-xs">Editar</Button>
-                      <Button variant="outline" size="sm" className={cn("w-full text-xs", c.status === "ruim" ? "text-red-500 border-red-500/20" : "text-yellow-500 border-yellow-500/20")}>
-                        Marcar Alerta
-                      </Button>
-                    </div>
+                    <Users size={20} />
                   </div>
-                ))}
+                  <div>
+                    <p className="font-black uppercase italic leading-none">{c.nome}</p>
+                    <p className="text-[10px] text-gray-500 font-bold mt-1">{c.telefone}</p>
+                  </div>
+                </div>
+                {c.isVip && (
+                  <Badge className="bg-[#22c55e] text-black font-black text-[9px] px-3 py-0.5 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.3)]">
+                    VIP
+                  </Badge>
+                )}
               </div>
-            </Card>
-          </TabsContent>
+
+              {/* ÁREA DE OBSERVAÇÃO DINÂMICA */}
+              <div className={cn(
+                "p-4 rounded-2xl border transition-all",
+                isEditando ? "bg-black/60 border-[#22c55e]/50" : "bg-black/40 border-white/5"
+              )}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-black text-gray-500 uppercase flex items-center gap-1">
+                    <MessageSquare size={10} /> Nota do Atendente
+                  </p>
+                </div>
+                
+                {isEditando ? (
+                  <textarea
+                    className="w-full bg-transparent text-sm italic text-[#22c55e] outline-none resize-none h-20"
+                    defaultValue={c.obs}
+                    id={`obs-${c.id}`}
+                    autoFocus
+                  />
+                ) : (
+                  <p className="text-xs italic text-gray-400 leading-relaxed">"{c.obs}"</p>
+                )}
+              </div>
+
+              {/* BOTÕES DE AÇÃO */}
+              <div className="flex gap-2 mt-4">
+                <Button 
+                  onClick={() => {
+                    if (isEditando) {
+                      const novaObs = (document.getElementById(`obs-${c.id}`) as HTMLTextAreaElement).value;
+                      handleSalvarObs(c.id, novaObs);
+                    } else {
+                      setEditandoId(c.id)
+                    }
+                  }}
+                  variant="outline" 
+                  size="sm" 
+                  className={cn(
+                    "w-full border-white/10 text-[10px] font-black uppercase h-10 rounded-xl",
+                    isEditando && "bg-[#22c55e] text-black border-[#22c55e] hover:bg-[#1da850]"
+                  )}
+                >
+                  {isEditando ? "Salvar" : "Editar Nota"}
+                </Button>
+
+                <Button 
+                  onClick={() => handleToggleAlerta(c.id)}
+                  variant="outline" 
+                  size="sm" 
+                  className={cn(
+                    "w-full text-[10px] font-black uppercase h-10 rounded-xl transition-all",
+                    c.status === "ruim" 
+                      ? "bg-red-500 text-white border-red-500 hover:bg-red-600" 
+                      : "text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/10"
+                  )}
+                >
+                  <AlertTriangle size={12} className="mr-1" />
+                  {c.status === "ruim" ? "Remover Alerta" : "Marcar Alerta"}
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+    </div>
+  </Card>
+</TabsContent>
 
           {/* ABA VIP/FIXO: PRÉ-RESERVA */}
-          <TabsContent value="vip">
-             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
-               <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-2xl font-black italic uppercase flex items-center gap-3">
-                   <Crown className="text-[#22c55e]" /> Horários Fixos (Mensalistas)
-                 </h3>
-                 <Button className="bg-[#22c55e] text-black font-bold uppercase italic"><Plus size={18} className="mr-2"/> Novo VIP</Button>
-               </div>
-               <div className="space-y-4">
-                 <div className="p-6 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Dia</p>
-                        <p className="text-xl font-black text-[#22c55e] italic">SEG</p>
-                      </div>
-                      <div>
-                        <p className="font-black italic uppercase text-lg">João Silva (VIP)</p>
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Toda Segunda às 19:00 • Pago (Dinheiro)</p>
-                      </div>
-                    </div>
-                    <Button variant="ghost" className="text-red-500 font-bold uppercase text-xs">Suspender</Button>
-                 </div>
-               </div>
-             </Card>
-          </TabsContent>
+<TabsContent value="vip">
+  <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
+    <div className="flex justify-between items-center mb-6">
+      <h3 className="text-2xl font-black italic uppercase flex items-center gap-3">
+        <Crown className="text-[#22c55e]" /> Horários Fixos (Mensalistas)
+      </h3>
+
+      {/* MODAL DE NOVO VIP INTEGRADO AO BOTÃO */}
+      <Dialog open={isModalVipAberto} onOpenChange={setIsModalVipAberto}>
+        <DialogTrigger asChild>
+          <Button className="bg-[#22c55e] hover:bg-[#1da850] text-black font-black uppercase gap-2 px-6 h-12 rounded-2xl transition-all shadow-[0_0_20px_rgba(34,197,94,0.2)]">
+            <Plus size={18} strokeWidth={3} /> NOVO VIP
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] max-w-lg p-8">
+          <DialogHeader>
+            <DialogTitle className="italic uppercase flex items-center gap-3 text-2xl font-black">
+              <Crown className="text-[#22c55e]" size={24} /> Cadastrar Mensalista
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Nome do Atleta / Grupo</label>
+              <Input 
+                id="vip-nome"
+                placeholder="Ex: João Silva (Pelada dos Amigos)" 
+                className="bg-white/5 border-white/10 h-14 rounded-xl focus:border-[#22c55e]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+  <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Dia Fixo</label>
+  {/* Removido o 'id'. O defaultValue vai no Select, e usamos onValueChange para capturar o valor */}
+  <Select defaultValue="SEG" onValueChange={(value) => setNovoVip({ ...novoVip, dia: value })}>
+    <SelectTrigger className="bg-white/5 border-white/10 h-14 rounded-xl text-white">
+      <SelectValue placeholder="Selecione o dia" />
+    </SelectTrigger>
+    <SelectContent className="bg-[#0c120f] border-white/10 text-white">
+      {['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'].map(d => (
+        <SelectItem 
+          key={d} 
+          value={d} 
+          className="focus:bg-[#22c55e] focus:text-black font-bold uppercase"
+        >
+          {d}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Horário</label>
+                <Input id="vip-hora" type="time" defaultValue="19:00" className="bg-white/5 border-white/10 h-14 rounded-xl" />
+              </div>
+            </div>
+            <Button 
+              className="w-full bg-[#22c55e] text-black font-black uppercase h-16 rounded-2xl text-lg"
+              onClick={() => {
+                const nome = (document.getElementById('vip-nome') as HTMLInputElement).value;
+                const hora = (document.getElementById('vip-hora') as HTMLInputElement).value;
+                // Aqui você chamaria sua função de salvar
+                setIsModalVipAberto(false);
+              }}
+            >
+              ATIVAR HORÁRIO FIXO
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+    {/* LISTA DE MENSALISTAS */}
+    <div className="space-y-4">
+      {/* Exemplo de Card de Mensalista Dinâmico */}
+      {mensalistas.map((m) => (
+        <div key={m.id} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex justify-between items-center hover:border-[#22c55e]/30 transition-all group">
+          <div className="flex items-center gap-6">
+            <div className="text-center bg-black/40 p-3 rounded-2xl min-w-[70px] border border-white/5">
+              <p className="text-[10px] font-bold text-gray-500 uppercase">Dia</p>
+              <p className="text-xl font-black text-[#22c55e] italic">{m.dia}</p>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-black italic uppercase text-lg">{m.nome}</p>
+                <Badge className="bg-[#22c55e]/10 text-[#22c55e] border-none text-[8px]">MENSALISTA</Badge>
+              </div>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">
+                Toda {m.dia} às {m.horario} • {m.metodoPgto}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" className="text-gray-500 hover:text-white font-bold uppercase text-[10px]">Editar</Button>
+            <Button variant="ghost" className="text-red-500 hover:bg-red-500/10 font-bold uppercase text-[10px]">Suspender</Button>
+          </div>
+        </div>
+      ))}
+
+      {mensalistas.length === 0 && (
+        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem]">
+          <p className="text-gray-600 italic font-bold">Nenhum mensalista fixo cadastrado.</p>
+        </div>
+      )}
+    </div>
+  </Card>
+</TabsContent>
         </Tabs>
       </main>
     </div>
@@ -500,3 +698,22 @@ const resumoFinanceiro = useMemo(() => {
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
 export default AtendenteDashboard;
+
+function setAgendaStatus(novaAgenda: any) {
+  throw new Error("Function not implemented.");
+}
+
+
+function toast(arg0: { title: string; }) {
+  throw new Error("Function not implemented.");
+}
+
+
+function setClientes(arg0: (prev: any) => any) {
+  throw new Error("Function not implemented.");
+}
+
+
+function setEditandoId(arg0: null) {
+  throw new Error("Function not implemented.");
+}
