@@ -5,7 +5,9 @@ import {
   LogOut, ShieldCheck, Download, AlertOctagon, 
   UserCheck, Star, MoreHorizontal, Search, 
   DollarSign, Clock, MessageSquare, AlertTriangle, 
-  FileText, TrendingUp, Info
+  FileText, TrendingUp, Info, Plus, X, Check,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 // --- MOCKS DE DADOS ---
 const CLIENTES_VIP = [
@@ -35,63 +38,118 @@ const CONFIG_AGENDA = {
   noturno: { inicio: 18, fim: 22, preco: 120 }
 };
 
+const PALAVRAS_BLOQUEADAS = [
+  // Termos Gerais
+  "Porra", "Merda", "Lixo", "Bosta", "Caralho", "Puta", "Putaria", 
+  "Vagabundo", "Desgraça", "Inferno", "Cacete", "Fodase", "Foder",
+  
+  // Ofensas Diretas
+  "Corno", "Otário", "Verme", "Inútil", "Escroto", "Ladrão", "Safado",
+  
+  // Variações e termos comuns em avaliações fakes
+  "Lixo", "Horrível", "Péssimo", "Fraude", "Engano"
+];
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [duracaoFiltro, setDuracaoFiltro] = useState(60); // 30, 60 ou 90 min 
 
 // Função para gerar os slots com base na duração escolhida
-const gerarSlots = () => {
-  const slots = [];
-  // Gera turnos (8h às 17h e 18h às 22h)
-  const janelas = [
-    { start: 8, end: 17.5, turno: 'diurno' }, 
-    { start: 18, end: 22.5, turno: 'noturno' }
-  ];
-
-  janelas.forEach(janela => {
-    for (let hora = janela.start; hora < janela.end; hora += 0.5) {
-      const h = Math.floor(hora);
-      const m = (hora % 1) * 60;
-      const inicioFormatado = `${h.toString().padStart(2, '0')}:${m === 0 ? '00' : '30'}`;
-      
-      // Cálculo do fim baseado na duração (30, 60 ou 90 min)
-      const dataFim = new Date(0, 0, 0, h, m + duracaoFiltro);
-      const fimFormatado = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
-      
-      const precoBase = janela.turno === 'diurno' ? 80 : 120;
-      // Multiplicador de preço por tempo (ex: 1h30 custa 1.5x o valor)
-      const valorFinal = (precoBase * (duracaoFiltro / 60));
-
-      slots.push({
-        inicio: inicioFormatado,
-        fim: fimFormatado,
-        turno: janela.turno,
-        valor: valorFinal,
-        status: Math.random() > 0.7 ? 'reservado' : 'livre' // Simulação
-      });
-    }
-  });
-  return slots;
-};
+// --- GERADOR DE SLOTS (30, 60, 90) ---
+  const gerarSlots = () => {
+    const slots = [];
+    const janelas = [{ start: 8, end: 17.5, t: 'diurno' }, { start: 18, end: 22.5, t: 'noturno' }];
+    janelas.forEach(j => {
+      for (let hora = j.start; hora < j.end; hora += 0.5) {
+        const h = Math.floor(hora);
+        const m = (hora % 1) * 60;
+        const dataFim = new Date(0, 0, 0, h, m + duracaoFiltro);
+        slots.push({
+          inicio: `${h.toString().padStart(2, '0')}:${m === 0 ? '00' : '30'}`,
+          fim: `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`,
+          turno: j.t,
+          valor: (j.t === 'diurno' ? 80 : 120) * (duracaoFiltro / 60)
+        });
+      }
+    });
+    return slots;
+  };
 
 const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
 
   // --- ESTADOS ---
   const [emManutencao, setEmManutencao] = useState(localStorage.getItem("arena_manutencao") === "true");
   const [selectedReserva, setSelectedReserva] = useState<any>(null);
+  const [mesAtual, setMesAtual] = useState(new Date());
+  const [diaSelecionado, setDiaSelecionado] = useState(new Date());
+  const [promoAtiva, setPromoAtiva] = useState(localStorage.getItem("arena_promo_ativa") === "true");
+  const [promoTexto, setPromoTexto] = useState(localStorage.getItem("arena_promo_texto") || "Promoção Relâmpago!");
+  const [promoLink, setPromoLink] = useState(localStorage.getItem("arena_promo_link") || "");
 
   // --- CONTROLE DE MANUTENÇÃO ---
   const handleToggleManutencao = () => {
     const novoEstado = !emManutencao;
     setEmManutencao(novoEstado);
     localStorage.setItem("arena_manutencao", String(novoEstado));
+    window.dispatchEvent(new Event('storage'));
     toast({
       variant: novoEstado ? "destructive" : "default",
-      title: novoEstado ? "Manutenção Ativada" : "Sistema Liberado",
-      description: novoEstado ? "Clientes não podem agendar agora." : "Agendamentos voltaram ao normal.",
+      title: novoEstado ? "⚠️ SISTEMA BLOQUEADO" : "✅ SISTEMA LIBERADO",
+      description: novoEstado ? "Clientes não podem agendar agora, campo em manutenção." : "Agendamentos voltaram ao normal.",
     });
   };
+
+const salvarPromocao = () => {
+  localStorage.setItem("arena_promo_ativa", String(promoAtiva));
+  localStorage.setItem("arena_promo_texto", promoTexto);
+  localStorage.setItem("arena_promo_link", promoLink);
+  
+  toast({
+    title: "Campanha Atualizada!",
+    description: promoAtiva ? "O pop-up está visível para os clientes." : "Pop-up desativado.",
+  });
+};
+
+// Estado de Depoimentos
+  const [depoimentos, setDepoimentos] = useState([
+    { id: 1, autor: "Marcos Silva", texto: "Arena nota 10, iluminação incrível!", status: "pendente" },
+    { id: 2, autor: "Jhonny", texto: "Este lugar é um lixo", status: "pendente" }, // Será pego pelo filtro
+  ]);
+
+// --- LÓGICA DO CALENDÁRIO (IGUAL AO ATENDENTE) ---
+  const diasMes = useMemo(() => {
+    const start = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1);
+    const end = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0);
+    const days = [];
+    for (let i = 0; i < start.getDay(); i++) days.push(null);
+    for (let i = 1; i <= end.getDate(); i++) days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
+    return days;
+  }, [mesAtual]);
+
+// --- MODERAÇÃO DE DEPOIMENTOS ---
+  const aprovarDepoimento = (id: number, texto: string) => {
+    const temPalavraBloqueada = ["lixo", "roubo", "palavrao"].some(p => texto.toLowerCase().includes(p));
+    if (temPalavraBloqueada) {
+      toast({ variant: "destructive", title: "Bloqueado!", description: "Contém palavras impróprias." });
+      return;
+    }
+    setDepoimentos(depoimentos.map(d => d.id === id ? { ...d, status: "aprovado" } : d));
+    toast({ title: "Aprovado!", description: "O depoimento agora é público." });
+  };
+
+const tocarApito = () => {
+  const audio = new Audio('/sound/apito.mp3'); // Certifique-se que o arquivo está em public/sounds/apito.mp3
+  audio.play().catch(e => console.log("Erro ao tocar áudio (interação necessária):", e));
+};
+
+// Monitora depoimentos pendentes
+useEffect(() => {
+  const pendentes = depoimentos.filter(d => d.status === "pendente").length;
+  if (pendentes > 0) {
+    tocarApito();
+  }
+}, [depoimentos.length]); // Toca sempre que um novo depoimento chegar
 
   // --- SIMULAÇÃO DE DOWNLOAD PDF ---
   const downloadRelatorio = (tipo: 'sintetico' | 'analitico') => {
@@ -99,33 +157,24 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
   };
 
   return (
-    <div className="min-h-screen bg-[#060a08] text-white font-sans selection:bg-[#22c55e]/30">
+    <div className="min-h-screen bg-[#060a08] text-white font-sans">
       
-      {/* HEADER SUPERIOR */}
+      {/* HEADER COM LOGO E NOME EMBAIXO */}
       <header className="sticky top-0 z-50 bg-black/60 backdrop-blur-xl border-b border-white/5 p-4">
         <div className="max-w-[1600px] mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <div className="bg-[#22c55e] p-2 rounded-xl text-black shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-              <ShieldCheck size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-black uppercase italic tracking-tighter">Admin <span className="text-[#22c55e]">Cedro</span></h1>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Gestão de Alto Nível</p>
+            <div className="flex flex-col items-center">
+              <img src="/logo-arena.png" alt="Logo" className="w-40 h-40 object-contain" />
+              <span className="text-[10px] font-black uppercase text-[#22c55e] mt-1 tracking-[0.3em]">ARENA CEDRO</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button 
-              onClick={handleToggleManutencao}
-              variant="outline" 
-              className={`text-[10px] font-black uppercase border-white/10 h-10 px-4 ${emManutencao ? 'bg-red-500/20 text-red-500 border-red-500/50' : 'hover:bg-white/5'}`}
-            >
-              <AlertOctagon size={16} className="mr-2" /> {emManutencao ? "Manutenção Ativa" : "Modo Manutenção"}
-            </Button>
-            <Separator orientation="vertical" className="h-6 bg-white/10" />
-            <Button onClick={() => navigate("/login")} variant="ghost" size="icon" className="text-gray-400 hover:text-red-500">
-              <LogOut size={22} />
-            </Button>
+          <div className="flex gap-3">
+             <Button variant="outline" className="border-[#22c55e] text-[#22c55e] text-[10px] font-black uppercase">
+               <ShieldCheck className="mr-2" size={14}/> Painel Administrativo
+               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Gestão de Alto Nível</p>
+             </Button>
+             <Button variant="ghost" onClick={() => navigate("/")}><LogOut size={20}/></Button>
           </div>
         </div>
       </header>
@@ -152,20 +201,75 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
 
         <Tabs defaultValue="agenda" className="space-y-6">
           <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl w-full flex overflow-x-auto h-auto">
-            <TabsTrigger value="agenda" className="flex-1 font-bold uppercase italic py-3">Agenda Interativa</TabsTrigger>
-            <TabsTrigger value="vip" className="flex-1 font-bold uppercase italic py-3">VIP & Fixos</TabsTrigger>
-            <TabsTrigger value="estoque" className="flex-1 font-bold uppercase italic py-3">Estoque/Produtos</TabsTrigger>
+            <TabsTrigger value="agenda" className="flex-1 font-bold uppercase italic py-3">Agenda</TabsTrigger>
+            <TabsTrigger value="estoque" className="flex-1 font-bold uppercase italic py-3">Produtos/Estoque</TabsTrigger>
             <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic py-3">Relatórios</TabsTrigger>
-            <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic py-3">Performance Equipe</TabsTrigger>
+            <TabsTrigger value="depoimentos" className="flex-1 font-bold uppercase italic py-3">Depoimentos</TabsTrigger>
           </TabsList>
 
-          {/* --- ABA AGENDA INTERATIVA --- */}
-          <TabsContent value="agenda">
-  <Card className="bg-black/40 border-white/5 text-white rounded-[2rem] overflow-hidden">
-    <div className="p-6 border-b border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* --- ABA AGENDA INTERATIVA UNIFICADA --- */}
+<TabsContent value="agenda" className="grid lg:grid-cols-12 gap-6">
+  
+  {/* COLUNA DA ESQUERDA: CALENDÁRIO (FOLHINHA) */}
+  <div className="lg:col-span-4 space-y-4">
+    <Card className="bg-[#0c120f] border-white/5 rounded-[2.5rem] overflow-hidden">
+      {/* Cabeçalho do Calendário */}
+      <div className="bg-[#22c55e] p-4 flex justify-between items-center text-black font-black uppercase italic">
+        <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))}>
+          <ChevronLeft size={20} />
+        </button>
+        <h2 className="text-sm">
+          {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}
+        </h2>
+        <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() + 1)))}>
+          <ChevronRight size={20} />
+        </button>
+      </div>
+
+      {/* Dias do Mês */}
+      <div className="grid grid-cols-7 p-4 gap-1">
+        {["D", "S", "T", "Q", "Q", "S", "S"].map((d) => (
+          <div key={d} className="text-center text-[10px] font-bold text-gray-500 mb-2">{d}</div>
+        ))}
+        {diasMes.map((date, i) => (
+          <button
+            key={i}
+            disabled={!date}
+            onClick={() => date && setDiaSelecionado(date)}
+            className={cn(
+              "h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all",
+              !date ? "opacity-0" : "hover:bg-[#22c55e]/20 border border-white/5",
+              date?.toDateString() === diaSelecionado.toDateString() 
+                ? "bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]" 
+                : "text-white"
+            )}
+          >
+            {date?.getDate()}
+          </button>
+        ))}
+      </div>
+    </Card>
+
+    {/* Info Auxiliar abaixo do calendário */}
+    <Card className="bg-white/5 border-white/5 p-4 rounded-2xl">
+      <p className="text-[10px] text-[#22c55e] font-bold uppercase mb-1">Status do Dia</p>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-[#22c55e]"></div>
+        <p className="text-xs font-bold text-gray-300 italic">Preços: Diurno R$80 | Noturno R$120</p>
+      </div>
+    </Card>
+  </div>
+
+  {/* COLUNA DA DIREITA: LISTAGEM DE HORÁRIOS */}
+  <div className="lg:col-span-8 space-y-4">
+    <div className="flex flex-col md:flex-row justify-between items-center bg-black/40 p-4 rounded-3xl border border-white/10 gap-4">
       <div>
-        <h3 className="font-black uppercase italic text-xl">Gestão de Horários</h3>
-        <p className="text-[10px] text-[#22c55e] font-bold uppercase">Preços: Diurno R$80 | Noturno R$120 (Ref. 1h)</p>
+        <h3 className="font-black uppercase italic text-lg leading-tight">
+          Horários disponíveis
+        </h3>
+        <p className="text-[10px] text-gray-500 font-bold uppercase italic">
+          Selecionado: {diaSelecionado.toLocaleDateString('pt-BR')}
+        </p>
       </div>
       
       {/* Seletor de Duração do Bloco */}
@@ -178,26 +282,28 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
               duracaoFiltro === min ? 'bg-[#22c55e] text-black' : 'text-gray-500 hover:text-white'
             }`}
           >
-            {min === 30 ? '30 Min' : min === 60 ? '1 Hora' : '1h 30min'}
+            {min === 30 ? '30 Min' : min === 60 ? '1 Hora' : '1h 30m'}
           </button>
         ))}
       </div>
     </div>
 
-    <ScrollArea className="h-[600px] p-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+    <ScrollArea className="h-[600px] pr-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {slotsCalculados.map((slot, i) => (
           <Dialog key={i}>
             <DialogTrigger asChild>
-              <button className={`p-4 rounded-2xl border transition-all text-left relative overflow-hidden group
-                ${slot.status === 'reservado' 
+              <button className={cn(
+                "p-4 rounded-2xl border transition-all text-left relative overflow-hidden group",
+                slot.status === 'reservado' 
                   ? 'border-red-500/20 bg-red-500/5 opacity-60' 
-                  : 'border-[#22c55e]/20 bg-white/5 hover:border-[#22c55e]/50'}`}>
-                
+                  : 'border-white/5 bg-white/5 hover:border-[#22c55e]/50'
+              )}>
                 <div className="flex justify-between items-start mb-1">
-                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
+                  <span className={cn(
+                    "text-[8px] font-black uppercase px-2 py-0.5 rounded",
                     slot.turno === 'diurno' ? 'bg-orange-500/20 text-orange-500' : 'bg-purple-500/20 text-purple-400'
-                  }`}>
+                  )}>
                     {slot.turno}
                   </span>
                   <p className="text-[9px] font-black text-[#22c55e]">R$ {slot.valor.toFixed(2)}</p>
@@ -220,57 +326,45 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                <div className="flex justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                <div className="flex justify-between p-4 bg-white/5 rounded-2xl border border-white/5 text-sm">
+                   <span>Data: <b>{diaSelecionado.toLocaleDateString()}</b></span>
+                   <span>Turno: <b className="uppercase">{slot.turno}</b></span>
+                </div>
+                <div className="flex justify-between p-4 bg-[#22c55e]/10 rounded-2xl border border-[#22c55e]/20">
                   <div>
-                    <p className="text-[10px] uppercase text-gray-500 font-bold">Horário Selecionado</p>
+                    <p className="text-[10px] uppercase text-gray-400 font-bold">Horário</p>
                     <p className="text-xl font-black italic">{slot.inicio} às {slot.fim}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] uppercase text-gray-500 font-bold">Valor Total</p>
+                    <p className="text-[10px] uppercase text-gray-400 font-bold">Valor</p>
                     <p className="text-xl font-black italic text-[#22c55e]">R$ {slot.valor.toFixed(2)}</p>
                   </div>
                 </div>
 
                 {slot.status === 'reservado' ? (
-                  <>
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Responsável</p>
-                      <p className="font-black text-[#22c55e]">CLAUDIO OLIVEIRA (Atendente: Bruna)</p>
-                    </div>
-                    <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                      <p className="text-[10px] uppercase text-red-500 font-bold mb-1 italic">Alerta do Sistema</p>
-                      <p className="text-xs italic">"Cliente solicitou 12 coletes extras e bola oficial."</p>
-                    </div>
-                  </>
+                   <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                     <p className="text-[10px] uppercase text-gray-500 font-bold mb-1">Responsável</p>
+                     <p className="font-black text-[#22c55e]">MENSALISTA: RACHA DO CEDRO</p>
+                   </div>
                 ) : (
                   <div className="space-y-3">
                     <Input placeholder="Nome do Cliente" className="bg-white/5 border-white/10" />
-                    <Input placeholder="Telefone" className="bg-white/5 border-white/10" />
-                    <select className="w-full bg-white/5 border border-white/10 rounded-md p-2 text-sm">
-                      <option>Dinheiro (Local)</option>
-                      <option>PIX Antecipado</option>
-                      <option>Cortesia / Fidelidade</option>
-                    </select>
+                    <Input placeholder="Telefone (WhatsApp)" className="bg-white/5 border-white/10" />
                   </div>
                 )}
               </div>
 
               <DialogFooter>
-                {slot.status === 'livre' ? (
-                  <Button className="w-full bg-[#22c55e] text-black font-black uppercase italic h-12">Confirmar Agendamento</Button>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 w-full">
-                    <Button variant="outline" className="border-red-500 text-red-500 font-black uppercase italic">Cancelar</Button>
-                    <Button className="bg-[#22c55e] text-black font-black uppercase italic">Editar</Button>
-                  </div>
-                )}
+                <Button className="w-full bg-[#22c55e] text-black font-black uppercase italic h-12">
+                  {slot.status === 'livre' ? 'Confirmar Agendamento' : 'Editar Reserva'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         ))}
       </div>
     </ScrollArea>
-  </Card>
+  </div>
 </TabsContent>
 
           {/* --- ABA VIP & FIXOS --- */}
@@ -278,7 +372,6 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
             <Card className="bg-[#0c120f] border-white/5 text-white rounded-[2rem] overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between p-6">
                 <CardTitle className="italic uppercase">Contratos Fixos / VIP</CardTitle>
-                <Button className="bg-[#22c55e] text-black font-bold text-xs uppercase">+ Novo VIP</Button>
               </CardHeader>
               <Table>
                 <TableHeader className="bg-white/5">
@@ -311,8 +404,8 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
             </Card>
           </TabsContent>
 
-          {/* --- ABA ESTOQUE --- */}
-          <TabsContent value="estoque">
+          {/* --- ABA PRODUTOS --- */}
+          <TabsContent value="produtos">
             <div className="grid md:grid-cols-2 gap-6">
               <Card className="bg-[#0c120f] border-white/5 text-white rounded-[2rem]">
                 <CardHeader><CardTitle className="italic uppercase">Inventário de Produtos</CardTitle></CardHeader>
@@ -359,28 +452,148 @@ const slotsCalculados = useMemo(() => gerarSlots(), [duracaoFiltro]);
             </div>
           </TabsContent>
 
-          {/* --- ABA RELATÓRIOS --- */}
+          {/* ABA ESTOQUE / CADASTRO */}
+          <TabsContent value="estoque">
+            <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
+               <div className="flex justify-between mb-6">
+                 <h2 className="text-2xl font-black italic uppercase">Gestão de Itens</h2>
+                 <Dialog>
+                   <DialogTrigger asChild><Button className="bg-[#22c55e] text-black font-black uppercase"><Plus className="mr-2"/> Novo Produto</Button></DialogTrigger>
+                   <DialogContent className="bg-[#0c120f] text-white border-white/10 rounded-[2rem]">
+                     <DialogHeader><DialogTitle className="italic">Cadastrar Produto</DialogTitle></DialogHeader>
+                     <div className="space-y-4 mt-4">
+                       <Input placeholder="Nome do Produto" className="bg-white/5" />
+                       <div className="grid grid-cols-2 gap-2">
+                         <Input placeholder="Preço R$" className="bg-white/5" />
+                         <Input placeholder="Estoque Inicial" className="bg-white/5" />
+                       </div>
+                       <Button className="w-full bg-[#22c55e] text-black font-black uppercase">Salvar no Estoque</Button>
+                     </div>
+                   </DialogContent>
+                 </Dialog>
+               </div>
+               <Table>
+                 <TableHeader><TableRow className="border-white/5">
+                   <TableHead>Item</TableHead><TableHead>Preço</TableHead><TableHead>Estoque</TableHead><TableHead>Ações</TableHead>
+                 </TableRow></TableHeader>
+                 <TableBody>
+                   <TableRow className="border-white/5">
+                     <TableCell className="font-bold">Gatorade 500ml</TableCell>
+                     <TableCell className="text-[#22c55e]">R$ 10,00</TableCell>
+                     <TableCell><Badge className="bg-orange-500">42 Unid.</Badge></TableCell>
+                     <TableCell><Button variant="ghost" size="icon"><Settings size={16}/></Button></TableCell>
+                   </TableRow>
+                 </TableBody>
+               </Table>
+            </Card>
+          </TabsContent>
+
+          {/* ABA RELATÓRIOS (SINTÉTICO E ANALÍTICO) */}
           <TabsContent value="relatorios">
             <div className="grid md:grid-cols-2 gap-8">
-              <Card className="bg-gradient-to-br from-[#0c120f] to-black border-white/10 text-white rounded-[3rem] p-8 text-center border-t-4 border-t-[#22c55e]">
-                <BarChart3 size={48} className="mx-auto text-[#22c55e] mb-4" />
-                <h3 className="text-2xl font-black italic uppercase mb-2">Relatório Sintético</h3>
-                <p className="text-gray-500 text-sm mb-8 italic">Resumo de faturamento, reservas e turnos em uma única página.</p>
-                <Button onClick={() => downloadRelatorio('sintetico')} className="w-full bg-[#22c55e] text-black font-black uppercase italic py-7 rounded-2xl shadow-xl">
-                  Baixar Sintético (PDF)
-                </Button>
+              <Card className="bg-gradient-to-br from-[#0c120f] to-black border-white/10 p-8 rounded-[3rem] text-center">
+                <BarChart3 size={40} className="mx-auto text-[#22c55e] mb-4" />
+                <h3 className="text-xl font-black italic uppercase">Sintético</h3>
+                <p className="text-xs text-gray-500 mb-6">Resumo rápido de faturamento e ocupação mensal.</p>
+                <div className="p-4 bg-white/5 rounded-2xl mb-6 text-left border border-white/5">
+                  <div className="flex justify-between mb-2"><span className="text-[10px] text-gray-400">Faturamento:</span> <span className="font-black">R$ 12.450</span></div>
+                  <div className="flex justify-between"><span className="text-[10px] text-gray-400">Ocupação:</span> <span className="font-black">78%</span></div>
+                </div>
+                <Button className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl">Gerar PDF Sintético</Button>
               </Card>
 
-              <Card className="bg-gradient-to-br from-[#0c120f] to-black border-white/10 text-white rounded-[3rem] p-8 text-center border-t-4 border-t-blue-500">
-                <FileText size={48} className="mx-auto text-blue-500 mb-4" />
-                <h3 className="text-2xl font-black italic uppercase mb-2">Relatório Analítico</h3>
-                <p className="text-gray-500 text-sm mb-8 italic">Detalhado por cliente, produto, forma de pagamento e desempenho de equipe.</p>
-                <Button onClick={() => downloadRelatorio('analitico')} className="w-full bg-blue-500 text-white font-black uppercase italic py-7 rounded-2xl shadow-xl">
-                  Baixar Analítico (PDF)
-                </Button>
+              <Card className="bg-gradient-to-br from-[#0c120f] to-black border-white/10 p-8 rounded-[3rem] text-center">
+                <FileText size={40} className="mx-auto text-blue-500 mb-4" />
+                <h3 className="text-xl font-black italic uppercase">Analítico</h3>
+                <p className="text-xs text-gray-500 mb-6">Detalhamento por cliente, produto e método de pagamento.</p>
+                <div className="p-4 bg-white/5 rounded-2xl mb-6 text-left border border-white/5">
+                  <div className="flex justify-between mb-2"><span className="text-[10px] text-gray-400">Vendas Prod:</span> <span className="font-black">R$ 2.100</span></div>
+                  <div className="flex justify-between"><span className="text-[10px] text-gray-400">Horas VIP:</span> <span className="font-black">45h</span></div>
+                </div>
+                <Button className="w-full bg-blue-500 text-white font-black uppercase italic h-14 rounded-2xl">Gerar PDF Analítico</Button>
               </Card>
             </div>
           </TabsContent>
+
+          {/* ABA DEPOIMENTOS COM FILTRO DE PALAVRAS */}
+          <TabsContent value="depoimentos">
+            <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
+              <h2 className="text-2xl font-black italic uppercase mb-6 flex items-center gap-2">
+                <MessageSquare className="text-[#22c55e]" /> Moderação de Feedbacks
+              </h2>
+              <div className="grid gap-4">
+                {depoimentos.filter(d => d.status === "pendente").map(d => (
+                  <div key={d.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-black text-[#22c55e] uppercase italic">{d.autor}</p>
+                      <p className="text-sm italic text-gray-300 mt-1">"{d.texto}"</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={() => setDepoimentos(depoimentos.filter(x => x.id !== d.id))} size="sm" variant="outline" className="border-red-500 text-red-500 hover:bg-red-500/10 rounded-xl">
+                        <X size={16}/>
+                      </Button>
+                      <Button onClick={() => aprovarDepoimento(d.id, d.texto)} size="sm" className="bg-[#22c55e] text-black rounded-xl">
+                        <Check size={16}/>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic py-3">Promoções</TabsTrigger>
+
+{/* CONTEÚDO DA ABA MARKETING */}
+<TabsContent value="marketing">
+  <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem]">
+    <div className="flex items-center gap-4 mb-8">
+      <div className="p-3 bg-yellow-500/20 rounded-2xl text-yellow-500">
+        <AlertTriangle size={32} />
+      </div>
+      <div>
+        <h3 className="text-2xl font-black italic uppercase">Banner de Promoção</h3>
+        <p className="text-gray-500 text-sm italic">Este anúncio aparecerá assim que o cliente abrir o site.</p>
+      </div>
+    </div>
+
+    <div className="space-y-6">
+      <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+        <span className="font-bold uppercase text-xs">Ativar Pop-up no Site</span>
+        <button 
+          onClick={() => setPromoAtiva(!promoAtiva)}
+          className={`w-14 h-7 rounded-full transition-all relative ${promoAtiva ? 'bg-[#22c55e]' : 'bg-gray-700'}`}
+        >
+          <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${promoAtiva ? 'left-8' : 'left-1'}`} />
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase text-gray-400">Mensagem do Banner</label>
+        <Input 
+          value={promoTexto} 
+          onChange={(e) => setPromoTexto(e.target.value)}
+          placeholder="Ex: 20% de Desconto na próxima reserva!" 
+          className="bg-white/5 border-white/10 h-14 text-lg italic font-bold"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase text-gray-400">Link do Botão (Opcional)</label>
+        <Input 
+          value={promoLink}
+          onChange={(e) => setPromoLink(e.target.value)}
+          placeholder="https://wa.me/seu-numero" 
+          className="bg-white/5 border-white/10"
+        />
+      </div>
+
+      <Button onClick={salvarPromocao} className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl shadow-lg hover:scale-[1.02] transition-transform">
+        Publicar Alterações
+      </Button>
+    </div>
+  </Card>
+</TabsContent>
 
           {/* --- ABA PERFORMANCE EQUIPE --- */}
           <TabsContent value="equipe">

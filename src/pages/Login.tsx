@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { toast } from "@/components/ui/use-toast";
 
@@ -54,6 +54,17 @@ const Login = () => {
     // DIV PRINCIPAL (ROOT)
     <div className="min-h-screen w-full bg-[#060a08] relative overflow-hidden flex items-center justify-center p-4">
       
+      {/* BOTÃO VOLTAR PARA O SITE (FIXO NO TOPO) */}
+      <button 
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group"
+      >
+        <div className="bg-white/5 p-2 rounded-full border border-white/10 group-hover:border-[#22c55e]/50 group-hover:bg-[#22c55e]/10">
+          <ArrowLeft size={20} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest italic">Voltar ao site</span>
+      </button>
+
       {/* BACKGROUND COM IMAGEM E GRADIENTE */}
       <div className="absolute inset-0 z-0">
         <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Background Arena" />
@@ -68,7 +79,7 @@ const Login = () => {
           <img 
             src="/media/logo-arena2.png" 
             alt="Arena Cedro" 
-            className="w-[320px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" 
+            className="w-[550px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" 
           />
         </div>
 

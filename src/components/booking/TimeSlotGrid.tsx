@@ -57,7 +57,6 @@ export const TimeSlotGrid = ({ date, slots, onSelectSlot, selectedSlot, isAdmin 
     { value: 30, label: "30 min" },
     { value: 60, label: "1 hora" },
     { value: 90, label: "1h30" },
-    { value: 120, label: "2 horas" },
   ];
 
 const renderSlotSection = (sectionSlots: TimeSlot[], title: string, priceLabel: string) => (

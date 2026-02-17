@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import logoArena from "./media/logo-arena2.png";
 
@@ -52,11 +52,23 @@ const AdminLogin = () => {
       title: "Solicitação Enviada",
       description: "Aguarde o e-mail de confirmação da diretoria.",
     });
-    setActiveTab("login");
+    setActiveTab("adminlogin");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
+      
+      {/* BOTÃO VOLTAR PARA O SITE (FIXO NO TOPO) */}
+      <button 
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group"
+      >
+        <div className="bg-white/5 p-2 rounded-full border border-white/10 group-hover:border-[#22c55e]/50 group-hover:bg-[#22c55e]/10">
+          <ArrowLeft size={20} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest italic">Voltar ao site</span>
+      </button>
+
       {/* Background */}
       <div className="absolute inset-0 z-0">
         <img src={heroArena} className="w-full h-full object-cover opacity-20" alt="Arena Background" />
@@ -68,7 +80,7 @@ const AdminLogin = () => {
   <img 
     src="/media/logo-arena2.png" 
     alt="Arena Cedro" 
-    className="w-[320px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
+    className="w-[550px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
 </div>
 
       <div className="relative z-10 w-full max-w-lg">
@@ -99,7 +111,7 @@ const AdminLogin = () => {
                         type="email" 
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="usuario@admincedro.com" 
+                        placeholder="usuario" 
                         className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" 
                       />
                     </div>

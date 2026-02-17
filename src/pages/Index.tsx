@@ -4,16 +4,47 @@ import { Button } from "@/components/ui/button";
 import { 
   Calendar, Clock, Users, ChevronRight, Star,
   Instagram, Facebook, Phone, MapPin, Camera, 
-  PlayCircle, MessageSquare, ArrowDown 
+  PlayCircle, MessageSquare, ArrowDown, 
+  ShieldCheck, X, Bell
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
 // Função auxiliar para evitar erro de compilação na variável slotsHoje
 const gerarSlotsAgenda = (duracao: number) => {
-  // Esta função pode ser personalizada, aqui ela retorna um placeholder 
-  // já que você usa o slotsBase mais abaixo para o grid detalhado.
-  return []; 
+  const slotsBase = [
+  // --- TURNO DIURNO (R$ 80,00/h) ---
+  { inicio: "08:00", fim30: "08:30", fim60: "09:00", fim90: "09:30", s: "livre" },
+  { inicio: "09:30", fim30: "10:00", fim60: "10:30", fim90: "11:00", s: "reservado" },
+  { inicio: "11:00", fim30: "11:30", fim60: "12:00", fim90: "12:30", s: "livre" },
+  { inicio: "12:30", fim30: "13:00", fim60: "13:30", fim90: "14:00", s: "livre" },
+  { inicio: "14:00", fim30: "14:30", fim60: "15:00", fim90: "15:30", s: "livre" },
+  { inicio: "15:30", fim30: "16:00", fim60: "16:30", fim90: "17:00", s: "livre" },
+  { inicio: "17:00", fim30: "17:30", fim60: "18:00", fim90: "18:30", s: "livre" },
+
+  // --- TURNO NOTURNO (R$ 120,00/h) ---
+  { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
+  { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "reservado" },
+  { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
+];
+  return slotsBase.map((slot) => {
+    const hora = parseInt(slot.inicio.split(":")[0]);
+    const isNoturno = hora >= 18;
+    
+    // Se a duração for 90min no último slot, ele trava em 22:00 para não ultrapassar
+    const fim = duracao === 30 ? slot.fim30 : duracao === 60 ? slot.fim60 : slot.fim90;
+    
+    const precoBase = isNoturno ? 120 : 80;
+    const valor = (precoBase / 60) * duracao;
+
+    return {
+      inicio: slot.inicio,
+      fim: fim,
+      turno: isNoturno ? "noturno" : "diurno",
+      valor: valor,
+      status: slot.s === "reservado" || slot.s === "ocupado" ? "reservado" : "livre",
+    };
+  });
 };
 
 export const Index = () => {
@@ -21,39 +52,104 @@ export const Index = () => {
   const [mostrarAgenda, setMostrarAgenda] = useState(false);
   const [duracaoDesejada, setDuracaoDesejada] = useState(60); // 30, 60 ou 90
   const [comentarios, setComentarios] = useState<any[]>([]);
+  const [duracaoFiltro, setDuracaoFiltro] = useState(60);
+  const slotsCalculados = gerarSlotsAgenda(duracaoFiltro); 
   
-  const PALAVRAS_BLOQUEADAS = ["Porra", "Merda", "Lixo", "Bosta"];
+  const PALAVRAS_BLOQUEADAS = [
+  // Termos Gerais
+  "Porra", "Merda", "Lixo", "Bosta", "Caralho", "Puta", "Putaria", 
+  "Vagabundo", "Desgraça", "Inferno", "Cacete", "Fodase", "Foder",
   
-  // Lógica de Blocos Flexíveis (Sua atualização)
-  const slotsBase = [
-    { inicio: "08:00", fim30: "08:30", fim60: "09:00", fim90: "09:30", s: "livre" },
-    { inicio: "09:30", fim30: "10:00", fim60: "10:30", fim90: "11:00", s: "ocupado" },
-    { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
-    { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "livre" },
-    { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:30", s: "livre" },
-  ];
-
-  const filtrarTexto = (texto: string) => {
-    let textoLimpo = texto;
-    PALAVRAS_BLOQUEADAS.forEach(palavra => {
-      const regex = new RegExp(palavra, "gi");
-      textoLimpo = textoLimpo.replace(regex, "****");
-    });
-    return textoLimpo;
-  };
+  // Ofensas Diretas
+  "Corno", "Otário", "Verme", "Inútil", "Escroto", "Ladrão", "Safado",
+  
+  // Variações e termos comuns em avaliações fakes
+  "Lixo", "Horrível", "Péssimo", "Fraude", "Engano"
+];
+  
+const censurarTexto = (texto: string) => {
+  let textoCensurado = texto;
+  PALAVRAS_BLOQUEADAS.forEach((palavra) => {
+    const regex = new RegExp(palavra, "gi"); // "gi" faz ignorar maiúsculas/minúsculas
+    textoCensurado = textoCensurado.replace(regex, "****");
+  });
+  return textoCensurado;
+};
 
   useEffect(() => {
     const carregarDepoimentos = () => {
       const salvos = JSON.parse(localStorage.getItem("arena_reviews") || "[]");
       const filtrados = salvos.map((c: any) => ({
         ...c,
-        texto: filtrarTexto(c.texto),
-        nome: filtrarTexto(c.nome)
+        texto: censurarTexto(c.texto),
+        nome: censurarTexto(c.nome)
       }));
       setComentarios(filtrados.slice(0, 3));
     };
     carregarDepoimentos();
   }, []);
+
+  const PromoPopup = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [promoData, setPromoData] = useState({ texto: "", link: "" });
+
+  useEffect(() => {
+    // Verifica se existe promoção ativa no localStorage
+    const ativa = localStorage.getItem("arena_promo_ativa") === "true";
+    const texto = localStorage.getItem("arena_promo_texto") || "Garanta seu racha hoje!";
+    const link = localStorage.getItem("arena_promo_link") || "#";
+
+    if (ativa) {
+      setPromoData({ texto, link });
+      // Delay de 2 segundos para aparecer (não assustar o cliente logo de cara)
+      const timer = setTimeout(() => setIsOpen(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="relative w-full max-w-sm bg-[#0c120f] border border-[#22c55e]/30 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(34,197,94,0.2)] animate-in zoom-in duration-300">
+        
+        {/* Botão Fechar */}
+        <button 
+          onClick={() => setIsOpen(false)}
+          className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+        >
+          <X size={24} />
+        </button>
+
+        <div className="p-8 text-center">
+          <div className="w-16 h-16 bg-[#22c55e]/20 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-[#22c55e]/30">
+            <Bell className="text-[#22c55e] animate-bounce" size={32} />
+          </div>
+
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#22c55e] mb-2">Aviso Importante</h3>
+          <p className="text-xl font-black italic uppercase text-white leading-tight mb-8">
+            "{promoData.texto}"
+          </p>
+
+          <a 
+            href={promoData.link}
+            onClick={() => setIsOpen(false)}
+            className="flex items-center justify-center gap-2 w-full bg-[#22c55e] hover:bg-[#1db053] text-black font-black py-4 rounded-2xl uppercase italic transition-all active:scale-95 shadow-[0_10px_30px_-10px_rgba(34,197,94,0.5)]"
+          >
+            Aproveitar Agora <ChevronRight size={20} />
+          </a>
+          
+          <button 
+            onClick={() => setIsOpen(false)}
+            className="mt-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
+          >
+            Talvez mais tarde
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans selection:bg-[#22c55e]/30">
@@ -95,21 +191,21 @@ export const Index = () => {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                  {slotsBase.map((slot, i) => (
+                  {slotsCalculados.map((slot, i) => (
                     <button
                       key={i}
-                      disabled={slot.s === 'ocupado'}
-                      onClick={() => navigate("/login")}
-                      className={`p-4 rounded-2xl border flex flex-col items-center justify-center transition-all 
-                        ${slot.s === 'ocupado' 
-                          ? 'border-red-500/20 bg-red-500/5 opacity-40 cursor-not-allowed' 
-                          : 'border-[#22c55e]/30 bg-[#22c55e]/5 hover:bg-[#22c55e] hover:text-black group'}`}
-                    >
+                      disabled={slot.status === 'reservado'} 
+  onClick={() => navigate("/login")}
+  className={`p-4 rounded-2xl border flex flex-col items-center justify-center transition-all 
+    ${slot.status === 'reservado' 
+      ? 'border-red-500/20 bg-red-500/5 opacity-40 cursor-not-allowed' 
+      : 'border-[#22c55e]/30 bg-[#22c55e]/5 hover:bg-[#22c55e] hover:text-black group'}`}
+>
                       <span className="text-xs font-black italic">
-                        {slot.inicio} - {duracaoDesejada === 30 ? slot.fim30 : duracaoDesejada === 60 ? slot.fim60 : slot.fim90}
+                        {slot.inicio} - {slot.fim}
                       </span>
-                      <span className={`text-[8px] font-bold uppercase mt-1 ${slot.s === 'ocupado' ? 'text-red-500' : 'text-[#22c55e] group-hover:text-black'}`}>
-                        {slot.s === 'ocupado' ? 'Reservado' : 'Livre'}
+                     <span className={`text-[8px] font-bold uppercase mt-1 ${slot.status === 'reservado' ? 'text-red-500' : 'text-[#22c55e] group-hover:text-black'}`}>
+                        {slot.status === 'reservado' ? 'Reservado' : 'Livre'}
                       </span>
                     </button>
                   ))}
@@ -120,7 +216,7 @@ export const Index = () => {
           )}
 
           <div className="relative mb-6">
-            <img src="/logo-arena.png" onError={(e) => { e.currentTarget.src = "/media/logo-arena.png" }} alt="Arena Cedro" className="w-[320px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
+            <img src="/logo-arena.png" onError={(e) => { e.currentTarget.src = "/media/logo-arena.png" }} alt="Arena Cedro" className="w-[550px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
           </div>
           
           <h1 className="text-lg md:text-xl text-gray-400 mb-8 max-w-2xl font-medium tracking-tight italic">
@@ -132,15 +228,24 @@ export const Index = () => {
             <Button className="bg-[#22c55e] hover:bg-[#1db053] text-black text-lg py-7 rounded-2xl font-black uppercase italic transition-all active:scale-95 shadow-[0_10px_40px_-10px_rgba(34,197,94,0.5)]" onClick={() => navigate("/login")}>
               Agendar Agora <ChevronRight className="ml-1 w-5 h-5" />
             </Button>
-            <div className="flex justify-center gap-4 mt-4 text-center">
-              <div className="bg-white/5 border border-white/10 px-4 py-3 rounded-2xl">
-                <p className="text-[10px] text-gray-500 font-bold uppercase">☀️ Diurno</p>
-                <p className="text-[#22c55e] font-black italic text-lg">R$ 80</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 px-4 py-3 rounded-2xl">
-                <p className="text-[10px] text-gray-500 font-bold uppercase">🌙 Noturno</p>
-                <p className="text-[#22c55e] font-black italic text-lg">R$ 120</p>
-              </div>
+            <div className="flex justify-center gap-6 mt-6 text-center">
+  {/* CARD DIURNO */}
+  <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
+    <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">☀️ Diurno</p>
+    <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+      R$ 80
+      <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
+    </p>
+  </div>
+
+  {/* CARD NOTURNO */}
+  <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
+    <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">🌙 Noturno</p>
+    <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+      R$ 120
+      <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
+    </p>
+  </div>
             </div>
           </div>
         </div>
@@ -174,18 +279,84 @@ export const Index = () => {
       </a>
     </div>
 
-    {/* HORÁRIOS */}
-    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
-      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
-        <Clock className="text-black" />
+    {/* HORÁRIOS FLEXIVEIS */}
+<div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all w-full max-w-4xl mx-auto">
+  <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+    <Clock className="text-black" />
+  </div>
+  
+  <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
+  <p className="text-gray-500 text-sm mb-8 text-center">
+    Funcionamos todos os dias, das 08h às 22h, para o seu racha nunca parar. Veja nossos horários disponíveis e escolha o melhor para você e seu time!
+  </p>
+
+  {/* BOTÃO ESTILIZADO COM BOLINHA PULSANTE */}
+  <button 
+    onClick={() => setMostrarAgenda(!mostrarAgenda)}
+    className="mb-8 px-6 py-2.5 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 flex items-center gap-2 hover:bg-[#22c55e]/20 transition-all active:scale-95 group"
+  >
+    <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" />
+    <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#22c55e]">
+      {mostrarAgenda ? "Fechar Agenda" : "Ver Horários Disponíveis Hoje"}
+    </span>
+    <ChevronRight className={`w-4 h-4 text-[#22c55e] transition-transform duration-300 ${mostrarAgenda ? 'rotate-90' : ''}`} />
+  </button>
+
+  {/* CONTEÚDO DA AGENDA (SÓ APARECE SE CLICAR) */}
+  {mostrarAgenda && (
+    <div className="w-full animate-in fade-in zoom-in duration-500">
+      <div className="bg-black/40 backdrop-blur-md border border-white/5 p-6 rounded-[2.5rem] shadow-2xl">
+        
+        {/* SELETOR DE DURAÇÃO (30, 60, 90 MIN) */}
+        <div className="flex justify-center gap-2 mb-8 bg-white/5 p-1.5 rounded-2xl w-fit mx-auto">
+          {[30, 60, 90].map(m => (
+            <button 
+              key={m} 
+              onClick={() => setDuracaoDesejada(m)}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+                duracaoDesejada === m 
+                ? 'bg-[#22c55e] text-black shadow-lg shadow-[#22c55e]/20' 
+                : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {m} MIN
+            </button>
+          ))}
+        </div>
+
+        {/* GRID DE HORÁRIOS - REPRESENTANDO OS DADOS DA VIEW SQL */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {/* SLOT DISPONÍVEL (VERDE) */}
+          <div className="p-4 rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/5 flex flex-col items-center gap-1 group/item hover:border-[#22c55e] transition-all cursor-pointer">
+            <span className="text-white font-black italic text-sm">08:00</span>
+            <span className="text-[9px] text-[#22c55e] font-bold uppercase tracking-tighter">Disponível</span>
+          </div>
+          
+          {/* SLOT OCUPADO (VERMELHO) */}
+          <div className="p-4 rounded-2xl border border-red-500/20 bg-red-500/5 flex flex-col items-center gap-1 opacity-50 grayscale">
+            <span className="text-gray-500 font-black italic text-sm">09:00</span>
+            <span className="text-[9px] text-red-500 font-bold uppercase tracking-tighter">Reservado</span>
+          </div>
+
+          {/* SLOT PENDENTE (AMARELO) */}
+          <div className="p-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/5 flex flex-col items-center gap-1">
+            <span className="text-white font-black italic text-sm">10:00</span>
+            <span className="text-[9px] text-yellow-500 font-bold uppercase tracking-tighter">Aguardando</span>
+          </div>
+
+          <div className="p-4 rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/5 flex flex-col items-center gap-1 group/item hover:border-[#22c55e] transition-all cursor-pointer">
+            <span className="text-white font-black italic text-sm">11:00</span>
+            <span className="text-[9px] text-[#22c55e] font-bold uppercase tracking-tighter">Disponível</span>
+          </div>
+        </div>
+
+        <p className="text-center text-[9px] text-gray-600 mt-6 uppercase font-bold tracking-widest italic">
+          * Horários atualizados em tempo real.
+        </p>
       </div>
-      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
-      <p className="text-gray-500 text-sm mb-6">Funcionamos todos os dias, das 08h às 23h, para o seu racha nunca parar.</p>
-      
-      <Button onClick={() => setMostrarAgenda(!mostrarAgenda)} variant="outline" className="w-full border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e] hover:text-black uppercase text-[10px] font-black italic py-6 transition-all">
-        {mostrarAgenda ? "Fechar Agenda" : "Ver Horários Hoje"}
-      </Button>
     </div>
+  )}
+</div>
 
     {/* ESTRUTURA */}
     <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
@@ -234,15 +405,16 @@ export const Index = () => {
       </section>
 
       {/* 5. DEPOIMENTOS */}
-      <section className="py-24 bg-black/20">
+<section className="py-24 bg-black/20">
   <div className="container mx-auto px-4">
     <div className="text-center mb-16">
       <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
-        O QUE OS NOSSOS <span className="text-[#22c55e]">CLEINTES</span> DIZEM
+        O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
       </h2>
       <p className="text-gray-500 font-medium">Quem joga na Arena Cedro, aprova.</p>
     </div>
 
+    {/* Grid de Depoimentos */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
       {[
         { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente. O sistema de reserva pelo site é o melhor da cidade.", estrelas: 5 },
@@ -259,12 +431,22 @@ export const Index = () => {
           <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.nome}</p>
         </div>
       ))}
+    </div> {/* FIM DA GRID */}
+
+    {/* Botão Centralizado fora da grid */}
+    <div className="flex justify-center w-full mt-12">
+      <Button 
+        onClick={() => navigate("/testimonialform")} 
+        variant="ghost" 
+        className="text-gray-500 hover:text-[#22c55e] uppercase font-black text-xs gap-2 group transition-all"
+      >
+        <MessageSquare size={16} className="group-hover:animate-bounce" /> 
+        Escrever Depoimento
+      </Button>
     </div>
-    <Button onClick={() => navigate("/testimonialform")} variant="ghost" className="mt-12 text-gray-500 hover:text-white uppercase font-black text-xs gap-2">
-          <MessageSquare size={16} /> Escrever Depoimento
-        </Button>
-  </div>
-</section>
+
+  </div> {/* FIM DO CONTAINER */}
+</section> {/* FIM DA SECTION */}
 
       {/* 6. PRONTO PARA JOGAR? */}
       <section className="py-24 container mx-auto px-4 text-center">
@@ -291,21 +473,37 @@ export const Index = () => {
               </a>
             </div>
             <div className="space-y-4">
-              <h4 className="text-[10px] uppercase font-black text-gray-500">Localização</h4>
-              <a href="https://maps.google.com" target="_blank" className="flex items-center justify-center md:justify-start gap-3 text-gray-300 hover:text-[#22c55e] transition-all text-xs font-bold">
-                <MapPin size={18} className="text-[#22c55e] shrink-0" /> Av. Trindade, 3126, SJ de Ribamar-MA
+              <h4 className="text-[10px] uppercase font-black text-gray-500 italic tracking-widest">Localização</h4>
+              <a 
+                href="https://www.google.com/maps/search/?api=1&query=Av.+Trindade,+3126,+Matinha,+São+José+de+Ribamar+-+MA" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center md:justify-start gap-3 text-gray-300 hover:text-[#22c55e] transition-all text-xs font-bold group"
+              >
+                <div className="bg-[#22c55e]/10 p-2 rounded-lg group-hover:bg-[#22c55e] transition-all">
+                   <MapPin size={18} className="text-[#22c55e] group-hover:text-black shrink-0" />
+                </div>
+                <span className="leading-relaxed">
+                  Av. Trindade, 3126, Matinha,<br /> 
+                  SJ de Ribamar-MA
+                </span>
               </a>
             </div>
             <div className="space-y-4">
               <h4 className="text-[10px] uppercase font-black text-gray-500">Redes Sociais</h4>
               <div className="flex justify-center md:justify-start gap-4">
-                <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="p-3 bg-white/5 rounded-xl hover:bg-[#22c55e] hover:text-black transition-all"><Instagram size={20} /></a>
-                <a href="#" className="p-3 bg-white/5 rounded-xl hover:bg-[#22c55e] hover:text-black transition-all"><Facebook size={20} /></a>
+                <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="p-3 bg-white/5 rounded-xl hover:bg-[#22c55e] hover:text-black transition-all"><Instagram size={40} /></a>
               </div>
             </div>
             <div className="space-y-4">
               <h4 className="text-[10px] uppercase font-black text-gray-500">Acesso Restrito</h4>
-              <Button variant="link" onClick={() => navigate("/adminlogin")} className="text-gray-600 hover:text-white text-[10px] font-black uppercase italic p-0">Area Administrativa</Button>
+              <Button 
+  className="bg-[#22c55e] hover:bg-[#1db053] text-black text-[10px] md:text-xs py-5 px-6 rounded-xl font-black uppercase italic transition-all active:scale-95 shadow-[0_5px_20px_-5px_rgba(34,197,94,0.4)]" 
+  onClick={() => navigate("/adminlogin")}
+>
+  <ShieldCheck className="mr-1.5 w-3.5 h-3.5" />
+  Área Administrativa
+</Button>
             </div>
           </div>
           <p className="mt-20 text-[9px] text-gray-800 font-bold uppercase italic tracking-widest">© 2026 Arena Cedro.</p>
