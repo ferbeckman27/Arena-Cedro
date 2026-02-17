@@ -22,20 +22,30 @@ const AdminLogin = () => {
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // LÓGICA DE DIRECIONAMENTO
-    if (email.toLowerCase().endsWith("@admincedro.com")) {
+    const emailLower = email.toLowerCase();
+
+    // LÓGICA DE DIRECIONAMENTO COM "CHAVE" DE ACESSO
+    if (emailLower.endsWith("@admincedro.com")) {
+      // SALVAMOS A CHAVE AQUI
+      localStorage.setItem("isAdmin", "true");
+      localStorage.setItem("userRole", "admin");
+      
       toast({
         title: "Acesso Administrador",
         description: "Redirecionando para o painel administrativo...",
       });
       navigate("/admindashboard");
     } 
-    else if (email.toLowerCase().endsWith("@atendcedro.com")) {
+    else if (emailLower.endsWith("@atendcedro.com")) {
+      // SALVAMOS A CHAVE DE ATENDENTE
+      localStorage.setItem("isAdmin", "true");
+      localStorage.setItem("userRole", "atendente");
+
       toast({
         title: "Acesso Atendente",
         description: "Redirecionando para o painel de atendente...",
       });
-      navigate("/atendentedashboard"); // Se tiver um painel específico, mude a rota aqui
+      navigate("/atendentedashboard"); // Ou a rota do atendente
     } 
     else {
       toast({
