@@ -22,20 +22,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
-// --- MOCKS DE DADOS ---
-const CLIENTES_VIP = [
-  { id: 1, nome: "Racha do Morro", responsavel: "Carlos Silva", dia: "Segunda", hora: "20:00", status: "Pago" },
-  { id: 2, nome: "Amigos do Edinho", responsavel: "Edson Jr", dia: "Quarta", hora: "19:00", status: "Atrasado" },
-  { id: 3, nome: "Amigos da Bola", responsavel: "Jose Luis", dia: "Sexta", hora: "18:30", status: "Pago" },
-];
-
-const [produtos, setProdutos] = useState([
-  { id: 1, nome: "Bola Nike", tipo: "Venda", preco: 180, estoque: 4 },
-  { id: 2, nome: "Aluguel Colete", tipo: "Aluguel", preco: 8, estoque: 40 },
-  { id: 3, nome: "Gatorade", tipo: "Venda", preco: 10, estoque: 100 },
-  { id: 4, nome: "Bola Penalty S11", tipo: "aluguel", preco: 15, estoque: 5 },
-  { id: 5, nome: "Água Mineral 500ml", tipo: "venda", preco: 4, estoque: 200 },
-]);
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -75,6 +61,21 @@ function AdminDashboard() {
 
   const [slotDetalhe, setSlotDetalhe] = useState<any>(null);
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
+
+  const CLIENTES_VIP = [
+  { id: 1, nome: "Racha do Morro", responsavel: "Carlos Silva", dia: "Segunda", hora: "20:00", status: "Pago" },
+  { id: 2, nome: "Amigos do Edinho", responsavel: "Edson Jr", dia: "Quarta", hora: "19:00", status: "Atrasado" },
+  { id: 3, nome: "Amigos da Bola", responsavel: "Jose Luis", dia: "Sexta", hora: "18:30", status: "Pago" },
+];
+
+const [produtos, setProdutos] = useState([
+  { id: 1, nome: "Bola Nike", tipo: "Venda", preco: 180, estoque: 4 },
+  { id: 2, nome: "Aluguel Colete", tipo: "Aluguel", preco: 8, estoque: 40 },
+  { id: 3, nome: "Gatorade", tipo: "Venda", preco: 10, estoque: 100 },
+  { id: 4, nome: "Bola Penalty S11", tipo: "aluguel", preco: 15, estoque: 5 },
+  { id: 5, nome: "Água Mineral 500ml", tipo: "venda", preco: 4, estoque: 200 },
+]);
+
 
   interface Depoimento {
     id: number;
