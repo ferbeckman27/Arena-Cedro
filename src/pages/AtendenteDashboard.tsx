@@ -11,7 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Users, Calendar as LucideCalendar, ShoppingBag, AlertTriangle, 
   LogOut, CheckCircle, XCircle, Star, MessageSquare, Trophy, 
-  Bell, ChevronLeft, ChevronRight, Crown, Plus, Search, DollarSign
+  Bell, ChevronLeft, ChevronRight, Crown, Plus, Search, DollarSign,
+  Package,
+  AlertCircle,
+  BellRing
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -58,12 +61,12 @@ const AtendenteDashboard = () => {
   };
 
   // Dados Simulados (Em um app real viriam do Banco/API)
-  const produtos = [
-    { id: 1, nome: "Gatorade", preco: 10 },
-    { id: 2, nome: "Água 500ml", preco: 5 },
-    { id: 3, nome: "Aluguel Colete", preco: 8 },
-    { id: 4, nome: "Bola Penalty S11", preco: 120 }
-  ];
+  const [estoque, setEstoque] = useState([
+  { id: 1, nome: "Bola Penalty S11", tipo: "aluguel", preco: 15, qtd: 5 },
+  { id: 2, nome: "Colete Arena (Unidade)", tipo: "aluguel", preco: 5, qtd: 30 },
+  { id: 3, nome: "Água Mineral 500ml", tipo: "venda", preco: 4, qtd: 100 },
+  { id: 4, nome: "Gatorade", tipo: "venda", preco: 8, qtd: 45 },
+]);
 
 const listaHorarios = useMemo(() => {
     const horas = [];
@@ -77,6 +80,12 @@ const listaHorarios = useMemo(() => {
   const [clientes, setClientes] = useState([
     { id: 1, nome: "João Silva", status: "bom", telefone: "98 9999-8888", obs: "Cliente antigo, nota 10. Sempre atencioso, educado, respeitando as regras da arena.", isVip: true },
     { id: 2, nome: "Ricardo Melo", status: "ruim", telefone: "98 7777-6666", obs: "Já causou confusão no campo, demorou para realizar pagamento, nao tem cuidado com os produtos alugados.", isVip: false }
+  ]);
+
+  const [alertas, setAlertas] = useState([
+    { id: 1, cliente: "Marcos Silva", obs: "Sempre pede para ligar os refletores 10 min antes.", tipo: "info" },
+    { id: 2, cliente: "Time do Tico", obs: "Costumam atrasar o pagamento do restante.", tipo: "alerta" },
+    { id: 3, cliente: "Jhonny", obs: "Não gosta de ser cobrado, mesmo com atraso.", tipo: "rejeitado" },
   ]);
 
   useEffect(() => {
@@ -139,67 +148,83 @@ const verificarDisponibilidade = (horaInicio: string, min: number) => {
   return true;
 };
 
-// 2. SEGUNDO: A Função de Agendar Completa
-const handleAgendar = (horaInicio: string, clienteNome: string) => {
-  if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
-
-  const duracaoMin = parseInt(duracao, 10);
-  
-  // Verifica se o horário está livre antes de seguir
-  if (!verificarDisponibilidade(horaInicio, duracaoMin)) {
-    return toast({ 
-      variant: "destructive", 
-      title: "Conflito de Horário!", 
-      description: "Este período invade uma reserva existente." 
+const handleSuspenderMensalista = (id: number) => {
+  if (window.confirm("Tem certeza que deseja suspender este horário fixo?")) {
+    setMensalistas(prev => prev.filter(m => m.id !== id));
+    toast({
+      title: "Mensalista Suspenso",
+      variant: "destructive",
     });
   }
-
-  // Toca o som baseado no pagamento
-  if (metodoPgto === 'pix') {
-    playApito();
-  } else {
-    playTorcida();
-  }
-
-  // Cálculos de Valores
-  const horaH = parseInt(horaInicio.split(":")[0]);
-  const valorBase = horaH >= 18 ? 120 : 80;
-  const valorReserva = valorBase * (duracaoMin / 60);
-  const totalProdutos = itensTemp.reduce((acc, item) => acc + item.preco, 0);
-  const totalGeral = valorReserva + totalProdutos;
-  const valorSinal = metodoPgto === "pix" ? totalGeral * 0.5 : totalGeral;
-
-  const idDataRaiz = `${diaSelecionado.toDateString()}-${horaInicio}`;
-  const slotsNecessarios = duracaoMin / 30;
-  const novaAgenda = { ...agendaStatus };
-  const indexBase = listaHorarios.indexOf(horaInicio);
-
-  // LOOP para marcar todos os blocos de 30min necessários
-  for (let i = 0; i < slotsNecessarios; i++) {
-    const horaOcupada = listaHorarios[indexBase + i];
-    if (!horaOcupada) break;
-
-    const idOcupado = `${diaSelecionado.toDateString()}-${horaOcupada}`;
-    
-    novaAgenda[idOcupado] = {
-      cliente: clienteNome,
-      isRaiz: i === 0,
-      referenciaRaiz: idDataRaiz,
-      duracao: duracaoMin,
-      metodo: metodoPgto,
-      valorTotal: totalGeral,
-      valorPagoAgora: valorSinal,
-      restante: totalGeral - valorSinal,
-      itens: i === 0 ? itensTemp : [] 
-    };
-  }
-
-  // ATUALIZA ESTADOS E FECHA MODAL
-  setAgendaStatus(novaAgenda);
-  setItensTemp([]); // Limpa o "carrinho"
-  setIsModalAberto(false); // Fecha o modal
-  toast({ title: "Reserva Confirmada!" });
 };
+
+// Função para abrir o modal de Edição (Você pode usar o mesmo modal de 'Novo VIP')
+const handleEditarMensalista = (mensalista: Mensalista) => {
+  setNovoVip(novoVip); // Preenche o estado com os dados atuais
+  setIsModalVipAberto(true); // Abre o modal
+};
+  
+// 2. SEGUNDO: A Função de Agendar Completa
+  function handleAgendar(horaInicio: string, clienteNome: string) {
+    if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
+
+    const duracaoMin = parseInt(duracao, 10);
+
+    // Verifica se o horário está livre antes de seguir
+    if (!verificarDisponibilidade(horaInicio, duracaoMin)) {
+      return toast({
+        variant: "destructive",
+        title: "Conflito de Horário!",
+        description: "Este período invade uma reserva existente."
+      });
+    }
+
+    // Toca o som baseado no pagamento
+    if (metodoPgto === 'pix') {
+      playApito();
+    } else {
+      playTorcida();
+    }
+
+    // Cálculos de Valores
+    const horaH = parseInt(horaInicio.split(":")[0]);
+    const valorBase = horaH >= 18 ? 120 : 80;
+    const valorReserva = valorBase * (duracaoMin / 60);
+    const totalProdutos = itensTemp.reduce((acc, item) => acc + item.preco, 0);
+    const totalGeral = valorReserva + totalProdutos;
+    const valorSinal = metodoPgto === "pix" ? totalGeral * 0.5 : totalGeral;
+
+    const idDataRaiz = `${diaSelecionado.toDateString()}-${horaInicio}`;
+    const slotsNecessarios = duracaoMin / 30;
+    const novaAgenda = { ...agendaStatus };
+    const indexBase = listaHorarios.indexOf(horaInicio);
+
+    // LOOP para marcar todos os blocos de 30min necessários
+    for (let i = 0; i < slotsNecessarios; i++) {
+      const horaOcupada = listaHorarios[indexBase + i];
+      if (!horaOcupada) break;
+
+      const idOcupado = `${diaSelecionado.toDateString()}-${horaOcupada}`;
+
+      novaAgenda[idOcupado] = {
+        cliente: clienteNome,
+        isRaiz: i === 0,
+        referenciaRaiz: idDataRaiz,
+        duracao: duracaoMin,
+        metodo: metodoPgto,
+        valorTotal: totalGeral,
+        valorPagoAgora: valorSinal,
+        restante: totalGeral - valorSinal,
+        itens: i === 0 ? itensTemp : []
+      };
+    }
+
+    // ATUALIZA ESTADOS E FECHA MODAL
+    setAgendaStatus(novaAgenda);
+    setItensTemp([]); // Limpa o "carrinho"
+    setIsModalAberto(false); // Fecha o modal
+    toast({ title: "Reserva Confirmada!" });
+  }
 
 // 3. TERCEIRO: Outras funções de Gestão
 const limparHorario = (id: string) => {
@@ -243,8 +268,8 @@ const resumoFinanceiro = useMemo(() => {
       <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex flex-col items-center">
-            <img src="/media/logo-arena.png" alt="Logo" className="w-20 h-20 object-contain" />
-            <span className="text-[30px] font-black uppercase text-[#22c55e]">PAINEL ATENDENTE ARENA</span>
+            <img src="/media/logo-arena.png" alt="Logo" className="w-60 h-60 object-contain" />
+            <span className="text-[20px] font-black uppercase text-[#22c55e]">BEM VINDO ATENDENTE</span>
           </div>
           </div>
           <div className="flex gap-2">
@@ -276,7 +301,7 @@ const resumoFinanceiro = useMemo(() => {
               </DialogContent>
             </Dialog>
           <Button onClick={() => setIsMaintenance(!isMaintenance)} variant={isMaintenance ? "destructive" : "outline"} size="sm">
-            {isMaintenance ? "ARENA OFFLINE" : "ARENA ONLINE"}
+            {isMaintenance ? "MANUTENÇÃO OFFLINE" : "MANUTENÇÃO ONLINE"}
           </Button>
         </div>
       </header>
@@ -287,6 +312,8 @@ const resumoFinanceiro = useMemo(() => {
             <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">Agenda Mensal</TabsTrigger>
             <TabsTrigger value="clientes" className="px-6 font-bold uppercase italic">Clientes</TabsTrigger>
             <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">VIPs/Fixos</TabsTrigger>
+            <TabsTrigger value="produtos" className="font-black italic uppercase px-6 bg-[#22c55e]/10 text-[#22c55e]">Produtos/Estoque</TabsTrigger>
+            <TabsTrigger value="alertas" className="font-black italic uppercase px-6">Alertas/Obs</TabsTrigger>
           </TabsList>
 
           {/* ABA AGENDA: ESTILO GRID PREMIUM (IGUAL À FOTO) */}
@@ -454,6 +481,60 @@ const resumoFinanceiro = useMemo(() => {
   </div>
 </ScrollArea>
   </div>
+</TabsContent>
+
+{/* PRODUTOS/ESTOQUE */}
+<TabsContent value="produtos">
+  <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
+    <h3 className="text-xl font-black italic uppercase mb-6 flex items-center gap-2">
+      <Package className="text-[#22c55e]" /> Controle de Estoque e Vendas
+    </h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {estoque.map(item => (
+        <div key={item.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col justify-between">
+          <div>
+            <Badge className={item.tipo === 'venda' ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}>
+              {item.tipo.toUpperCase()}
+            </Badge>
+            <p className="font-bold text-lg mt-2">{item.nome}</p>
+            <p className="text-[#22c55e] font-black">R$ {item.preco.toFixed(2)}</p>
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
+            <span className="text-xs font-bold text-gray-500 uppercase">Estoque: {item.qtd}</span>
+            <Button size="sm" className="bg-white/10 hover:bg-[#22c55e] hover:text-black rounded-lg h-8">Vender/Alugar</Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </Card>
+</TabsContent>
+
+{/* ALERTAS/OBS */}
+<TabsContent value="alertas">
+  <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
+    <div className="flex justify-between items-center mb-6">
+      <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
+        <BellRing className="text-yellow-500" /> Alertas e Observações
+      </h3>
+      <Button className="bg-[#22c55e] text-black font-black rounded-xl">+ NOVO ALERTA</Button>
+    </div>
+    <div className="space-y-3">
+      {alertas.map(alerta => (
+        <div key={alerta.id} className={cn(
+          "p-4 rounded-2xl border flex items-start gap-4",
+          alerta.tipo === 'alerta' ? "bg-red-500/5 border-red-500/20" : "bg-blue-500/5 border-blue-500/20"
+        )}>
+          <div className={alerta.tipo === 'alerta' ? "text-red-500" : "text-blue-400"}>
+            <AlertCircle size={20} />
+          </div>
+          <div>
+            <p className="font-black uppercase text-sm">{alerta.cliente}</p>
+            <p className="text-sm text-gray-400 italic">"{alerta.obs}"</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </Card>
 </TabsContent>
 
           {/* ABA CLIENTES: BLACKLIST E COMENTÁRIOS */}
@@ -658,26 +739,40 @@ const resumoFinanceiro = useMemo(() => {
     <div className="space-y-4">
       {/* Exemplo de Card de Mensalista Dinâmico */}
       {mensalistas.map((m) => (
-        <div key={m.id} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex justify-between items-center hover:border-[#22c55e]/30 transition-all group">
-          <div className="flex items-center gap-6">
-            <div className="text-center bg-black/40 p-3 rounded-2xl min-w-[70px] border border-white/5">
-              <p className="text-[10px] font-bold text-gray-500 uppercase">Dia</p>
-              <p className="text-xl font-black text-[#22c55e] italic">{m.dia}</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-black italic uppercase text-lg">{m.nome}</p>
-                <Badge className="bg-[#22c55e]/10 text-[#22c55e] border-none text-[8px]">MENSALISTA</Badge>
-              </div>
-              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">
-                Toda {m.dia} às {m.horario} • {m.metodoPgto}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" className="text-gray-500 hover:text-white font-bold uppercase text-[10px]">Editar</Button>
-            <Button variant="ghost" className="text-red-500 hover:bg-red-500/10 font-bold uppercase text-[10px]">Suspender</Button>
-          </div>
+        <div key={m.id} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex justify-between items-center group hover:border-[#22c55e]/30 transition-all">
+  <div className="flex items-center gap-6">
+    <div className="text-center bg-black/40 p-3 rounded-2xl min-w-[70px]">
+      <p className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-1">Dia</p>
+      <p className="text-xl font-black text-[#22c55e] italic">{m.dia}</p>
+    </div>
+    <div>
+      <div className="flex items-center gap-2">
+        <p className="font-black italic uppercase text-lg text-white">{m.nome}</p>
+        <Badge className="bg-[#22c55e]/10 text-[#22c55e] text-[8px] font-black border-none">MENSALISTA</Badge>
+      </div>
+      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+        Toda {m.dia} às {m.horario} • {m.metodoPgto}
+      </p>
+    </div>
+  </div>
+
+  <div className="flex items-center gap-4">
+    {/* Botão EDITAR */}
+    <button 
+      onClick={() => handleEditarMensalista(m)}
+      className="text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors"
+    >
+      Editar
+    </button>
+
+    {/* Botão SUSPENDER */}
+    <button 
+      onClick={() => handleSuspenderMensalista(m.id)}
+      className="text-[10px] font-black uppercase text-red-500 hover:text-red-400 transition-colors"
+    >
+      Suspender
+    </button>
+  </div>
         </div>
       ))}
 
