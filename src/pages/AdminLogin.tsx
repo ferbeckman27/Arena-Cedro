@@ -3,76 +3,92 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import logoArena from "./media/logo-arena2.png";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  
+  // Estados para os inputs
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [nome, setNome] = useState("");
+  const [sobrenome, setSobrenome] = useState("");
+  const [emailPessoal, setEmailPessoal] = useState("");
   const [role, setRole] = useState<string>("");
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  // FUNÇÃO DE LOGIN (CONECTADA AO BANCO)
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const emailLower = email.toLowerCase();
-
-    // LÓGICA DE DIRECIONAMENTO COM "CHAVE" DE ACESSO
-    if (emailLower.endsWith("@admincedro.com")) {
-      // SALVAMOS A CHAVE AQUI
-      localStorage.setItem("isAdmin", "true");
-      localStorage.setItem("userRole", "admin");
-      
-      toast({
-        title: "Acesso Administrador",
-        description: "Redirecionando para o painel administrativo...",
+    try {
+      const response = await fetch("http://localhost:3001/api/login-unificado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
-      navigate("/admindashboard");
-    } 
-    else if (emailLower.endsWith("@atendcedro.com")) {
-      // SALVAMOS A CHAVE DE ATENDENTE
-      localStorage.setItem("isAdmin", "true");
-      localStorage.setItem("userRole", "atendente");
 
-      toast({
-        title: "Acesso Atendente",
-        description: "Redirecionando para o painel de atendente...",
-      });
-      navigate("/atendentedashboard"); // Ou a rota do atendente
-    } 
-    else {
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("userRole", data.cargo);
+        
+        toast({
+          title: `Bem-vindo, ${data.nome}!`,
+          description: "Acesso autorizado.",
+        });
+        
+        navigate(data.redirectTo);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro de Acesso",
+          description: data.message || "Credenciais inválidas.",
+        });
+      }
+    } catch (error) {
       toast({
         variant: "destructive",
-        title: "E-mail inválido",
-        description: "Use um e-mail @admincedro.com ou @atendcedro.com",
+        title: "Erro de Conexão",
+        description: "O servidor Node.js está desligado.",
       });
     }
   };
 
-  const handleRequestAccess = (e: React.FormEvent) => {
+  // FUNÇÃO DE SOLICITAR CADASTRO (ENVIA PARA O BANCO)
+  const handleRequestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Solicitação Enviada",
-      description: "Aguarde o e-mail de confirmação da diretoria.",
-    });
-    setActiveTab("adminlogin");
+    
+    try {
+      const response = await fetch("http://localhost:3001/api/solicitar-cadastro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, sobrenome, email_pessoal: emailPessoal, tipo: role }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Solicitação Enviada",
+          description: "Verifique seu e-mail pessoal em instantes.",
+        });
+        setActiveTab("adminlogin"); // Volta para a aba de login
+      }
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro ao enviar solicitação." });
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
-      
-      {/* BOTÃO VOLTAR PARA O SITE (FIXO NO TOPO) */}
-      <button 
-        onClick={() => navigate("/")}
-        className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group"
-      >
+      {/* BOTÃO VOLTAR */}
+      <button onClick={() => navigate("/")} className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group">
         <div className="bg-white/5 p-2 rounded-full border border-white/10 group-hover:border-[#22c55e]/50 group-hover:bg-[#22c55e]/10">
           <ArrowLeft size={20} />
         </div>
@@ -84,14 +100,6 @@ const AdminLogin = () => {
         <img src={heroArena} className="w-full h-full object-cover opacity-20" alt="Arena Background" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-[#060a08]/50 to-transparent" />
       </div>
-
-      {/* Logo */}
-<div className="flex justify-center mb-10 scale-110"> {/* Adicionei scale para um ajuste fino se necessário */}
-  <img 
-    src="/media/logo-arena2.png" 
-    alt="Arena Cedro" 
-    className="w-[550px] md:w-[550px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
-</div>
 
       <div className="relative z-10 w-full max-w-lg">
         <div className="text-center mb-8 space-y-2">
@@ -105,8 +113,8 @@ const AdminLogin = () => {
         <div className="bg-[#0c120f] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
-              <TabsTrigger value="login" className="rounded-xl font-bold uppercase data-[state=active]:bg-white data-[state=active]:text-black">Acessar</TabsTrigger>
-              <TabsTrigger value="register" className="rounded-xl font-bold uppercase data-[state=active]:bg-[#22c55e] data-[state=active]:text-black">Solicitar</TabsTrigger>
+              <TabsTrigger value="login" className="rounded-xl font-bold uppercase">Acessar</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl font-bold uppercase">Solicitar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -117,12 +125,10 @@ const AdminLogin = () => {
                     <div className="relative">
                       <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
                       <Input 
-                        required 
-                        type="email" 
-                        value={email}
+                        required type="email" value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="usuario" 
-                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" 
+                        placeholder="usuario@admincedro.com" 
+                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
                       />
                     </div>
                   </div>
@@ -132,10 +138,11 @@ const AdminLogin = () => {
                     <div className="relative">
                       <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
                       <Input 
-                        required 
+                        required value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         type={showPassword ? "text" : "password"} 
                         placeholder="••••••••" 
-                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white focus:border-[#22c55e]" 
+                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
                       />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3.5 text-gray-600">
                         {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -143,7 +150,7 @@ const AdminLogin = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full bg-white hover:bg-gray-200 text-black font-black h-14 rounded-2xl text-lg uppercase italic transition-transform active:scale-95">
+                  <Button type="submit" className="w-full bg-white text-black font-black h-14 rounded-2xl uppercase italic">
                     Entrar no Painel
                   </Button>
                 </div>
@@ -153,20 +160,20 @@ const AdminLogin = () => {
             <TabsContent value="register">
               <form onSubmit={handleRequestAccess} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                  <Input required placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
-                  <Input required placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+                  <Input required placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                  <Input required placeholder="Sobrenome" value={sobrenome} onChange={(e)=>setSobrenome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                 </div>
                 <Select required onValueChange={setRole}>
-                  <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl text-white">
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
                     <SelectValue placeholder="Cargo" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0c120f] border-white/10 text-white">
+                  <SelectContent className="bg-[#0c120f] text-white">
                     <SelectItem value="atendente">Atendente</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="administrador">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input required type="email" placeholder="E-mail Pessoal" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
-                <Button type="submit" className="w-full bg-[#22c55e] hover:bg-[#22c55e]/90 text-black font-black h-14 rounded-2xl text-lg uppercase italic gap-2">
+                <Input required type="email" placeholder="E-mail Pessoal" value={emailPessoal} onChange={(e)=>setEmailPessoal(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                <Button type="submit" className="w-full bg-[#22c55e] text-black font-black h-14 rounded-2xl uppercase italic gap-2">
                   <Send size={20} /> Enviar Pedido
                 </Button>
               </form>

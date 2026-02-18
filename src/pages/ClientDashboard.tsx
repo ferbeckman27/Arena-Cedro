@@ -68,24 +68,30 @@ const ClienteDashboard = () => {
   
   const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
   
-  const [userData] = useState({
-    nome: "João Silva",
-    email: "joao.silva@email.com",
-    telefone: "(88) 99123-4567",
-    isVip: true
-  });
+  const [userData, setUserData] = useState({
+  id: localStorage.getItem("userId") || "",
+  nome: localStorage.getItem("userName") || "Jogador",
+  email: localStorage.getItem("userEmail") || "",
+  isVip: localStorage.getItem("userRole") === "vip"
+});
+
+// Adicione um useEffect para buscar o progresso de fidelidade real do banco
+const [progressoFidelidade, setProgressoFidelidade] = useState(0);
+
+useEffect(() => {
+  const carregarDadosReais = async () => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/fidelidade/${userData.id}`);
+      const data = await response.json();
+      setProgressoFidelidade(data.totalConcluido);
+    } catch (e) {
+      console.log("Erro ao carregar fidelidade");
+    }
+  };
+  if(userData.id) carregarDadosReais();
+}, [userData.id]);
 
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
-
-  // Simulação de reservas concluídas para o cartão de fidelidade
-  const [reservasUsuario] = useState([
-    { id: 1, status: 'concluido' },
-    { id: 2, status: 'concluido' },
-    { id: 3, status: 'concluido' },
-  ]);
-
-  // Lógica: Se completou 11, o 11º é o prêmio (então resetamos ou mostramos 10/10)
-  const progressoFidelidade = reservasUsuario.filter(r => r.status === 'concluido').length;
 
   const produtos: Product[] = [
     { id: 1, nome: "Bola Penalty S11", preco: 180, tipo: 'venda' },
@@ -133,17 +139,41 @@ const ClienteDashboard = () => {
     setReview({ nome: "", estrelas: 5, texto: "" });
   };
 
-  const handleFinalizePedido = () => {
-    if (metodoPagamento === "dinheiro") {
-      toast({ title: "Confirmado!", description: "Sua reserva foi registrada para pagamento no local." });
+  const handleFinalizePedido = async () => {
+  const reservaData = {
+    cliente_id: 1, // Pegar do seu localStorage ou Contexto de Login
+    data: diaSelecionado.toISOString().split('T')[0],
+    horario: horarioSelecionado,
+    duracao: selectedDuration,
+    metodo_pagamento: metodoPagamento,
+    total: totalGeral,
+    itens: cart.map(item => item.id) // IDs dos produtos (Gatorade, colete, etc)
+  };
+
+  try {
+    const response = await fetch("http://localhost:3001/api/finalizar-reserva", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reservaData),
+    });
+
+    if (response.ok) {
+      if (metodoPagamento === "pix") {
+        navigator.clipboard.writeText(pixCode);
+        toast({ title: "PIX Copiado!", description: "Pague para validar sua reserva." });
+      } else {
+        toast({ title: "Confirmado!", description: "Reserva salva! Pague na recepção." });
+      }
+      
+      // Limpa tudo após o sucesso
       setIsCheckoutOpen(false);
       setCart([]);
       setHorarioSelecionado(null);
-    } else {
-      navigator.clipboard.writeText(pixCode);
-      toast({ title: "Código Copiado!", description: "Pague no seu banco para confirmar." });
     }
-  };
+  } catch (error) {
+    toast({ variant: "destructive", title: "Erro ao salvar reserva." });
+  }
+};
 
   const gerarHorarios = () => {
   const horarios: string[] = [];
@@ -513,3 +543,7 @@ const ClienteDashboard = () => {
 };
 
 export default ClienteDashboard;
+
+function useEffect(arg0: () => void, arg1: string[]) {
+  throw new Error("Function not implemented.");
+}

@@ -9,7 +9,6 @@ import {
   Trash2,
   CheckCircle2
 } from "lucide-react";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-
+import axios from "axios";
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -29,9 +28,10 @@ function AdminDashboard() {
 
   // --- ESTADOS ---
   const [duracaoFiltro, setDuracaoFiltro] = useState(60);
-  const [emManutencao, setEmManutencao] = useState(localStorage.getItem("arena_manutencao") === "true");
+  const [emManutencao, setEmManutencao] = useState(false);
   const [mesAtual, setMesAtual] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
+  const [reservasReais, setReservasReais] = useState([]);
   const [promoAtiva, setPromoAtiva] = useState(localStorage.getItem("arena_promo_ativa") === "true");
   const [promoTexto, setPromoTexto] = useState(localStorage.getItem("arena_promo_texto") || "Promoção Relâmpago!");
   const [promoLink, setPromoLink] = useState(localStorage.getItem("arena_promo_link") || "");
@@ -59,6 +59,17 @@ function AdminDashboard() {
   },
 ]);
 
+const horarios = [
+    { 
+      hora: "", 
+      valor: "", 
+      cliente: "", 
+      reservadoPor: "",
+      pagamento: "",
+      obs: ""
+    },
+  ];
+
   const [slotDetalhe, setSlotDetalhe] = useState<any>(null);
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
 
@@ -75,7 +86,6 @@ const [produtos, setProdutos] = useState([
   { id: 4, nome: "Bola Penalty S11", tipo: "aluguel", preco: 15, estoque: 5 },
   { id: 5, nome: "Água Mineral 500ml", tipo: "venda", preco: 4, estoque: 200 },
 ]);
-
 
   interface Depoimento {
     id: number;
