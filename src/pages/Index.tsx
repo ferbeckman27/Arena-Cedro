@@ -13,7 +13,7 @@ import  TestimonialForm  from "@/components/home/TestimonialForm";
 // Função auxiliar para evitar erro de compilação na variável slotsHoje
 const gerarSlotsAgenda = (duracao: number) => {
   const slotsBase = [
-    // --- TURNO DIURNO (R$ 80,00/h) ---
+   // --- TURNO DIURNO (R$ 80,00/h) ---
     { inicio: "09:00", fim30: "09:30", fim60: "10:00", fim90: "10:30", s: "livre" },
     { inicio: "10:30", fim30: "11:00", fim60: "11:30", fim90: "12:00", s: "livre" },
     { inicio: "12:00", fim30: "12:30", fim60: "13:00", fim90: "13:30", s: "livre" },
