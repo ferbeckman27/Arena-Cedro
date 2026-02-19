@@ -27,6 +27,7 @@ const gerarSlotsAgenda = (duracao: number) => {
     
     // Último slot: Se escolher 90min aqui, ele trava em 22:00 conforme seu pedido
     { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
+    { inicio: "21:30", fim30: "22:00", fim60: "22:00", fim90: "22:00", s: "livre" },
   ];
 
   return slotsBase.map((slot) => {
