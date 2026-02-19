@@ -42,13 +42,14 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Se o cliente marcou "Salvar Senha", usamos LocalStorage, se não, SessionStorage
         const storage = saveSession ? localStorage : sessionStorage;
         storage.setItem("token", data.token);
         storage.setItem("userName", data.nome);
+        storage.setItem("userRole", data.cargo ?? data.tipo ?? "cliente");
+        if (data.id != null) storage.setItem("userId", String(data.id));
 
         toast({ title: "Bem-vindo de volta!", description: "Acesso realizado com sucesso." });
-        navigate("/clientdashboard");
+        navigate(data.redirect ?? "/clientdashboard");
       } else {
         toast({ variant: "destructive", title: "Erro", description: data.message });
       }
@@ -61,22 +62,31 @@ const Login = () => {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordValidations.isValid) return;
+    if (!nome.trim() || !sobrenome.trim() || !regEmail.trim() || !telefone.trim()) {
+      toast({ variant: "destructive", title: "Campos obrigatórios", description: "Preencha nome, sobrenome, e-mail e telefone." });
+      return;
+    }
 
     try {
       const response = await fetch("http://localhost:3001/api/cadastro-cliente", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, sobrenome, email: regEmail, telefone, senha: regPassword }),
+        body: JSON.stringify({ nome, sobrenome, email: regEmail.trim(), telefone: telefone.trim(), senha: regPassword }),
       });
+
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
         toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
+        setLoginEmail(regEmail);
+        setLoginPassword("");
         setActiveTab("login");
       } else {
-        toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já em uso." });
+        const msg = data.message || data.error || "E-mail já em uso ou dados inválidos.";
+        toast({ variant: "destructive", title: "Erro ao cadastrar", description: msg });
       }
     } catch (error) {
-      toast({ variant: "destructive", title: "Erro", description: "Falha na conexão." });
+      toast({ variant: "destructive", title: "Erro", description: "Falha na conexão. Verifique se o servidor está rodando." });
     }
   };
 

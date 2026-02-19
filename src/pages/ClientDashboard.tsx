@@ -68,11 +68,12 @@ const ClienteDashboard = () => {
   
   const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
   
+  const getAuth = (key: string) => sessionStorage.getItem(key) || localStorage.getItem(key);
   const [userData, setUserData] = useState({
-  id: localStorage.getItem("userId") || "",
-  nome: localStorage.getItem("userName") || "Jogador",
-  email: localStorage.getItem("userEmail") || "",
-  isVip: localStorage.getItem("userRole") === "vip"
+  id: getAuth("userId") || "",
+  nome: getAuth("userName") || "Jogador",
+  email: getAuth("userEmail") || "",
+  isVip: getAuth("userRole") === "vip"
 });
 
 // Adicione um useEffect para buscar o progresso de fidelidade real do banco

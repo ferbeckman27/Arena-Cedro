@@ -15,31 +15,25 @@
 npm install
 ```
 
-## 4. Rodar o site (backend + frontend juntos)
-No terminal, na pasta do projeto:
+## 4. Rodar o site — use **dois terminais** (recomendado)
+O comando `npm run run:site` pode falhar no Windows. Use dois terminais na pasta do projeto:
 
+**Terminal 1 (backend):**
 ```bash
-npm run run:site
+npm start
 ```
+Espere aparecer: **✅ Conectado ao banco de dados arena_cedro** e **✅ Servidor rodando na porta 3001**.
 
-Isso sobe:
-- **Backend** na porta **3001** (conectado ao banco arena_cedro).
-- **Frontend** na porta **5173**.
-
-Se aparecer **✅ Conectado ao banco de dados arena_cedro** e **Servidor rodando na porta 3001**, o banco está conectado.
+**Terminal 2 (frontend):**
+```bash
+npm run dev
+```
+Espere aparecer o endereço local (ex.: **http://localhost:5173**).
 
 ## 5. Abrir o site
 No navegador: **http://localhost:5173**
 
----
-
-### Rodar em dois terminais (alternativa)
-Se preferir ver o log do backend e do frontend separados:
-
-- **Terminal 1:** `npm start` (backend)
-- **Terminal 2:** `npm run dev` (frontend)
-
-Depois abra **http://localhost:5173**.
+Se der **ERR_CONNECTION_REFUSED**: confira se os dois terminais estão abertos e sem erros (backend na 3001, frontend na 5173).
 
 ---
 

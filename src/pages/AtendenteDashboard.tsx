@@ -77,22 +77,39 @@ const listaHorarios = useMemo(() => {
     return horas;
   }, []);
 
-  const [clientes, setClientes] = useState([
-    { id: 1, nome: "João Silva", status: "bom", telefone: "98 9999-8888", obs: "Cliente antigo, nota 10. Sempre atencioso, educado, respeitando as regras da arena.", isVip: true },
-    { id: 2, nome: "Ricardo Melo", status: "ruim", telefone: "98 7777-6666", obs: "Já causou confusão no campo, demorou para realizar pagamento, nao tem cuidado com os produtos alugados.", isVip: false }
-  ]);
+  const [clientes, setClientes] = useState<{ id: number; nome: string; sobrenome?: string; status?: string; telefone: string; obs?: string; isVip?: boolean }[]>([]);
+  const [alertas, setAlertas] = useState<{ id: number; cliente: string; cliente_id?: number; obs: string; tipo: string; alerta?: boolean }[]>([]);
+  const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
+  const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
+  const clientesComObs = useMemo(() => clientes.map(c => {
+    const obsDoCliente = alertas.filter(a => a.cliente_id === c.id);
+    const comAlerta = obsDoCliente.find(o => o.alerta);
+    return { ...c, status: comAlerta ? "ruim" : "bom", obs: obsDoCliente[0]?.obs ?? c.obs ?? "—", alertaId: comAlerta?.id };
+  }), [clientes, alertas]);
 
-  const [alertas, setAlertas] = useState([
-    { id: 1, cliente: "Marcos Silva", obs: "Sempre pede para ligar os refletores 10 min antes.", tipo: "info" },
-    { id: 2, cliente: "Time do Tico", obs: "Costumam atrasar o pagamento do restante.", tipo: "alerta" },
-    { id: 3, cliente: "Jhonny", obs: "Não gosta de ser cobrado, mesmo com atraso.", tipo: "rejeitado" },
-  ]);
+  const API = "http://localhost:3001/api";
 
   useEffect(() => {
-    const manutencaoSalva = localStorage.getItem("arena_manutencao") === "true";
-    setIsMaintenance(manutencaoSalva);
+    fetch(`${API}/clientes`).then(r => r.json()).then((rows: any[]) => setClientes((rows || []).map(c => ({ id: c.id, nome: [c.nome, c.sobrenome].filter(Boolean).join(" "), telefone: c.telefone || "", isVip: c.tipo === "vip" })))).catch(() => {});
+    fetch(`${API}/observacoes-clientes`).then(r => r.json()).then((rows: any[]) => setAlertas((rows || []).map((o: any) => ({ id: o.id, cliente: o.cliente_nome, cliente_id: o.cliente_id, obs: o.observacao, tipo: o.tipo || "neutra", alerta: !!o.alerta })))).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API}/manutencao`).then(r => r.json()).then((d: { ativo: boolean }) => {
+      setIsMaintenance(!!d.ativo);
+      localStorage.setItem("arena_manutencao", String(d.ativo));
+    }).catch(() => {
+      const manutencaoSalva = localStorage.getItem("arena_manutencao") === "true";
+      setIsMaintenance(manutencaoSalva);
+    });
     const agendaSalva = localStorage.getItem("arena_agenda");
-    if (agendaSalva) setAgendaStatus(JSON.parse(agendaSalva));
+    if (agendaSalva) try { setAgendaStatus(JSON.parse(agendaSalva)); } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    const handler = () => { const v = localStorage.getItem("arena_manutencao") === "true"; setIsMaintenance(v); };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
   }, []);
 
   // --- LÓGICA DO CALENDÁRIO ---
@@ -108,20 +125,14 @@ const listaHorarios = useMemo(() => {
   // --- FUNÇÕES ---
   const handleToggleMaintenance = () => {
   const novoStatus = !isMaintenance;
+  fetch(`${API}/manutencao`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: novoStatus }) }).catch(() => {});
   setIsMaintenance(novoStatus);
-  
-  // Isso salva no navegador para o cliente ler
   localStorage.setItem("arena_manutencao", novoStatus.toString());
-
-  // Dispara um evento manual para a mesma aba também perceber a mudança (caso teste no mesmo navegador)
-  window.dispatchEvent(new Event('storage'));
-
+  window.dispatchEvent(new Event("storage"));
   toast({
     variant: novoStatus ? "destructive" : "default",
     title: novoStatus ? "⚠️ SISTEMA BLOQUEADO" : "✅ SISTEMA LIBERADO",
-    description: novoStatus 
-      ? "Os clientes agora visualizam a tela de manutenção." 
-      : "O agendamento voltou ao normal.",
+    description: novoStatus ? "Clientes e painel admin foram alertados." : "Agendamento liberado.",
   });
 };
 
@@ -516,15 +527,15 @@ const resumoFinanceiro = useMemo(() => {
       <h3 className="text-xl font-black italic uppercase flex items-center gap-2">
         <BellRing className="text-yellow-500" /> Alertas e Observações
       </h3>
-      <Button className="bg-[#22c55e] text-black font-black rounded-xl">+ NOVO ALERTA</Button>
+      <Button onClick={() => { setNovoAlertaForm({ cliente_id: "", tipo: "neutra", observacao: "" }); setModalNovoAlertaAberto(true); }} className="bg-[#22c55e] text-black font-black rounded-xl">+ NOVO ALERTA</Button>
     </div>
     <div className="space-y-3">
       {alertas.map(alerta => (
         <div key={alerta.id} className={cn(
           "p-4 rounded-2xl border flex items-start gap-4",
-          alerta.tipo === 'alerta' ? "bg-red-500/5 border-red-500/20" : "bg-blue-500/5 border-blue-500/20"
+          alerta.tipo === "negativa" ? "bg-red-500/5 border-red-500/20" : alerta.tipo === "positiva" ? "bg-[#22c55e]/5 border-[#22c55e]/20" : "bg-blue-500/5 border-blue-500/20"
         )}>
-          <div className={alerta.tipo === 'alerta' ? "text-red-500" : "text-blue-400"}>
+          <div className={alerta.tipo === "negativa" ? "text-red-500" : alerta.tipo === "positiva" ? "text-[#22c55e]" : "text-blue-400"}>
             <AlertCircle size={20} />
           </div>
           <div>
@@ -534,6 +545,42 @@ const resumoFinanceiro = useMemo(() => {
         </div>
       ))}
     </div>
+    <Dialog open={modalNovoAlertaAberto} onOpenChange={setModalNovoAlertaAberto}>
+      <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+        <DialogHeader><DialogTitle className="italic uppercase font-black">Criar novo alerta</DialogTitle></DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div>
+            <label className="text-[10px] font-bold uppercase text-gray-500">Cliente</label>
+            <Select value={novoAlertaForm.cliente_id} onValueChange={v => setNovoAlertaForm(prev => ({ ...prev, cliente_id: v }))}>
+              <SelectTrigger className="bg-white/5 border-white/10 mt-1"><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
+              <SelectContent>
+                {clientes.map(c => (<SelectItem key={c.id} value={String(c.id)}>{c.nome} – {c.telefone}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase text-gray-500">Tipo</label>
+            <Select value={novoAlertaForm.tipo} onValueChange={v => setNovoAlertaForm(prev => ({ ...prev, tipo: v as "positiva" | "negativa" | "neutra" }))}>
+              <SelectTrigger className="bg-white/5 border-white/10 mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="positiva">Positiva (boa)</SelectItem>
+                <SelectItem value="negativa">Negativa (ruim)</SelectItem>
+                <SelectItem value="neutra">Neutra</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase text-gray-500">Observação</label>
+            <Textarea value={novoAlertaForm.observacao} onChange={e => setNovoAlertaForm(prev => ({ ...prev, observacao: e.target.value }))} className="bg-white/5 border-white/10 mt-1 min-h-[80px]" placeholder="Descreva a observação..." />
+          </div>
+          <Button className="w-full bg-[#22c55e] text-black font-black" onClick={() => {
+            if (!novoAlertaForm.cliente_id || !novoAlertaForm.observacao.trim()) { toast({ variant: "destructive", title: "Preencha cliente e observação." }); return; }
+            fetch(`${API}/observacoes-clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cliente_id: Number(novoAlertaForm.cliente_id), tipo: novoAlertaForm.tipo, observacao: novoAlertaForm.observacao.trim(), funcionario_id: Number(localStorage.getItem("userId") || 1) }) })
+              .then(r => r.json()).then(() => { toast({ title: "Alerta criado!" }); setModalNovoAlertaAberto(false); fetch(`${API}/observacoes-clientes`).then(r => r.json()).then((rows: any[]) => setAlertas((rows || []).map((o: any) => ({ id: o.id, cliente: o.cliente_nome, cliente_id: o.cliente_id, obs: o.observacao, tipo: o.tipo || "neutra" })))); }).catch(() => toast({ variant: "destructive", title: "Erro ao criar alerta." }));
+          }}>Salvar alerta</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   </Card>
 </TabsContent>
 

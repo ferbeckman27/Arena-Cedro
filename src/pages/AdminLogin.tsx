@@ -38,14 +38,16 @@ const AdminLogin = () => {
 
       if (response.ok) {
         localStorage.setItem("token", data.token);
-        localStorage.setItem("userRole", data.cargo);
+        localStorage.setItem("userName", data.nome);
+        localStorage.setItem("userRole", data.cargo ?? data.tipo);
+        if (data.id != null) localStorage.setItem("userId", String(data.id));
         
         toast({
           title: `Bem-vindo, ${data.nome}!`,
           description: "Acesso autorizado.",
         });
         
-        navigate(data.redirectTo);
+        navigate(data.redirect ?? "/");
       } else {
         toast({
           variant: "destructive",

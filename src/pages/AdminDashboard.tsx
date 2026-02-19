@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, Package, BarChart3, Calendar, Settings, 
@@ -14,151 +14,139 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import axios from "axios";
+import { jsPDF } from "jspdf";
+
+const API = "http://localhost:3001/api";
 
 function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // --- ESTADOS ---
   const [duracaoFiltro, setDuracaoFiltro] = useState(60);
   const [emManutencao, setEmManutencao] = useState(false);
   const [mesAtual, setMesAtual] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
-  const [reservasReais, setReservasReais] = useState([]);
+  const [detalhesAgenda, setDetalhesAgenda] = useState<any[]>([]);
+  const [agendaSlots, setAgendaSlots] = useState<any[]>([]);
   const [promoAtiva, setPromoAtiva] = useState(localStorage.getItem("arena_promo_ativa") === "true");
   const [promoTexto, setPromoTexto] = useState(localStorage.getItem("arena_promo_texto") || "Promoção Relâmpago!");
   const [promoLink, setPromoLink] = useState(localStorage.getItem("arena_promo_link") || "");
-  const [depoimentos, setDepoimentos] = useState([
-  { 
-    id: 1, 
-    autor: "Marcos Silva", 
-    texto: "Arena nota 10!", 
-    data: "15/02/2026", 
-    status: "pendente" 
-  },
-  { 
-    id: 2, 
-    autor: "Ricardo Souza", 
-    texto: "Melhor campo da região!", 
-    data: "16/02/2026", 
-    status: "aprovado" 
-  },
-  { 
-    id: 3, 
-    autor: "Jhonny", 
-    texto: "Não gostei do atendimento", 
-    data: "17/02/2026", 
-    status: "rejeitado" 
-  },
-]);
-
-const horarios = [
-    { 
-      hora: "", 
-      valor: "", 
-      cliente: "", 
-      reservadoPor: "",
-      pagamento: "",
-      obs: ""
-    },
-  ];
+  const [depoimentos, setDepoimentos] = useState<{ id: number; autor: string; texto: string; data: string; status: 'pendente' | 'aprovado' | 'rejeitado' }[]>([]);
+  const refPendentesDepoimentos = useRef(0);
 
   const [slotDetalhe, setSlotDetalhe] = useState<any>(null);
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
 
   const CLIENTES_VIP = [
-  { id: 1, nome: "Racha do Morro", responsavel: "Carlos Silva", dia: "Segunda", hora: "20:00", status: "Pago" },
-  { id: 2, nome: "Amigos do Edinho", responsavel: "Edson Jr", dia: "Quarta", hora: "19:00", status: "Atrasado" },
-  { id: 3, nome: "Amigos da Bola", responsavel: "Jose Luis", dia: "Sexta", hora: "18:30", status: "Pago" },
-];
+    { id: 1, nome: "Racha do Morro", responsavel: "Carlos Silva", dia: "Segunda", hora: "20:00", statusPagamento: "em_dia" as const },
+    { id: 2, nome: "Amigos do Edinho", responsavel: "Edson Jr", dia: "Quarta", hora: "19:00", statusPagamento: "em_atraso" as const },
+    { id: 3, nome: "Amigos da Bola", responsavel: "Jose Luis", dia: "Sexta", hora: "18:30", statusPagamento: "em_dia" as const },
+  ];
 
-const [produtos, setProdutos] = useState([
-  { id: 1, nome: "Bola Nike", tipo: "Venda", preco: 180, estoque: 4 },
-  { id: 2, nome: "Aluguel Colete", tipo: "Aluguel", preco: 8, estoque: 40 },
-  { id: 3, nome: "Gatorade", tipo: "Venda", preco: 10, estoque: 100 },
-  { id: 4, nome: "Bola Penalty S11", tipo: "aluguel", preco: 15, estoque: 5 },
-  { id: 5, nome: "Água Mineral 500ml", tipo: "venda", preco: 4, estoque: 200 },
-]);
-
-  interface Depoimento {
-    id: number;
-    autor: string;
-    texto: string;
-    data: string;
-    status: 'pendente' | 'aprovado' | 'rejeitado'; // Tipagem estrita
-  }
+  const [produtos, setProdutos] = useState<{ id: number; nome: string; tipo: string; preco: number; preco_venda?: number; preco_aluguel?: number; estoque: number }[]>([]);
+  const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
+  const [editandoProduto, setEditandoProduto] = useState<typeof produtos[0] | null>(null);
+  const [formProduto, setFormProduto] = useState({ nome: "", tipo: "venda" as "venda" | "aluguel" | "ambos", preco_venda: "", preco_aluguel: "", quantidade_estoque: "" });
 
   const playApito = () => {
-    const audio = new Audio('/sound/apito.mp3'); // Caminho da sua pasta media
+    const audio = new Audio('/sound/apito.mp3');
     audio.volume = 0.5;
-    audio.play().catch(e => console.log("Erro ao tocar som:", e));
+    audio.play().catch(() => {});
   };
 
   useEffect(() => {
-    const pendentes = depoimentos.filter(d => d.status === 'pendente').length;
-
-    // Se houver depoimentos pendentes, toca o apito para alertar o Admin
-    if (pendentes > 0) {
-      playApito();
-    }
-  }, [depoimentos.length]);
+    fetch(`${API}/depoimentos`).then(r => r.json()).then((rows: any[]) => {
+      const list = (rows || []).map(d => ({
+        id: d.id,
+        autor: d.autor,
+        texto: d.comentario,
+        data: d.data_publicacao ? new Date(d.data_publicacao).toLocaleDateString('pt-BR') : '',
+        status: (d.aprovado ? 'aprovado' : 'pendente') as 'pendente' | 'aprovado' | 'rejeitado'
+      }));
+      setDepoimentos(list);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
-  const pendentes = depoimentos.filter(d => d.status === 'pendente').length;
-  
-  // Se o número de pendentes aumentou, toca o apito (feedback de nova tarefa)
-  if (pendentes > 0) {
-    const audio = new Audio('/sound/apito.mp3');
-    audio.volume = 0.4;
-    audio.play().catch(e => console.log("Aguardando interação para tocar som."));
-  }
-}, [depoimentos.filter(d => d.status === 'pendente').length]);
+    const pendentes = depoimentos.filter(d => d.status === 'pendente').length;
+    if (pendentes > refPendentesDepoimentos.current) {
+      playApito();
+      refPendentesDepoimentos.current = pendentes;
+    }
+    if (pendentes === 0) refPendentesDepoimentos.current = 0;
+  }, [depoimentos]);
 
-  // --- GERADOR DE SLOTS DINÂMICOS ---
+  useEffect(() => {
+    fetch(`${API}/produtos`).then(r => r.json()).then((rows: any[]) => {
+      setProdutos((rows || []).map(p => ({
+        id: p.id,
+        nome: p.nome,
+        tipo: p.tipo,
+        preco: p.preco_venda ?? p.preco_aluguel ?? 0,
+        preco_venda: p.preco_venda,
+        preco_aluguel: p.preco_aluguel,
+        estoque: p.quantidade_estoque ?? 0
+      })));
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API}/manutencao`).then(r => r.json()).then((d: { ativo: boolean }) => {
+      setEmManutencao(!!d.ativo);
+      localStorage.setItem("arena_manutencao", String(d.ativo));
+    }).catch(() => {});
+  }, []);
+
+  const dataStr = diaSelecionado.toISOString().slice(0, 10);
+  useEffect(() => {
+    fetch(`${API}/agenda?data=${dataStr}`).then(r => r.json()).then((agenda: any[]) => {
+      const slots = (agenda || []).map(a => ({
+        inicio: String(a.horario_inicio).slice(0, 5),
+        fim: a.horario_fim ? String(a.horario_fim).slice(0, 5) : '',
+        turno: (a.turno || '').toLowerCase(),
+        valor: 0,
+        status: a.cor_status === 'vermelho' || a.status === 'confirmada' ? 'reservado' : 'livre',
+        reserva: null as any
+      }));
+      setAgendaSlots(slots);
+    }).catch(() => setAgendaSlots([]));
+    fetch(`${API}/agenda-detalhes?data=${dataStr}`).then(r => r.json()).then((detalhes: any[]) => {
+      setDetalhesAgenda(detalhes || []);
+    }).catch(() => setDetalhesAgenda([]));
+  }, [dataStr]);
+
   const slotsCalculados = useMemo(() => {
-    const slots = [];
-    const janelas = [{ start: 8, end: 17.5, t: 'diurno', p: 80 }, { start: 18, end: 22.5, t: 'noturno', p: 120 }];
-    janelas.forEach(j => {
-      for (let hora = j.start; hora < j.end; hora += 0.5) {
-        const h = Math.floor(hora);
-        const m = (hora % 1) * 60;
-        const dataFim = new Date(0, 0, 0, h, m + duracaoFiltro);
-        const isReservado = Math.random() > 0.5;
-        slots.push({
-          inicio: `${h.toString().padStart(2, '0')}:${m === 0 ? '00' : '30'}`,
-          fim: `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`,
-          turno: j.t,
-          valor: j.p * (duracaoFiltro / 60),
-          status: Math.random() > 0.8 ? 'reservado' : 'livre',
-          reserva: isReservado ? {
-            cliente: "Racha do tico",
-            quemFeu: Math.random() > 0.5 ? "Atendente Bruna" : "Cliente (Site)",
-            pagamento: "PIX",
-            isVip: Math.random() > 0.7,
-            obs: "Cliente chato com o horário, não deixar passar nem 1 minuto."
-          } : null
-        });
-      }
+    const detalhesPorHorario: Record<string, any> = {};
+    detalhesAgenda.forEach(d => { detalhesPorHorario[String(d.horario_inicio).slice(0, 5)] = d; });
+    return agendaSlots.map(s => {
+      const det = detalhesPorHorario[s.inicio];
+      const valor = det?.valor_total ?? (s.turno === 'noturno' ? 120 : 80) * (duracaoFiltro / 60);
+      return {
+        ...s,
+        valor,
+        reserva: det ? { cliente: det.cliente_nome, reservadoPor: det.reservado_por, pagamento: det.forma_pagamento, obs: det.observacoes } : null
+      };
     });
-    return slots;
-  }, [duracaoFiltro]);
+  }, [agendaSlots, detalhesAgenda, duracaoFiltro]);
 
-  // --- LÓGICA DE MANUTENÇÃO ---
   const handleToggleManutencao = () => {
     const novoEstado = !emManutencao;
+    fetch(`${API}/manutencao`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: novoEstado }) })
+      .then(r => r.json()).then(() => {}).catch(() => {});
     setEmManutencao(novoEstado);
     localStorage.setItem("arena_manutencao", String(novoEstado));
+    window.dispatchEvent(new Event("storage"));
     toast({
       variant: novoEstado ? "destructive" : "default",
       title: novoEstado ? "SISTEMA BLOQUEADO" : "SISTEMA ONLINE",
-      description: novoEstado ? "Clientes verão o aviso de manutenção." : "Agendamentos liberados.",
+      description: novoEstado ? "Clientes e atendentes verão o aviso de manutenção." : "Agendamentos liberados.",
     });
   };
 
@@ -169,38 +157,80 @@ const [produtos, setProdutos] = useState([
     toast({ title: "Marketing Atualizado!", description: "As alterações já estão no site." });
   };
 
-  const aprovarDepoimento = (id: number) => {
-    setDepoimentos(depoimentos.filter(d => d.id !== id));
-    toast({ title: "Depoimento Aprovado!", description: "Visível agora para todos os clientes." });
+  const processarComentario = (id: number, acao: 'aprovado' | 'rejeitado') => {
+    const aprovado = acao === 'aprovado';
+    fetch(`${API}/depoimentos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aprovado }) })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(() => {
+        setDepoimentos(prev => prev.filter(item => item.id !== id));
+        toast({ title: aprovado ? "Publicado!" : "Removido!", description: aprovado ? "Visível no site." : "Excluído.", variant: aprovado ? "default" : "destructive" });
+      })
+      .catch(() => toast({ variant: "destructive", title: "Erro", description: "Não foi possível atualizar." }));
   };
 
-  const processarComentario = (id: number, acao: 'aprovado' | 'rejeitado') => {
-  if (acao === 'rejeitado') {
-    playApito(); // Toca o apito na rejeição (falta!)
-    setDepoimentos(prev => prev.filter(item => item.id !== id));
-  } else {
-    setDepoimentos(prev => prev.map(item => 
-      item.id === id ? { ...item, status: 'aprovado' } : item
-    ));
-  }
-  
-  toast({
-    title: acao === 'aprovado' ? "Publicado!" : "Removido!",
-    description: acao === 'aprovado' ? "Visível no site." : "Excluído permanentemente.",
-    variant: acao === 'rejeitado' ? "destructive" : "default",
-  });
-};
+  const abrirDetalheSlot = (slot: typeof slotsCalculados[0]) => {
+    if (slot.reserva) setSlotDetalhe(slot.reserva); else setSlotDetalhe({ cliente: "-", reservadoPor: "-", pagamento: "-", obs: "Horário livre." });
+    setIsModalDetalheAberto(true);
+  };
 
-  const adicionarNovoComentarioParaAnalise = (autor: string, texto: string) => {
-    const novo = {
-      id: Date.now(),
-      autor,
-      texto,
-      data: new Date().toLocaleDateString('pt-BR'),
-      status: 'pendente' as const
-    };
+  const salvarProduto = () => {
+    if (editandoProduto) {
+      fetch(`${API}/produtos/${editandoProduto.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: formProduto.nome || editandoProduto.nome,
+          tipo: formProduto.tipo,
+          preco_venda: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_venda) : undefined,
+          preco_aluguel: formProduto.tipo !== "venda" ? Number(formProduto.preco_aluguel) : undefined,
+          quantidade_estoque: Number(formProduto.quantidade_estoque) || 0
+        })
+      }).then(r => r.json()).then(() => { toast({ title: "Produto atualizado!" }); setEditandoProduto(null); setModalProdutoAberto(false); carregarProdutos(); }).catch(() => toast({ variant: "destructive", title: "Erro ao atualizar." }));
+    } else {
+      fetch(`${API}/produtos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: formProduto.nome,
+          tipo: formProduto.tipo,
+          preco_venda: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_venda) : 0,
+          preco_aluguel: formProduto.tipo !== "venda" ? Number(formProduto.preco_aluguel) : 0,
+          quantidade_estoque: Number(formProduto.quantidade_estoque) || 0
+        })
+      }).then(r => r.json()).then(() => { toast({ title: "Produto cadastrado!" }); setModalProdutoAberto(false); setFormProduto({ nome: "", tipo: "venda", preco_venda: "", preco_aluguel: "", quantidade_estoque: "" }); carregarProdutos(); }).catch(() => toast({ variant: "destructive", title: "Erro ao cadastrar." }));
+    }
+  };
+  const carregarProdutos = () => fetch(`${API}/produtos`).then(r => r.json()).then((rows: any[]) => setProdutos((rows || []).map(p => ({ id: p.id, nome: p.nome, tipo: p.tipo, preco: p.preco_venda ?? p.preco_aluguel ?? 0, preco_venda: p.preco_venda, preco_aluguel: p.preco_aluguel, estoque: p.quantidade_estoque ?? 0 })))).catch(() => {});
+  const excluirProduto = (id: number) => {
+    if (!confirm("Excluir este produto?")) return;
+    fetch(`${API}/produtos/${id}`, { method: "DELETE" }).then(r => r.json()).then(() => { toast({ title: "Produto excluído." }); carregarProdutos(); }).catch(() => toast({ variant: "destructive", title: "Erro." }));
+  };
 
-    setDepoimentos(prev => [...prev, novo]);
+  const baixarPdfSintetico = () => {
+    const mes = mesAtual.getMonth() + 1, ano = mesAtual.getFullYear();
+    fetch(`${API}/relatorios/sintetico?mes=${mes}&ano=${ano}`).then(r => r.json()).then((d: any) => {
+      const doc = new jsPDF();
+      doc.setFontSize(18); doc.text("Relatório Sintético - Arena Cedro", 20, 20);
+      doc.setFontSize(12); doc.text(`Período: ${mes}/${ano}`, 20, 30);
+      doc.text(`Faturamento Total: R$ ${Number(d.faturamento || 0).toFixed(2)}`, 20, 40);
+      doc.text(`Total de Reservas (pagos): ${d.total_reservas || 0}`, 20, 48);
+      doc.text(`Média diária: R$ ${Number(d.media_diaria || 0).toFixed(2)}`, 20, 56);
+      doc.save(`relatorio-sintetico-${ano}-${mes}.pdf`);
+      toast({ title: "PDF baixado!" });
+    }).catch(() => toast({ variant: "destructive", title: "Erro ao gerar PDF." }));
+  };
+  const baixarPdfAnalitico = () => {
+    const mes = mesAtual.getMonth() + 1, ano = mesAtual.getFullYear();
+    fetch(`${API}/relatorios/analitico?mes=${mes}&ano=${ano}`).then(r => r.json()).then((d: any) => {
+      const doc = new jsPDF();
+      doc.setFontSize(18); doc.text("Relatório Analítico - Arena Cedro", 20, 20);
+      doc.setFontSize(12); doc.text(`Período: ${mes}/${ano}`, 20, 30);
+      doc.text(`Venda de Produtos: R$ ${Number(d.venda_produtos || 0).toFixed(2)}`, 20, 40);
+      doc.text(`Horas Avulsas: R$ ${Number(d.horas_avulsas || 0).toFixed(2)}`, 20, 48);
+      doc.text(`Faturamento Total: R$ ${Number(d.faturamento_total || 0).toFixed(2)}`, 20, 58);
+      doc.save(`relatorio-analitico-${ano}-${mes}.pdf`);
+      toast({ title: "PDF baixado!" });
+    }).catch(() => toast({ variant: "destructive", title: "Erro ao gerar PDF." }));
   };
 
   const handleLogout = () => {
@@ -218,10 +248,6 @@ const [produtos, setProdutos] = useState([
     for (let i = 1; i <= end.getDate(); i++) days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
     return days;
   }, [mesAtual]);
-
-  function gerenciarDepoimento(id: number, arg1: string): void {
-    throw new Error("Function not implemented.");
-  }
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
@@ -283,9 +309,9 @@ const [produtos, setProdutos] = useState([
           <TabsContent value="agenda" className="grid lg:grid-cols-12 gap-6">
             <Card className="lg:col-span-4 bg-[#0c120f] border-white/5 rounded-[2.5rem] p-6">
               <div className="flex justify-between items-center mb-6">
-                <Button variant="ghost" onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))}><ChevronLeft /></Button>
+                <Button variant="ghost" onClick={() => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}><ChevronLeft /></Button>
                 <h2 className="font-black uppercase italic">{new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}</h2>
-                <Button variant="ghost" onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() + 1)))}><ChevronRight /></Button>
+                <Button variant="ghost" onClick={() => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}><ChevronRight /></Button>
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {diasMes.map((date, i) => (
@@ -319,14 +345,27 @@ const [produtos, setProdutos] = useState([
               <ScrollArea className="h-[400px] pr-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {slotsCalculados.map((slot, i) => (
-                    <button key={i} className={cn("p-4 rounded-2xl border text-left transition-all", slot.status === 'reservado' ? "bg-red-500/10 border-red-500/20" : "bg-white/5 border-white/5")}>
+                    <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-4 rounded-2xl border text-left transition-all hover:border-[#22c55e]/50", slot.status === 'reservado' ? "bg-red-500/10 border-red-500/20" : "bg-white/5 border-white/5")}>
                       <span className="text-[8px] font-black uppercase text-[#22c55e]">{slot.turno}</span>
                       <p className="text-xl font-black italic">{slot.inicio}</p>
-                      <p className="text-[10px] font-bold text-gray-500 italic">R$ {slot.valor.toFixed(2)}</p>
+                      <p className="text-[10px] font-bold text-gray-500 italic">R$ {Number(slot.valor).toFixed(2)}</p>
                     </button>
                   ))}
                 </div>
               </ScrollArea>
+              <Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
+                <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+                  <DialogHeader><DialogTitle className="italic uppercase font-black">Detalhes do horário</DialogTitle></DialogHeader>
+                  {slotDetalhe && (
+                    <div className="space-y-4 pt-2">
+                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Cliente</p><p className="font-bold">{slotDetalhe.cliente}</p></div>
+                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Quem fez a reserva</p><p className="font-bold">{slotDetalhe.reservadoPor}</p></div>
+                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Modo de pagamento</p><p className="font-bold">{slotDetalhe.pagamento}</p></div>
+                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Observações</p><p className="text-sm italic">{slotDetalhe.obs || "—"}</p></div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
             </div>
           </TabsContent>
 
@@ -360,7 +399,7 @@ const [produtos, setProdutos] = useState([
                     </div>
                   </div>
                 </div>
-                <Button className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl">
+                <Button onClick={baixarPdfSintetico} className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl">
                   Baixar PDF Sintético
                 </Button>
               </Card>
@@ -393,7 +432,7 @@ const [produtos, setProdutos] = useState([
                     <span>87.4%</span>
                   </div>
                 </div>
-                <Button className="w-full bg-blue-600 text-white font-black uppercase italic h-14 rounded-2xl">
+                <Button onClick={baixarPdfAnalitico} className="w-full bg-blue-600 text-white font-black uppercase italic h-14 rounded-2xl">
                   Baixar PDF Analítico
                 </Button>
               </Card>
@@ -407,7 +446,7 @@ const [produtos, setProdutos] = useState([
       <h3 className="text-2xl font-black italic uppercase text-white flex items-center gap-3">
         <Package className="text-[#22c55e]" /> Inventário de Produtos
       </h3>
-      <Button className="bg-[#22c55e] text-black font-black uppercase rounded-xl h-12">
+      <Button onClick={() => { setEditandoProduto(null); setFormProduto({ nome: "", tipo: "venda", preco_venda: "", preco_aluguel: "", quantidade_estoque: "" }); setModalProdutoAberto(true); }} className="bg-[#22c55e] text-black font-black uppercase rounded-xl h-12">
         + CADASTRAR PRODUTO
       </Button>
     </div>
@@ -419,33 +458,42 @@ const [produtos, setProdutos] = useState([
             "absolute top-4 right-4 font-black italic",
             p.tipo === 'venda' ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"
           )}>
-            {p.tipo.toUpperCase()}
+            {String(p.tipo).toUpperCase()}
           </Badge>
-          
           <div className="mt-4">
             <p className="text-xl font-black italic uppercase text-white">{p.nome}</p>
             <div className="flex justify-between items-end mt-6">
               <div>
                 <p className="text-[10px] font-black text-gray-500 uppercase">Preço Un.</p>
-                <p className="text-2xl font-black text-[#22c55e]">R$ {p.preco.toFixed(2)}</p>
+                <p className="text-2xl font-black text-[#22c55e]">R$ {Number(p.preco).toFixed(2)}</p>
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-black text-gray-500 uppercase">Estoque</p>
-                <p className={cn(
-                  "text-xl font-black italic",
-                  p.estoque < 10 ? "text-red-500" : "text-white"
-                )}>{p.estoque} UN</p>
+                <p className={cn("text-xl font-black italic", p.estoque < 10 ? "text-red-500" : "text-white")}>{p.estoque} UN</p>
               </div>
             </div>
           </div>
-          
           <div className="grid grid-cols-2 gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="outline" className="border-white/10 text-[10px] font-black uppercase">Editar</Button>
-            <Button variant="outline" className="border-red-500/20 text-red-500 text-[10px] font-black uppercase">Excluir</Button>
+            <Button variant="outline" onClick={() => { setEditandoProduto(p); setFormProduto({ nome: p.nome, tipo: p.tipo as "venda" | "aluguel" | "ambos", preco_venda: String(p.preco_venda ?? p.preco ?? ""), preco_aluguel: String(p.preco_aluguel ?? ""), quantidade_estoque: String(p.estoque) }); setModalProdutoAberto(true); }} className="border-white/10 text-[10px] font-black uppercase">Editar</Button>
+            <Button variant="outline" onClick={() => excluirProduto(p.id)} className="border-red-500/20 text-red-500 text-[10px] font-black uppercase">Excluir</Button>
           </div>
         </Card>
       ))}
     </div>
+
+    <Dialog open={modalProdutoAberto} onOpenChange={setModalProdutoAberto}>
+      <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+        <DialogHeader><DialogTitle className="italic uppercase font-black">{editandoProduto ? "Editar produto" : "Cadastrar novo produto"}</DialogTitle></DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div><Label className="text-[10px] uppercase">Nome</Label><Input value={formProduto.nome} onChange={e => setFormProduto(prev => ({ ...prev, nome: e.target.value }))} className="bg-white/5 mt-1" placeholder="Nome do produto" /></div>
+          <div><Label className="text-[10px] uppercase">Tipo</Label><select value={formProduto.tipo} onChange={e => setFormProduto(prev => ({ ...prev, tipo: e.target.value as "venda" | "aluguel" | "ambos" }))} className="w-full bg-white/5 border border-white/10 rounded-lg p-2 mt-1"><option value="venda">Venda</option><option value="aluguel">Aluguel</option><option value="ambos">Ambos</option></select></div>
+          {formProduto.tipo !== "aluguel" && <div><Label className="text-[10px] uppercase">Preço venda (R$)</Label><Input type="number" value={formProduto.preco_venda} onChange={e => setFormProduto(prev => ({ ...prev, preco_venda: e.target.value }))} className="bg-white/5 mt-1" /></div>}
+          {formProduto.tipo !== "venda" && <div><Label className="text-[10px] uppercase">Preço aluguel (R$)</Label><Input type="number" value={formProduto.preco_aluguel} onChange={e => setFormProduto(prev => ({ ...prev, preco_aluguel: e.target.value }))} className="bg-white/5 mt-1" /></div>}
+          <div><Label className="text-[10px] uppercase">Estoque</Label><Input type="number" value={formProduto.quantidade_estoque} onChange={e => setFormProduto(prev => ({ ...prev, quantidade_estoque: e.target.value }))} className="bg-white/5 mt-1" /></div>
+          <DialogFooter><Button variant="outline" onClick={() => setModalProdutoAberto(false)}>Cancelar</Button><Button className="bg-[#22c55e] text-black" onClick={salvarProduto}>Salvar</Button></DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </TabsContent>
 
@@ -508,10 +556,7 @@ const [produtos, setProdutos] = useState([
                                 </Button>
                               ) : (
                                 <Button
-                                  onClick={() => {
-                                    // Função para voltar para pendente se precisar re-avaliar
-                                    setDepoimentos(prev => prev.map(item => item.id === d.id ? { ...item, status: 'pendente' } : item));
-                                  } }
+                                  onClick={() => fetch(`${API}/depoimentos/${d.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aprovado: false }) }).then(r => r.json()).then(() => setDepoimentos(prev => prev.map(item => item.id === d.id ? { ...item, status: 'pendente' } : item))).catch(() => {})}
                                   variant="outline"
                                   className="w-full border-white/10 text-gray-400 font-black text-[10px] uppercase h-10 rounded-xl hover:bg-white/5"
                                 >
@@ -538,22 +583,26 @@ const [produtos, setProdutos] = useState([
                 </TableRow></TableHeader>
                 <TableBody>
                   {[
-                    { nome: "Amigos do Edinho", dia: "Qua", hora: "19:00", pgto: "Mensal/Dinheiro", resp: "Atendente Marcos", obs: "Sempre trazem colete próprio." },
-                    { nome: "Racha do Morro", dia: "Seg", hora: "18:00",pgto: "Mensal/PIX", responsavel: "Carlos Silva", obs: "Grupo grande, sempre pontuais." },
-                    { nome: "Escolinha do Pedro", dia: "Sex", hora: "14:00", pgto: "Mensal/Dinheiro", responsavel: "Atendente Bruna", obs: "Sempre trazem colete próprio e super responsaveis." },
-                    { nome: "Amigos da Bola", dia: "Qui", hora: "18:30", pgto: "Mensal/PIX", responsavel: "Jose Luis", obs: "Sempre atrasam pagamentos, fazem confusão e nao tem cuidado com os coletes." },
+                    { nome: "Amigos do Edinho", dia: "Qua", hora: "19:00", pgto: "Mensal/Dinheiro", resp: "Atendente Marcos", obs: "Sempre trazem colete próprio.", statusPagamento: "em_atraso" as const },
+                    { nome: "Racha do Morro", dia: "Seg", hora: "18:00", pgto: "Mensal/PIX", resp: "Carlos Silva", obs: "Grupo grande, sempre pontuais.", statusPagamento: "em_dia" as const },
+                    { nome: "Escolinha do Pedro", dia: "Sex", hora: "14:00", pgto: "Mensal/Dinheiro", resp: "Atendente Bruna", obs: "Sempre trazem colete próprio.", statusPagamento: "em_dia" as const },
+                    { nome: "Amigos da Bola", dia: "Qui", hora: "18:30", pgto: "Mensal/PIX", resp: "Jose Luis", obs: "Sempre atrasam pagamentos.", statusPagamento: "em_atraso" as const },
                   ].map((vip, i) => (
                     <TableRow key={i} className="border-white/5">
                       <TableCell className="font-black italic uppercase">{vip.nome}</TableCell>
                       <TableCell>{vip.dia} às {vip.hora}</TableCell>
-                      <TableCell><Badge className="bg-[#22c55e]">Em dia</Badge></TableCell>
+                      <TableCell>
+                        <Badge className={vip.statusPagamento === "em_atraso" ? "bg-red-500/20 text-red-400" : "bg-[#22c55e]/20 text-[#22c55e]"}>
+                          {vip.statusPagamento === "em_atraso" ? "Em atraso" : "Em dia"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
                         <Dialog>
                           <DialogTrigger asChild><Button variant="ghost" size="sm"><Settings size={18} className="text-[#22c55e]" /></Button></DialogTrigger>
                           <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
                             <DialogHeader><DialogTitle className="italic uppercase font-black">Dados do Cliente VIP</DialogTitle></DialogHeader>
                             <div className="space-y-4 pt-4">
-                              <div><p className="text-[10px] text-gray-500 font-black uppercase">Responsável pela Reserva</p><p className="font-bold">{vip.resp}</p></div>
+                              <div><p className="text-[10px] text-gray-500 font-black uppercase">Responsável pela Reserva</p><p className="font-bold">{vip.resp ?? (vip as any).responsavel}</p></div>
                               <div><p className="text-[10px] text-gray-500 font-black uppercase">Modo de Pagamento</p><p className="font-bold">{vip.pgto}</p></div>
                               <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
                                 <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2"><Info size={12} /> Alerta / Observação</p>
