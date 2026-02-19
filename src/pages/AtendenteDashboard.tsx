@@ -14,7 +14,8 @@ import {
   Bell, ChevronLeft, ChevronRight, Crown, Plus, Search, DollarSign,
   Package,
   AlertCircle,
-  BellRing
+  BellRing,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -39,41 +40,70 @@ const AtendenteDashboard = () => {
   
   const [isModalAberto, setIsModalAberto] = useState(false);
 
+  const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
+
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [novoVip, setNovoVip] = useState({
-     nome: '',
-     dia: 'SEG',
-     horario: '19:00',
-     pagamento: 'Dinheiro'
-  });
+     nome: "",
+  dia: "SEG",
+  horario: "19:00",
+  metodoPgto: "Mensal/PIX",
+  observacao: ""            
+});
 
   const [mensalistas, setMensalistas] = useState<Mensalista[]>([
   // Adicione um exemplo para teste ou deixe vazio []
   { id: 1, nome: "João Silva", dia: "SEG", horario: "19:00", metodoPgto: "Dinheiro" }
  ]);
 
-  interface Mensalista {
-  id: number;
+ const adicionarAoCarrinho = (produto: any) => {
+  setItensCarrinho([...itensCarrinho, { ...produto, idUnico: Date.now() }]);
+  toast({ title: "Adicionado", description: `${produto.nome} somado à reserva.` });
+};
+
+const removerDoCarrinho = (idUnico: number) => {
+  setItensCarrinho(itensCarrinho.filter(item => item.idUnico !== idUnico));
+};
+
+ interface Mensalista {
+  id?: number; // O ID é opcional no cadastro, pois o banco gera automático
   nome: string;
   dia: string;
   horario: string;
   metodoPgto: string;
-  };
+  observacao?: string; // Campo novo para o Admin ver na engrenagem
+  status_pagamento?: 'em_dia' | 'em_atraso'; 
+  responsavel?: string;
+}
 
   // Dados Simulados (Em um app real viriam do Banco/API)
-  const [estoque, setEstoque] = useState([
-  { id: 1, nome: "Bola Penalty S11", tipo: "aluguel", preco: 15, qtd: 5 },
-  { id: 2, nome: "Colete Arena (Unidade)", tipo: "aluguel", preco: 5, qtd: 30 },
-  { id: 3, nome: "Água Mineral 500ml", tipo: "venda", preco: 4, qtd: 100 },
-  { id: 4, nome: "Gatorade", tipo: "venda", preco: 8, qtd: 45 },
-]);
+ const [estoque, setEstoque] = useState<any[]>([]);
+
+ useEffect(() => {
+  const carregarProdutos = async () => {
+    try {
+      // O seu servidor Node deve estar rodando na porta 3001
+      const response = await fetch("http://localhost:3001/api/produtos");
+      const data = await response.json();
+      setEstoque(data);
+    } catch (error) {
+      console.error("Erro ao carregar estoque:", error);
+    }
+  };
+  carregarProdutos();
+}, []);
 
 const listaHorarios = useMemo(() => {
     const horas = [];
-    for (let h = 8; h <= 22; h++) {
-      horas.push(`${h < 10 ? '0'+h : h}:00`);
-      horas.push(`${h < 10 ? '0'+h : h}:30`);
-    }
+   for (let hora = 9; hora <= 17; hora++) {
+    horas.push(`${hora.toString().padStart(2, '0')}:00`);
+    horas.push(`${hora.toString().padStart(2, '0')}:30`);
+  }
+
+  for (let hora = 18; hora <= 22; hora++) {
+    horas.push(`${hora.toString().padStart(2, '0')}:00`);
+     horas.push(`${hora.toString().padStart(2, '0')}:30`);
+  }
     return horas;
   }, []);
 
@@ -171,9 +201,91 @@ const handleSuspenderMensalista = (id: number) => {
 
 // Função para abrir o modal de Edição (Você pode usar o mesmo modal de 'Novo VIP')
 const handleEditarMensalista = (mensalista: Mensalista) => {
-  setNovoVip(novoVip); // Preenche o estado com os dados atuais
+  setNovoVip(novoVip);
   setIsModalVipAberto(true); // Abre o modal
 };
+
+
+useEffect(() => {
+  fetch("http://localhost:3001/api/mensalistas")
+    .then(res => res.json())
+    .then(data => setMensalistas(data));
+}, []);
+
+// Função disparada pelo botão "+ NOVO VIP"
+const salvarNovoVip = async () => {
+  const response = await fetch("http://localhost:3001/api/mensalistas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(novoVip),
+  });
+  if (response.ok) {
+    setIsModalVipAberto(false);
+    window.location.reload(); // Atualiza a lista
+  }
+};
+
+
+const handleSalvarVip = async () => {
+  const atendenteNome = localStorage.getItem("userName") || "Atendente";
+
+  // Criamos o objeto seguindo a Interface
+  const dadosParaEnviar: Mensalista = {
+    nome: novoVip.nome,
+    dia: novoVip.dia,
+    horario: novoVip.horario,
+    metodoPgto: novoVip.metodoPgto,
+    observacao: novoVip.observacao || "", // Pega a observação real
+    responsavel: atendenteNome,           // Nome real de quem está logado
+    status_pagamento: 'em_dia'            // Começa verdinho no Admin
+  };
+
+  try {
+    const response = await fetch("http://localhost:3001/api/mensalistas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dadosParaEnviar),
+    });
+
+    if (response.ok) {
+      toast({ 
+        title: "✅ VIP CADASTRADO!", 
+        description: "Os dados já estão disponíveis no painel do Admin." 
+      });
+      setIsModalVipAberto(false);
+      buscarMensalistas(); 
+    }
+  } catch (error) {
+    console.error("Erro ao salvar:", error);
+  }
+};
+
+
+const alternarStatusPagamento = async (id: number, statusAtual: string) => {
+  const novoStatus = statusAtual === 'em_dia' ? 'em_atraso' : 'em_dia';
+  
+  try {
+    const response = await fetch(`http://localhost:3001/api/mensalistas/status/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ novoStatus })
+    });
+
+    if (response.ok) {
+      toast({ 
+        title: "Status Atualizado!", 
+        description: `O VIP agora está ${novoStatus === 'em_dia' ? 'Em Dia' : 'Em Atraso'}.`,
+        variant: novoStatus === 'em_dia' ? "default" : "destructive"
+      });
+      
+      // Atualiza a lista local para o atendente ver a mudança na hora
+      setMensalistas(prev => prev.map(v => v.id === id ? { ...v, status_pagamento: novoStatus } : v));
+    }
+  } catch (error) {
+    console.error("Erro ao atualizar status:", error);
+  }
+};
+
   
 // 2. SEGUNDO: A Função de Agendar Completa
   function handleAgendar(horaInicio: string, clienteNome: string) {
@@ -449,43 +561,81 @@ const resumoFinanceiro = useMemo(() => {
           </DialogTrigger>
 
           {/* O Dialog permanece igual, pois é o formulário de preenchimento */}
-          <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md">
-            <DialogHeader>
-              <DialogTitle className="italic uppercase flex items-center gap-2">
-                <Plus className="text-[#22c55e]" size={18} /> Novo Jogo - {h} às {fimFormatado}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Nome do Atleta Responsável</label>
-                <Input placeholder="Quem vai pagar?" className="bg-white/5 border-white/10 h-12" id={`atleta-${h}`} />
-              </div>
+          <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
+  <DialogHeader>
+    <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
+      <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {h} ÀS {fimFormatado}
+    </DialogTitle>
+  </DialogHeader>
+  
+  <div className="space-y-6 pt-4">
+    {/* NOME DO ATLETA */}
+    <div className="space-y-2">
+      <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Nome do Atleta Responsável</label>
+      <Input 
+        placeholder="Quem vai pagar?" 
+        className="bg-white/5 border-white/10 h-14 rounded-xl text-white focus-visible:ring-[#22c55e]" 
+        id={`atleta-${h}`} 
+      />
+    </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Pagamento</label>
-                  {/* Select Code Here... */}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Duração</label>
-                  <div className="h-12 flex items-center px-4 bg-white/5 border border-white/10 rounded-md text-sm font-bold text-[#22c55e]">
-                    {duracao} MIN
-                  </div>
-                </div>
-              </div>
+    <div className="grid grid-cols-2 gap-4">
+      {/* SELEÇÃO DE PAGAMENTO */}
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Pagamento</label>
+        <select 
+          value={metodoPgto} 
+          onChange={(e) => setMetodoPgto(e.target.value)}
+          className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white outline-none focus:border-[#22c55e] cursor-pointer"
+        >
+          <option value="pix" className="bg-[#0c120f]">PIX (Sinal 50%)</option>
+    <option value="dinheiro" className="bg-[#0c120f]">Dinheiro (Local)</option>
+        </select>
+      </div>
 
-              <Button 
-                className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
-                onClick={() => {
-                  const input = document.getElementById(`atleta-${h}`) as HTMLInputElement;
-                  handleAgendar(h, input?.value);
-                }}
-              >
-                Confirmar e Gerar Comprovante
-              </Button>
-            </div>
-          </DialogContent>
+      {/* DURAÇÃO (FIXA OU EDITÁVEL) */}
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Duração</label>
+        <div className="h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-sm font-black text-[#22c55e]">
+          {duracao} MIN
+        </div>
+      </div>
+    </div>
+
+    {/* Dentro do seu DialogContent, acima do botão Confirmar */}
+{itensCarrinho.length > 0 && (
+  <div className="space-y-2 border-t border-white/5 pt-4">
+    <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Itens Adicionais</label>
+    <div className="max-h-24 overflow-y-auto space-y-2">
+      {itensCarrinho.map((item) => (
+        <div key={item.idUnico} className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
+          <span className="text-xs">{item.nome} - R$ {item.preco}</span>
+          <button 
+            onClick={() => removerDoCarrinho(item.idUnico)}
+            className="text-red-500 hover:text-red-400 p-1"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+    <div className="text-[#22c55e] font-black text-right text-sm">
+      TOTAL ITENS: R$ {itensCarrinho.reduce((acc, item) => acc + item.preco, 0)}
+    </div>
+  </div>
+)}
+    { /* BOTÃO FINAL */}
+    <Button 
+      className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg shadow-[#22c55e]/10 transition-all active:scale-95"
+      onClick={() => {
+        const input = document.getElementById(`atleta-${h}`) as HTMLInputElement;
+        handleAgendar(h, input?.value);
+      }}
+    >
+      Confirmar reserva
+    </Button>
+  </div>
+</DialogContent>
         </Dialog>
       );
     })}
@@ -512,7 +662,12 @@ const resumoFinanceiro = useMemo(() => {
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
             <span className="text-xs font-bold text-gray-500 uppercase">Estoque: {item.qtd}</span>
-            <Button size="sm" className="bg-white/10 hover:bg-[#22c55e] hover:text-black rounded-lg h-8">Vender/Alugar</Button>
+            <Button 
+  className="bg-white/10 hover:bg-[#22c55e] hover:text-black transition-all"
+  onClick={() => adicionarAoCarrinho(item)}
+>
+  Vender/Alugar
+</Button>
           </div>
         </div>
       ))}
@@ -859,3 +1014,7 @@ function setClientes(arg0: (prev: any) => any) {
 function setEditandoId(arg0: null) {
   throw new Error("Function not implemented.");
 }
+function buscarMensalistas() {
+  throw new Error("Function not implemented.");
+}
+

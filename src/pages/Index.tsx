@@ -13,25 +13,28 @@ import  TestimonialForm  from "@/components/home/TestimonialForm";
 // Função auxiliar para evitar erro de compilação na variável slotsHoje
 const gerarSlotsAgenda = (duracao: number) => {
   const slotsBase = [
-  // --- TURNO DIURNO (R$ 80,00/h) ---
-  { inicio: "08:00", fim30: "08:30", fim60: "09:00", fim90: "09:30", s: "livre" },
-  { inicio: "09:30", fim30: "10:00", fim60: "10:30", fim90: "11:00", s: "reservado" },
-  { inicio: "11:00", fim30: "11:30", fim60: "12:00", fim90: "12:30", s: "livre" },
-  { inicio: "12:30", fim30: "13:00", fim60: "13:30", fim90: "14:00", s: "livre" },
-  { inicio: "14:00", fim30: "14:30", fim60: "15:00", fim90: "15:30", s: "livre" },
-  { inicio: "15:30", fim30: "16:00", fim60: "16:30", fim90: "17:00", s: "livre" },
-  { inicio: "17:00", fim30: "17:30", fim60: "18:00", fim90: "18:30", s: "livre" },
+    // --- TURNO DIURNO (R$ 80,00/h) ---
+    { inicio: "09:00", fim30: "09:30", fim60: "10:00", fim90: "10:30", s: "livre" },
+    { inicio: "10:30", fim30: "11:00", fim60: "11:30", fim90: "12:00", s: "livre" },
+    { inicio: "12:00", fim30: "12:30", fim60: "13:00", fim90: "13:30", s: "livre" },
+    { inicio: "13:30", fim30: "14:00", fim60: "14:30", fim90: "15:00", s: "livre" },
+    { inicio: "15:00", fim30: "15:30", fim60: "16:00", fim90: "16:30", s: "livre" },
+    { inicio: "16:30", fim30: "17:00", fim60: "17:30", fim90: "18:00", s: "livre" },
 
-  // --- TURNO NOTURNO (R$ 120,00/h) ---
-  { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
-  { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "reservado" },
-  { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
-];
+    // --- TURNO NOTURNO (R$ 120,00/h) ---
+    { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
+    { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "livre" },
+    
+    // Último slot: 21:00 às 22:00. 
+    // Note que o fim90 é 22:00 para forçar o encerramento e não gerar 22:30.
+    { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
+  ];
+
   return slotsBase.map((slot) => {
     const hora = parseInt(slot.inicio.split(":")[0]);
     const isNoturno = hora >= 18;
     
-    // Se a duração for 90min no último slot, ele trava em 22:00 para não ultrapassar
+    // Seleciona o fim baseado na duração, respeitando os limites do objeto
     const fim = duracao === 30 ? slot.fim30 : duracao === 60 ? slot.fim60 : slot.fim90;
     
     const precoBase = isNoturno ? 120 : 80;
@@ -77,17 +80,31 @@ const censurarTexto = (texto: string) => {
 };
 
   useEffect(() => {
-    const carregarDepoimentos = () => {
-      const salvos = JSON.parse(localStorage.getItem("arena_reviews") || "[]");
-      const filtrados = salvos.map((c: any) => ({
-        ...c,
-        texto: censurarTexto(c.texto),
-        nome: censurarTexto(c.nome)
+  const carregarDepoimentos = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/depoimentos');
+      const data = await response.json();
+
+      // Filtro 1: Apenas os aprovados pelo Admin
+      // Filtro 2: Apenas os que não foram censurados
+      const aprovados = data.filter((d: any) => d.aprovado === 1 && d.censurado === 0);
+
+      // Aplicando sua lógica de censura de texto (opcional se o banco já estiver limpo)
+      const formatados = aprovados.map((d: any) => ({
+        ...d,
+        comentario: censurarTexto(d.comentario),
+        autor: censurarTexto(d.autor)
       }));
-      setComentarios(filtrados.slice(0, 3));
-    };
-    carregarDepoimentos();
-  }, []);
+
+      // Pega os 3 mais recentes para a Página Principal
+      setComentarios(formatados.slice(0, 3));
+    } catch (err) {
+      console.error("Erro ao carregar depoimentos reais:", err);
+    }
+  };
+
+  carregarDepoimentos();
+}, []);
 
   const PromoPopup = () => {
   const [isOpen, setIsOpen] = useState(false);

@@ -7,7 +7,8 @@ import {
   MessageSquare, AlertTriangle, FileText, TrendingUp, 
   Info, Plus, X, Check, ChevronLeft, ChevronRight,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  ShieldAlert
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,11 +45,20 @@ function AdminDashboard() {
   const [slotDetalhe, setSlotDetalhe] = useState<any>(null);
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
 
-  const CLIENTES_VIP = [
-    { id: 1, nome: "Racha do Morro", responsavel: "Carlos Silva", dia: "Segunda", hora: "20:00", statusPagamento: "em_dia" as const },
-    { id: 2, nome: "Amigos do Edinho", responsavel: "Edson Jr", dia: "Quarta", hora: "19:00", statusPagamento: "em_atraso" as const },
-    { id: 3, nome: "Amigos da Bola", responsavel: "Jose Luis", dia: "Sexta", hora: "18:30", statusPagamento: "em_dia" as const },
-  ];
+ const [vipsReais, setVipsReais] = useState([]);
+
+useEffect(() => {
+  const buscarVips = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/api/mensalistas");
+      const data = await response.json();
+      setVipsReais(data);
+    } catch (error) {
+      console.error("Erro ao carregar VIPs:", error);
+    }
+  };
+  buscarVips();
+}, []);
 
   const [produtos, setProdutos] = useState<{ id: number; nome: string; tipo: string; preco: number; preco_venda?: number; preco_aluguel?: number; estoque: number }[]>([]);
   const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
@@ -60,6 +70,17 @@ function AdminDashboard() {
     audio.volume = 0.5;
     audio.play().catch(() => {});
   };
+
+
+  interface Depoimento {
+  id: number;
+  autor: string;
+  texto: string;
+  data: string;
+  status: 'pendente' | 'aprovado';
+  estrelas: number; // <-- Adicione esta linha
+}
+
 
   useEffect(() => {
     fetch(`${API}/depoimentos`).then(r => r.json()).then((rows: any[]) => {
@@ -136,6 +157,17 @@ function AdminDashboard() {
     });
   }, [agendaSlots, detalhesAgenda, duracaoFiltro]);
 
+  const [listaEquipe, setListaEquipe] = useState([]);
+
+useEffect(() => {
+  const carregarEquipe = async () => {
+    const res = await fetch("http://localhost:3001/api/equipe");
+    const data = await res.json();
+    setListaEquipe(data);
+  };
+  carregarEquipe();
+}, []);
+
   const handleToggleManutencao = () => {
     const novoEstado = !emManutencao;
     fetch(`${API}/manutencao`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: novoEstado }) })
@@ -157,23 +189,62 @@ function AdminDashboard() {
     toast({ title: "Marketing Atualizado!", description: "As alterações já estão no site." });
   };
 
-  const processarComentario = (id: number, acao: 'aprovado' | 'rejeitado') => {
-    const aprovado = acao === 'aprovado';
-    fetch(`${API}/depoimentos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aprovado }) })
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(() => {
-        setDepoimentos(prev => prev.filter(item => item.id !== id));
-        toast({ title: aprovado ? "Publicado!" : "Removido!", description: aprovado ? "Visível no site." : "Excluído.", variant: aprovado ? "default" : "destructive" });
-      })
-      .catch(() => toast({ variant: "destructive", title: "Erro", description: "Não foi possível atualizar." }));
-  };
+  const processarComentario = async (id: number, acao: 'aprovado' | 'rejeitado' | 'pendente') => {
+  try {
+    // Definimos o endpoint dinamicamente baseado na ação
+    let endpoint = `http://localhost:3001/api/depoimentos/aprovar/${id}`;
+    
+    if (acao === 'rejeitado') {
+      endpoint = `http://localhost:3001/api/depoimentos/rejeitar/${id}`;
+    } else if (acao === 'pendente') {
+      // Reutilizamos a rota de aprovação, mas enviando 'false' para despublicar
+      endpoint = `http://localhost:3001/api/depoimentos/aprovar/${id}`;
+    }
+
+    const response = await fetch(endpoint, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      // Se a ação for 'aprovado', enviamos true. Caso contrário (pendente/rejeitado), enviamos false.
+      body: JSON.stringify({ status: acao === 'aprovado' })
+    });
+
+    if (response.ok) {
+      setDepoimentos((prev: any[]) => {
+        // Se foi rejeitado, removemos da lista
+        if (acao === 'rejeitado') {
+          return prev.filter(item => item.id !== id);
+        }
+        // Se aprovado ou pendente, apenas mudamos o 'status' para ele pular de coluna
+        return prev.map(item => 
+          item.id === id ? { ...item, status: acao } : item
+        );
+      });
+      
+      toast({ 
+        title: acao === 'aprovado' ? "✅ Publicado!" : acao === 'pendente' ? "⏳ Em análise" : "🗑️ Removido", 
+        description: acao === 'aprovado' ? "Visível no site." : "Atualizado com sucesso." 
+      });
+    }
+  } catch (error) {
+    console.error("Erro na moderação:", error);
+    toast({ variant: "destructive", title: "Erro ao processar" });
+  }
+};
 
   const abrirDetalheSlot = (slot: typeof slotsCalculados[0]) => {
     if (slot.reserva) setSlotDetalhe(slot.reserva); else setSlotDetalhe({ cliente: "-", reservadoPor: "-", pagamento: "-", obs: "Horário livre." });
     setIsModalDetalheAberto(true);
   };
 
-  const salvarProduto = () => {
+  const getCorStatus = (status: string) => {
+  switch(status) {
+    case 'venda_balcao': return 'bg-yellow-500/20 border-yellow-500 text-yellow-500'; // Alerta de venda nova
+    case 'pago': return 'bg-red-500/20 border-red-500 text-red-500';
+    default: return 'bg-white/5 border-white/10';
+  }
+};
+
+  const salvarProduto = () => { 
     if (editandoProduto) {
       fetch(`${API}/produtos/${editandoProduto.id}`, {
         method: "PUT",
@@ -248,6 +319,34 @@ function AdminDashboard() {
     for (let i = 1; i <= end.getDate(); i++) days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
     return days;
   }, [mesAtual]);
+
+
+ const handleToggleStatus = async (id: number, statusAtual: boolean) => {
+  const acao = statusAtual ? 'BLOQUEAR' : 'ATIVAR';
+  
+  // Usando um toast ou alert para confirmação
+  if (confirm(`Deseja realmente ${acao} este funcionário?`)) {
+    try {
+      const response = await fetch(`http://localhost:3001/api/funcionarios/status/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !statusAtual }) 
+      });
+
+      if (response.ok) {
+        // Atualiza o estado local para refletir a mudança sem recarregar a página inteira
+        setListaEquipe(prev => prev.map(f => f.id === id ? { ...f, ativo: !statusAtual } : f));
+      }
+    } catch (err) {
+      console.error("Erro ao mudar status:", err);
+    }
+  }
+};
+
+
+  function handlePagarVip(id: any): void {
+    throw new Error("Function not implemented.");
+  }
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
@@ -498,126 +597,208 @@ function AdminDashboard() {
 </TabsContent>
 
           {/* ABA DEPOIMENTOS MODERADOS */}
-          <TabsContent value="depoimentos">
-            <div className="grid md:grid-cols-2 gap-6 outline-none">
-              {['pendente', 'aprovado'].map((tipo) => (
-                <Card key={tipo} className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] min-h-[500px]">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-black italic uppercase flex items-center gap-3">
-                      {tipo === 'pendente' ? (
-                        <><AlertTriangle className="text-yellow-500" size={24} /> Em Análise</>
-                      ) : (
-                        <><CheckCircle2 className="text-[#22c55e]" size={24} /> Publicados</>
-                      )}
-                    </h3>
-                    <Badge className={cn(
-                      "font-black px-3 py-1 rounded-full text-[10px]",
-                      tipo === 'pendente' ? "bg-yellow-500/10 text-yellow-500" : "bg-[#22c55e]/10 text-[#22c55e]"
-                    )}>
-                      {depoimentos.filter(d => d.status === tipo).length}
-                    </Badge>
+<TabsContent value="depoimentos" className="outline-none">
+  <div className="grid md:grid-cols-2 gap-6">
+    {['pendente', 'aprovado'].map((tipo) => (
+      <Card key={tipo} className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] min-h-[600px] flex flex-col">
+        {/* Cabeçalho da Coluna */}
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-black italic uppercase flex items-center gap-3 text-white">
+            {tipo === 'pendente' ? (
+              <><AlertTriangle className="text-yellow-500" size={24} /> Em Análise</>
+            ) : (
+              <><CheckCircle2 className="text-[#22c55e]" size={24} /> Publicados</>
+            )}
+          </h3>
+          <Badge className={cn(
+            "font-black px-3 py-1 rounded-full text-[10px] border-none",
+            tipo === 'pendente' ? "bg-yellow-500/10 text-yellow-500" : "bg-[#22c55e]/10 text-[#22c55e]"
+          )}>
+            {depoimentos.filter((d: any) => d.status === tipo).length} ITENS
+          </Badge>
+        </div>
+
+        {/* Área de Rolagem dos Cards */}
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-4">
+            {depoimentos.filter((d: any) => d.status === tipo).length === 0 ? (
+              <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem] opacity-20">
+                <p className="italic font-bold text-gray-500">Nada para mostrar aqui</p>
+              </div>
+            ) : (
+              depoimentos.filter((d: any) => d.status === tipo).map((d: any) => (
+                <div 
+                  key={d.id} 
+                  className="p-5 bg-white/5 border border-white/10 rounded-[2rem] group hover:border-[#22c55e]/30 transition-all duration-300"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      {/* Nome do Autor vindo do Banco */}
+                      <p className="text-[10px] text-[#22c55e] font-black uppercase tracking-tighter">
+                        {d.autor}
+                      </p>
+                      
+                      {/* Estrelas Dinâmicas (Sem erro de tipagem) */}
+                      <div className="flex gap-0.5 mt-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star 
+                            key={i} 
+                            size={10} 
+                            fill={i < (Number(d.estrelas) || 0) ? "#eab308" : "transparent"} 
+                            className={i < (Number(d.estrelas) || 0) ? "text-yellow-500" : "text-gray-600/40"}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-gray-600 font-bold mt-1 uppercase">
+                        {d.data}
+                      </p>
+                    </div>
+
+                    {/* Botão de Excluir (Censurar) */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => processarComentario(d.id, 'rejeitado')}
+                      className="h-8 w-8 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 size={14} />
+                    </Button>
                   </div>
 
-                  <ScrollArea className="h-[450px] pr-4">
-                    <div className="space-y-4">
-                      {depoimentos.filter(d => d.status === tipo).length === 0 ? (
-                        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem] opacity-20">
-                          <p className="italic font-bold">Nenhum item aqui</p>
-                        </div>
-                      ) : (
-                        depoimentos.filter(d => d.status === tipo).map(d => (
-                          <div key={d.id} className="p-5 bg-white/5 border border-white/10 rounded-[2rem] group hover:border-white/20 transition-all">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <p className="text-[10px] text-[#22c55e] font-black uppercase tracking-tighter">{d.autor}</p>
-                                <p className="text-[9px] text-gray-500 font-bold">{d.data}</p>
-                              </div>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => processarComentario(d.id, 'rejeitado')}
-                                  className="h-8 w-8 text-red-500 hover:bg-red-500/10 rounded-full"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </div>
-                            </div>
+                  {/* Texto do Depoimento Real */}
+                  <p className="text-sm italic text-gray-300 leading-relaxed mb-5">
+                    "{d.texto}"
+                  </p>
 
-                            <p className="text-sm italic text-gray-300 leading-relaxed mb-4">"{d.texto}"</p>
-
-                            <div className="flex gap-2">
-                              {tipo === 'pendente' ? (
-                                <Button
-                                  onClick={() => processarComentario(d.id, 'aprovado')}
-                                  className="w-full bg-[#22c55e] hover:bg-[#1da850] text-black font-black text-[10px] uppercase h-10 rounded-xl"
-                                >
-                                  <Check size={14} className="mr-2" /> Aprovar no Site
-                                </Button>
-                              ) : (
-                                <Button
-                                  onClick={() => fetch(`${API}/depoimentos/${d.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aprovado: false }) }).then(r => r.json()).then(() => setDepoimentos(prev => prev.map(item => item.id === d.id ? { ...item, status: 'pendente' } : item))).catch(() => {})}
-                                  variant="outline"
-                                  className="w-full border-white/10 text-gray-400 font-black text-[10px] uppercase h-10 rounded-xl hover:bg-white/5"
-                                >
-                                  Remover do Mural
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
+                  {/* Ações de Moderação */}
+                  <div className="flex gap-2">
+                    {tipo === 'pendente' ? (
+                      <Button
+                        onClick={() => processarComentario(d.id, 'aprovado')}
+                        className="w-full bg-[#22c55e] hover:bg-[#1da850] text-black font-black text-[10px] uppercase h-10 rounded-xl shadow-lg shadow-[#22c55e]/10"
+                      >
+                        <Check size={14} className="mr-2" /> Aprovar no Mural
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => processarComentario(d.id, 'pendente')}
+                        variant="outline"
+                        className="w-full border-white/10 text-gray-500 font-black text-[10px] uppercase h-10 rounded-xl hover:bg-white/5 hover:text-white"
+                      >
+                        Remover do Mural
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </Card>
+    ))}
+  </div>
+</TabsContent>
 
           {/* ABA VIP COM BOTÃO DE ENGRENAGEM */}
           <TabsContent value="vip">
-            <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
-              <Table>
-                <TableHeader><TableRow className="border-white/5 uppercase font-black text-[10px]">
-                  <TableHead>Grupo</TableHead><TableHead>Dia/Hora</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {[
-                    { nome: "Amigos do Edinho", dia: "Qua", hora: "19:00", pgto: "Mensal/Dinheiro", resp: "Atendente Marcos", obs: "Sempre trazem colete próprio.", statusPagamento: "em_atraso" as const },
-                    { nome: "Racha do Morro", dia: "Seg", hora: "18:00", pgto: "Mensal/PIX", resp: "Carlos Silva", obs: "Grupo grande, sempre pontuais.", statusPagamento: "em_dia" as const },
-                    { nome: "Escolinha do Pedro", dia: "Sex", hora: "14:00", pgto: "Mensal/Dinheiro", resp: "Atendente Bruna", obs: "Sempre trazem colete próprio.", statusPagamento: "em_dia" as const },
-                    { nome: "Amigos da Bola", dia: "Qui", hora: "18:30", pgto: "Mensal/PIX", resp: "Jose Luis", obs: "Sempre atrasam pagamentos.", statusPagamento: "em_atraso" as const },
-                  ].map((vip, i) => (
-                    <TableRow key={i} className="border-white/5">
-                      <TableCell className="font-black italic uppercase">{vip.nome}</TableCell>
-                      <TableCell>{vip.dia} às {vip.hora}</TableCell>
-                      <TableCell>
-                        <Badge className={vip.statusPagamento === "em_atraso" ? "bg-red-500/20 text-red-400" : "bg-[#22c55e]/20 text-[#22c55e]"}>
-                          {vip.statusPagamento === "em_atraso" ? "Em atraso" : "Em dia"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Dialog>
-                          <DialogTrigger asChild><Button variant="ghost" size="sm"><Settings size={18} className="text-[#22c55e]" /></Button></DialogTrigger>
-                          <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-                            <DialogHeader><DialogTitle className="italic uppercase font-black">Dados do Cliente VIP</DialogTitle></DialogHeader>
-                            <div className="space-y-4 pt-4">
-                              <div><p className="text-[10px] text-gray-500 font-black uppercase">Responsável pela Reserva</p><p className="font-bold">{vip.resp ?? (vip as any).responsavel}</p></div>
-                              <div><p className="text-[10px] text-gray-500 font-black uppercase">Modo de Pagamento</p><p className="font-bold">{vip.pgto}</p></div>
-                              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
-                                <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2"><Info size={12} /> Alerta / Observação</p>
-                                <p className="text-sm italic mt-1">"{vip.obs}"</p>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
+  <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
+    <Table>
+      <TableHeader>
+        <TableRow className="border-white/5 uppercase font-black text-[10px]">
+          <TableHead>Grupo</TableHead>
+          <TableHead>Dia/Hora</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead className="text-right">Ações</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+  {vipsReais.length > 0 ? (
+    vipsReais.map((vip, i) => (
+      <TableRow key={i} className="border-white/5 hover:bg-white/[0.02] transition-colors">
+        <TableCell className="font-black italic uppercase text-[#22c55e]">
+          {vip.nome}
+        </TableCell>
+        <TableCell className="text-gray-300 font-medium">
+          {vip.dia_semana} às {vip.horario ? vip.horario.substring(0, 5) : "--:--"}
+        </TableCell>
+        <TableCell>
+          <Badge className={vip.status_pagamento === "em_atraso" 
+            ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1" 
+            : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"}>
+            {vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}
+          </Badge>
+        </TableCell>
+        <TableCell className="text-right">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="hover:bg-white/10 rounded-full h-10 w-10 p-0">
+                <Settings size={18} className="text-[#22c55e]" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8">
+              <DialogHeader>
+                <DialogTitle className="italic uppercase font-black text-[#22c55e] text-2xl">
+                  Dados do Cliente VIP
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-6 pt-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Responsável</p>
+                    <p className="font-bold text-lg text-white">
+                      {/* Aqui exibe o atendente real que fez o cadastro */}
+                      {vip.responsavel_cadastro || vip.responsavel || "Sistema"}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Pagamento</p>
+                    <p className="font-bold text-lg text-white">
+                      {vip.metodo_pagamento || "Não informado"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-[1.5rem]">
+                  <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2 mb-3">
+                    <Info size={14} /> Alerta / Observação do Atendente
+                  </p>
+                  <p className="text-sm italic text-gray-300 leading-relaxed">
+                    "{vip.observacao || "Nenhuma observação registrada para este grupo."}"
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                   <Button 
+                    className="bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-14 rounded-2xl shadow-lg"
+                    onClick={() => handlePagarVip(vip.id)}
+                  >
+                    Confirmar Mensalidade
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="bg-transparent hover:bg-white/5 text-white border-white/10 font-black uppercase h-14 rounded-2xl"
+                  >
+                    Editar Grupo
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TableCell>
+      </TableRow>
+    ))
+  ) : (
+    <TableRow>
+      <TableCell colSpan={4} className="text-center py-24 text-gray-500 italic text-lg">
+        Buscando dados reais no banco...
+      </TableCell>
+    </TableRow>
+  )}
+</TableBody>
+    </Table>
+  </Card>
+</TabsContent>
 
           {/* ABA MARKETING */}
           <TabsContent value="marketing">
@@ -632,44 +813,73 @@ function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* ABA EQUIPE (SIMPLES E DIRETA) */}
+         {/* EQUIPE */}
           <TabsContent value="equipe">
-            <Card className="bg-[#0c120f] border-white/5 rounded-[2.5rem] overflow-hidden">
-              <Table>
-                <TableHeader className="bg-white/5">
-                  <TableRow className="border-white/5 text-[10px] uppercase font-black">
-                    <TableHead>Atendente</TableHead>
-                    <TableHead>Total de Vendas</TableHead>
-                    <TableHead>Avaliação</TableHead>
-                    <TableHead>Reservas</TableHead>
-                    <TableHead className="text-right">Turno</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow className="border-white/5">
-                    <TableCell className="font-bold italic">Bruna Oliveira</TableCell>
-                    <TableCell className="text-[#22c55e] font-black">R$ 7.840,00</TableCell>
-                    <TableCell className="flex gap-1 items-center">
-                      <Star size={12} fill="#eab308" className="text-yellow-500" />
-                      <span className="text-xs font-black">4.9</span>
-                    </TableCell>
-                    <TableCell className="font-bold italic">142</TableCell>
-                    <TableCell className="text-right text-[10px] font-black text-gray-500">DIURNO</TableCell>
-                  </TableRow>
-                  <TableRow className="border-white/5">
-                    <TableCell className="font-bold italic">Marcos Silva</TableCell>
-                    <TableCell className="text-[#22c55e] font-black">R$ 5.620,00</TableCell>
-                    <TableCell className="flex gap-1 items-center">
-                      <Star size={12} fill="#eab308" className="text-yellow-500" />
-                      <span className="text-xs font-black">4.7</span>
-                    </TableCell>
-                    <TableCell className="font-bold italic">98</TableCell>
-                    <TableCell className="text-right text-[10px] font-black text-gray-500">NOTURNO</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
+  <Card className="bg-[#0c120f] border-white/5 rounded-[2.5rem] overflow-hidden">
+    <Table>
+      <TableHeader className="bg-white/5">
+        <TableRow className="border-white/5 text-[10px] uppercase font-black">
+          <TableHead>Atendente</TableHead>
+          <TableHead>Total de Vendas</TableHead>
+          <TableHead>Avaliação</TableHead>
+          <TableHead>Reservas</TableHead>
+          <TableHead>Turno</TableHead>
+          <TableHead className="text-right">Gestão</TableHead> {/* Nova Coluna */}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {listaEquipe.length > 0 ? (
+          listaEquipe.map((membro) => (
+            <TableRow key={membro.id} className={`border-white/5 transition-opacity ${!membro.ativo ? 'opacity-40' : ''}`}>
+              <TableCell className="font-bold italic uppercase">
+                {membro.nome} {membro.sobrenome}
+                {!membro.ativo && <span className="ml-2 text-[8px] bg-red-500 text-white px-1 rounded">BLOQUEADO</span>}
+              </TableCell>
+              
+              <TableCell className="text-[#22c55e] font-black">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(membro.total_vendas || 0)}
+              </TableCell>
+              
+              <TableCell className="flex gap-1 items-center">
+                <Star size={12} fill="#eab308" className="text-yellow-500" />
+                <span className="text-xs font-black">5.0</span>
+              </TableCell>
+              
+              <TableCell className="font-bold italic">
+                {membro.total_reservas || 0}
+              </TableCell>
+              
+              <TableCell className="text-[10px] font-black text-gray-500 uppercase">
+                {membro.turno || (membro.id % 2 === 0 ? "NOTURNO" : "DIURNO")}
+              </TableCell>
+
+              {/* COLUNA DE AÇÕES */}
+              <TableCell className="text-right">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? 'text-red-500 hover:bg-red-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
+                  onClick={() => handleToggleStatus(membro.id, membro.ativo)}
+                >
+                  {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
+                  <span className="ml-2 text-[9px] font-black uppercase">
+                    {membro.ativo ? "Bloquear" : "Ativar"}
+                  </span>
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={6} className="text-center py-10 opacity-50 italic">
+              Carregando equipe ou nenhum atendente cadastrado...
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  </Card>
+</TabsContent>
 
         </Tabs>
       </main>

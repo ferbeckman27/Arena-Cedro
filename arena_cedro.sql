@@ -244,6 +244,7 @@ CREATE TABLE alertas_clientes (
     cliente_id INT,
     observacao TEXT,
     tipo VARCHAR(20)
+    valor_mensal DECIMAL(10,2)
 );
 
 INSERT INTO palavras_bloqueadas (palavra) VALUES 
@@ -315,6 +316,11 @@ INSERT INTO clientes (nome, sobrenome, email, telefone, senha, tipo) VALUES
 INSERT INTO funcionarios (nome, sobrenome, email, email_pessoal, telefone, senha, tipo) VALUES
 ('Maria', 'Santos', 'mariasantos@atendcedro.com', 'maria.pessoal@email.com', '(11) 98888-8888', SHA2('SenhaAtend123!', 256), 'atendente'),
 ('Carlos', 'Admin', 'carlosadmin@admincedro.com', 'carlos.pessoal@email.com', '(11) 97777-7777', SHA2('SenhaAdmin456!', 256), 'administrador');
+
+ALTER TABLE funcionarios ADD COLUMN turno VARCHAR(20) DEFAULT 'DIURNO', 'NOTURNO';
+ALTER TABLE mensalistas ADD COLUMN status_pagamento ENUM('em_dia', 'em_atraso') DEFAULT 'em_dia';
+ALTER TABLE mensalistas ADD COLUMN responsavel VARCHAR(100);
+ALTER TABLE mensalistas ADD COLUMN observacao TEXT;
 
 CREATE VIEW view_agenda_simplificada AS
 SELECT 

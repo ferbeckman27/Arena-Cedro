@@ -94,11 +94,20 @@ useEffect(() => {
 
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
 
-  const produtos: Product[] = [
-    { id: 1, nome: "Bola Penalty S11", preco: 180, tipo: 'venda' },
-    { id: 2, nome: "Aluguel de Colete (Un)", preco: 8, tipo: 'aluguel' },
-    { id: 3, nome: "Gatorade 500ml", preco: 10, tipo: 'venda' },
-  ];
+  const [produtos, setProdutos] = useState<Product[]>([]);
+
+useEffect(() => {
+  const buscarProdutos = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/api/produtos");
+      const data = await response.json();
+      setProdutos(data);
+    } catch (error) {
+      console.error("Erro ao carregar produtos:", error);
+    }
+  };
+  buscarProdutos();
+}, []);
 
   const [historicoCompras] = useState<CompraAntiga[]>([
     { id: "101", data: "10/02/2026", item: "Gatorade 500ml", valor: 10, produtoOriginal: produtos[2] },
@@ -180,7 +189,7 @@ useEffect(() => {
   const horarios: string[] = [];
   
   // Turno Manhã/Tarde: 08:00 às 17:00
-  for (let hora = 8; hora <= 16; hora++) {
+  for (let hora = 9; hora <= 17; hora++) {
     horarios.push(`${hora.toString().padStart(2, '0')}:00`);
     horarios.push(`${hora.toString().padStart(2, '0')}:30`);
   }
