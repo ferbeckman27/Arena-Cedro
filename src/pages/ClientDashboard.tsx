@@ -206,7 +206,7 @@ useEffect(() => {
       <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex flex-col items-center">
-            <img src="/media/logo-arena.png" alt="Logo" className="w-60 h-60 object-contain" />
+            <img src="/media/logo-arena.png" alt="Logo" className="w-40 h-40 object-contain" />
           <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO AO PAINEL DO CLIENTE</span>
         </div>
         </div>
