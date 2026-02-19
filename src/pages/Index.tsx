@@ -13,7 +13,7 @@ import  TestimonialForm  from "@/components/home/TestimonialForm";
 // Função auxiliar para evitar erro de compilação na variável slotsHoje
 const gerarSlotsAgenda = (duracao: number) => {
   const slotsBase = [
-   // --- TURNO DIURNO (R$ 80,00/h) ---
+    // --- TURNO DIURNO (R$ 80,00/h) ---
     { inicio: "09:00", fim30: "09:30", fim60: "10:00", fim90: "10:30", s: "livre" },
     { inicio: "10:30", fim30: "11:00", fim60: "11:30", fim90: "12:00", s: "livre" },
     { inicio: "12:00", fim30: "12:30", fim60: "13:00", fim90: "13:30", s: "livre" },
@@ -25,8 +25,7 @@ const gerarSlotsAgenda = (duracao: number) => {
     { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
     { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "livre" },
     
-    // Último slot: 21:00 às 22:00. 
-    // Note que o fim90 é 22:00 para forçar o encerramento e não gerar 22:30.
+    // Último slot: Se escolher 90min aqui, ele trava em 22:00 conforme seu pedido
     { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
   ];
 
@@ -34,17 +33,18 @@ const gerarSlotsAgenda = (duracao: number) => {
     const hora = parseInt(slot.inicio.split(":")[0]);
     const isNoturno = hora >= 18;
     
-    // Seleciona o fim baseado na duração, respeitando os limites do objeto
+    // Escolhe o horário de fim baseado na duração selecionada
     const fim = duracao === 30 ? slot.fim30 : duracao === 60 ? slot.fim60 : slot.fim90;
     
     const precoBase = isNoturno ? 120 : 80;
-    const valor = (precoBase / 60) * duracao;
+    // Cálculo do valor garantindo que nunca seja undefined
+    const valorCalculado = (precoBase / 60) * duracao;
 
     return {
       inicio: slot.inicio,
       fim: fim,
       turno: isNoturno ? "noturno" : "diurno",
-      valor: valor,
+      valor: valorCalculado || 0, // Fallback para 0 para evitar o erro de toFixed
       status: slot.s === "reservado" || slot.s === "ocupado" ? "reservado" : "livre",
     };
   });

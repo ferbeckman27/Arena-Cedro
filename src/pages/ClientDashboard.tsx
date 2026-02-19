@@ -185,19 +185,25 @@ useEffect(() => {
   }
 };
 
-  const gerarHorarios = () => {
+ const gerarHorarios = () => {
   const horarios: string[] = [];
   
-  // Turno Manhã/Tarde: 08:00 às 17:00
-  for (let hora = 9; hora <= 17; hora++) {
+  // Turno Manhã/Tarde: 09:00 às 17:30
+  for (let hora = 9; hora < 18; hora++) {
     horarios.push(`${hora.toString().padStart(2, '0')}:00`);
     horarios.push(`${hora.toString().padStart(2, '0')}:30`);
   }
 
   // Turno Noite: 18:00 às 22:00
   for (let hora = 18; hora <= 22; hora++) {
+    // Adiciona o horário cheio (:00)
     horarios.push(`${hora.toString().padStart(2, '0')}:00`);
-    horarios.push(`${hora.toString().padStart(2, '0')}:30`);
+    
+    // SÓ adiciona o :30 se a hora for menor que 22
+    // Se for 22, ele pula essa parte e a lista acaba em 22:00
+    if (hora < 22) {
+      horarios.push(`${hora.toString().padStart(2, '0')}:30`);
+    }
   }
 
   return horarios;
@@ -355,7 +361,7 @@ useEffect(() => {
                       </div>
                       <div>
                         <h4 className="font-bold text-sm uppercase italic text-white">{p.nome}</h4>
-                        <p className="text-[#22c55e] font-black">R$ {p.preco.toFixed(2)}</p>
+                        <p className="text-[#22c55e] font-black">R$ {(p.preco || 0).toFixed(2)}</p>
                       </div>
                     </div>
                     <Button onClick={() => addToCart(p)} size="icon" className="bg-[#22c55e] text-black rounded-xl hover:scale-110 transition-transform">
