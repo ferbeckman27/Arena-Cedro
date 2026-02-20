@@ -110,3 +110,13 @@ app.post('/api/finalizar-reserva', async (req, res) => {
         });
     });
 });
+
+app.get('/api/fidelidade/:id', (req, res) => {
+    const clienteId = req.params.id;
+    const sql = "SELECT COUNT(*) as total FROM reservas WHERE cliente_id = ? AND status = 'concluido'";
+    
+    db.query(sql, [clienteId], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ totalConcluido: result[0].total });
+    });
+});

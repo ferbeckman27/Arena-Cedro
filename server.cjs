@@ -60,6 +60,25 @@ app.get('/api/depoimentos', (req, res) => {
   });
 });
 
+app.put('/api/depoimentos/aprovar/:id', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const sql = "UPDATE depoimentos SET aprovado = ? WHERE id = ?";
+  db.query(sql, [status, id], (err, result) => {
+    if (err) return res.status(500).send(err);
+    res.json({ message: "Status de aprovação atualizado!" });
+  });
+});
+
+app.put('/api/depoimentos/rejeitar/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = "UPDATE depoimentos SET censurado = TRUE WHERE id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) return res.status(500).send(err);
+    res.json({ message: "Depoimento rejeitado." });
+  });
+});
+
 // ——— Login unificado: primeiro tenta funcionário, depois cliente (SHA2 no banco) ———
 app.post('/api/login-unificado', (req, res) => {
   const { email, password } = req.body;
@@ -101,6 +120,33 @@ app.post('/api/login-unificado', (req, res) => {
   });
 });
 
+app.get('/api/equipe', (req, res) => {
+  const sql = `
+      SELECT 
+          f.id, f.nome, f.sobrenome,
+          COALESCE(SUM(r.valor_total), 0) as total_vendas,
+          COUNT(r.id) as total_reservas
+      FROM funcionarios f
+      LEFT JOIN reservas r ON f.id = r.funcionario_id
+      WHERE f.tipo = 'atendente' AND f.ativo = 1
+      GROUP BY f.id;
+  `;
+  db.query(sql, (err, results) => {
+      if (err) return res.status(500).json(err);
+      res.json(results);
+  });
+});
+
+app.put('/api/funcionarios/status/:id', (req, res) => {
+  const { id } = req.params;
+  const { ativo } = req.body;
+  const sql = "UPDATE funcionarios SET ativo = ? WHERE id = ?";
+  db.query(sql, [ativo, id], (err, result) => {
+      if (err) return res.status(500).json({ error: "Erro ao atualizar status" });
+      res.json({ message: "Status do funcionário atualizado!" });
+  });
+});
+
 // ——— Cadastro de cliente (senha armazenada com SHA2, como em arena_cedro.sql) ———
 app.post('/api/cadastro-cliente', (req, res) => {
   const { nome, sobrenome, email, telefone, senha } = req.body;
@@ -110,6 +156,66 @@ app.post('/api/cadastro-cliente', (req, res) => {
     res.status(201).json({ message: "Cliente cadastrado com sucesso!" });
   });
 });
+
+app.get('/api/mensalistas', (req, res) => {
+  db.query("SELECT * FROM mensalistas", (err, result) => {
+      if (err) return res.status(500).send(err);
+      res.json(result);
+  });
+});
+
+app.post('/api/mensalistas', (req, res) => {
+  const { nome, dia_semana, horario, metodo_pagamento, observacao, responsavel, status_pagamento } = req.body;
+  const sql = `INSERT INTO mensalistas 
+      (nome, dia_semana, horario, metodo_pagamento, observacao, responsavel_cadastro, status_pagamento) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  db.query(sql, [nome, dia_semana, horario, metodo_pagamento, observacao, responsavel, status_pagamento], (err) => {
+      if (err) return res.status(500).send(err);
+      res.sendStatus(201);
+  });
+});
+
+app.put('/api/mensalistas/:id', (req, res) => {
+  const { nome, dia_semana, horario, metodo_pagamento, observacao } = req.body;
+  const { id } = req.params;
+  const sql = "UPDATE mensalistas SET nome=?, dia_semana=?, horario=?, metodo_pagamento=?, observacao=? WHERE id=?";
+  db.query(sql, [nome, dia_semana, horario, metodo_pagamento, observacao, id], (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json({ ok: true });
+  });
+});
+
+app.put('/api/mensalistas/status/:id', (req, res) => {
+  const { id } = req.params;
+  const { novoStatus } = req.body;
+  const sql = "UPDATE mensalistas SET status_pagamento = ? WHERE id = ?";
+  db.query(sql, [novoStatus, id], (err, result) => {
+      if (err) return res.status(500).json({ error: "Erro ao atualizar status do VIP" });
+      res.json({ message: "Status atualizado com sucesso!" });
+  });
+});
+
+app.get('/api/admin/vips', (req, res) => {
+  const sql = `
+      SELECT 
+          id, 
+          nome as grupo, 
+          dia_semana, 
+          DATE_FORMAT(horario, '%H:%i') as hora,
+          metodo_pagamento,
+          responsavel_cadastro,
+          observacao,
+          IF(pago_mes_atual = 1, 'Em dia', 'Em atraso') as status
+      FROM mensalistas
+      ORDER BY dia_semana, horario
+  `;
+  db.query(sql, (err, results) => {
+      if (err) return res.status(500).json(err);
+      res.json(results);
+  });
+});
+
+
 
 // ——— Finalizar reserva (schema arena_cedro.sql: data_reserva, horario_inicio, bloco_id, turno_id, forma_pagamento, itens_reserva; funcionario_id opcional) ———
 app.post('/api/finalizar-reserva', (req, res) => {

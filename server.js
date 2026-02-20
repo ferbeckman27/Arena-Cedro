@@ -78,6 +78,17 @@ app.get('/api/depoimentos', (req, res) => {
   });
 });
 
+app.patch('/api/depoimentos/:id', (req, res) => {
+  const id = req.params.id;
+  const { aprovado } = req.body;
+  if (typeof aprovado !== 'boolean') return res.status(400).json({ error: 'aprovado inválido' });
+  db.query('UPDATE depoimentos SET aprovado = ? WHERE id = ?', [aprovado, id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Depoimento não encontrado' });
+    res.json({ ok: true, aprovado });
+  });
+});
+
 
 app.put('/api/depoimentos/aprovar/:id', (req, res) => {
   const { id } = req.params;
@@ -90,23 +101,53 @@ app.put('/api/depoimentos/aprovar/:id', (req, res) => {
   });
 });
 
+app.put('/api/depoimentos/rejeitar/:id', (req, res) => {
+  const { id } = req.params;
+  const sql = "UPDATE depoimentos SET censurado = TRUE WHERE id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) return res.status(500).send(err);
+    res.json({ message: "Depoimento rejeitado." });
+  });
+});
+
 
 // ——— Login unificado (senha no banco = SHA2, como em arena_cedro.sql) ———
 app.post('/api/login-unificado', (req, res) => {
   const { email, password } = req.body;
-  const sql = "SELECT id, nome, sobrenome, email, tipo FROM funcionarios WHERE email = ? AND senha = SHA2(?, 256)";
-  db.query(sql, [email, password], (err, results) => {
+  const sqlFunc = "SELECT id, nome, sobrenome, email, tipo FROM funcionarios WHERE email = ? AND senha = SHA2(?, 256)";
+  db.query(sqlFunc, [email, password], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length > 0) {
       const user = results[0];
+      const redirect = user.tipo === 'administrador' ? '/admindashboard' : '/atendentedashboard';
       return res.json({
         sucesso: true,
         nome: user.nome,
         token: 'ok',
-        redirect: user.tipo === 'administrador' ? '/admindashboard' : '/atendentedashboard'
+        redirect,
+        tipo: user.tipo,
+        cargo: user.tipo,
+        id: user.id
       });
     }
-    res.status(401).json({ sucesso: false, mensagem: "E-mail ou senha incorretos!" });
+    const sqlCliente = "SELECT id, nome, sobrenome, email, tipo FROM clientes WHERE email = ? AND senha = SHA2(?, 256) AND ativo = 1";
+    db.query(sqlCliente, [email, password], (errCliente, resultsCliente) => {
+      if (errCliente) return res.status(500).json({ error: errCliente.message });
+      if (resultsCliente.length > 0) {
+        const user = resultsCliente[0];
+        const tipoCliente = user.tipo === 'vip' ? 'vip' : 'cliente';
+        return res.json({
+          sucesso: true,
+          nome: user.nome,
+          token: 'ok',
+          redirect: '/clientdashboard',
+          tipo: tipoCliente,
+          cargo: tipoCliente,
+          id: user.id
+        });
+      }
+      res.status(401).json({ sucesso: false, mensagem: "E-mail ou senha incorretos!" });
+    });
   });
 });
 
@@ -220,12 +261,47 @@ app.get('/api/fidelidade/:id', (req, res) => {
   });
 });
 
+app.get('/api/agenda-detalhes', (req, res) => {
+  const { data } = req.query;
+  if (!data) return res.status(400).json({ error: 'Parâmetro data obrigatório' });
+  const sql = `
+    SELECT r.id, r.data_reserva, r.horario_inicio, r.status, r.valor_total, r.forma_pagamento, r.pago, r.observacoes,
+           CONCAT(c.nome, ' ', c.sobrenome) AS cliente_nome, c.telefone AS cliente_telefone,
+           f.nome AS reservado_por_nome, f.id AS funcionario_id,
+           bh.duracao_minutos, t.nome AS turno
+    FROM reservas r
+    JOIN clientes c ON r.cliente_id = c.id
+    LEFT JOIN funcionarios f ON r.funcionario_id = f.id
+    JOIN blocos_horario bh ON r.bloco_id = bh.id
+    JOIN turnos t ON r.turno_id = t.id
+    WHERE r.data_reserva = ? AND r.status != 'cancelada'
+    ORDER BY r.horario_inicio`;
+  db.query(sql, [data], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const rows = (results || []).map(r => ({
+      id: r.id,
+      data_reserva: r.data_reserva,
+      horario_inicio: r.horario_inicio,
+      status: r.status,
+      valor_total: r.valor_total,
+      forma_pagamento: r.forma_pagamento || '-',
+      pago: !!r.pago,
+      observacoes: r.observacoes || '',
+      cliente_nome: r.cliente_nome,
+      cliente_telefone: r.cliente_telefone,
+      reservado_por: r.reservado_por_nome ? `Atendente ${r.reservado_por_nome}` : 'Cliente (Site)',
+      duracao_minutos: r.duracao_minutos,
+      turno: r.turno
+    }));
+    res.json(rows);
+  });
+});
+
 
 app.get('/api/mensalistas', (req, res) => {
     db.query("SELECT * FROM mensalistas", (err, result) => {
         if (err) return res.status(500).send(err);
         res.json(result);
-    });
 });
 
 // SALVAR NOVO MENSALISTA
@@ -243,10 +319,11 @@ app.post('/api/mensalistas', (req, res) => {
 // EDITAR MENSALISTA
 app.put('/api/mensalistas/:id', (req, res) => {
     const { nome, dia_semana, horario, metodo_pagamento, observacao } = req.body;
+    const { id } = req.params;
     const sql = "UPDATE mensalistas SET nome=?, dia_semana=?, horario=?, metodo_pagamento=?, observacao=? WHERE id=?";
-   db.query(sql, [nome, dia_semana, horario, metodo_pagamento, observacao, responsavel, status_pagamento], (err, result) => {
+    db.query(sql, [nome, dia_semana, horario, metodo_pagamento, observacao, id], (err, result) => {
         if (err) return res.status(500).json(err);
-        res.status(201).json({ id: result.insertId });
+        res.json({ ok: true });
     });
 });
 
@@ -353,6 +430,148 @@ app.post('/api/solicitar-cadastro', async (req, res) => {
             res.status(500).json({ error: "Erro ao enviar o e-mail." });
         }
     });
+});
+
+app.post('/api/produtos', (req, res) => {
+  const { nome, tipo, preco_venda, preco_aluguel, quantidade_estoque, descricao } = req.body;
+  const tipoVal = ['venda', 'aluguel', 'ambos'].includes(tipo) ? tipo : 'venda';
+  const precoV = tipoVal === 'aluguel' ? null : (Number(preco_venda) || 0);
+  const precoA = tipoVal === 'venda' ? null : (Number(preco_aluguel) || 0);
+  const estoque = Number(quantidade_estoque) || 0;
+  const sql = 'INSERT INTO produtos (nome, descricao, tipo, preco_venda, preco_aluguel, quantidade_estoque) VALUES (?, ?, ?, ?, ?, ?)';
+  db.query(sql, [nome || 'Produto', descricao || null, tipoVal, precoV, precoA, estoque], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json({ id: result.insertId, message: 'Produto cadastrado.' });
+  });
+});
+
+app.put('/api/produtos/:id', (req, res) => {
+  const id = req.params.id;
+  const { nome, tipo, preco_venda, preco_aluguel, quantidade_estoque, descricao } = req.body;
+  const tipoVal = tipo && ['venda', 'aluguel', 'ambos'].includes(tipo) ? tipo : undefined;
+  const fields = [];
+  const values = [];
+  if (nome != null) { fields.push('nome = ?'); values.push(nome); }
+  if (tipoVal != null) { fields.push('tipo = ?'); values.push(tipoVal); }
+  if (preco_venda != null) { fields.push('preco_venda = ?'); values.push(Number(preco_venda)); }
+  if (preco_aluguel != null) { fields.push('preco_aluguel = ?'); values.push(Number(preco_aluguel)); }
+  if (quantidade_estoque != null) { fields.push('quantidade_estoque = ?'); values.push(Number(quantidade_estoque)); }
+  if (descricao != null) { fields.push('descricao = ?'); values.push(descricao); }
+  if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+  values.push(id);
+  db.query(`UPDATE produtos SET ${fields.join(', ')} WHERE id = ?`, values, (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Produto não encontrado' });
+    res.json({ ok: true });
+  });
+});
+
+app.delete('/api/produtos/:id', (req, res) => {
+  db.query('UPDATE produtos SET ativo = FALSE WHERE id = ?', [req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Produto não encontrado' });
+    res.json({ ok: true });
+  });
+});
+
+let estadoManutencao = false;
+app.get('/api/manutencao', (req, res) => res.json({ ativo: estadoManutencao }));
+app.post('/api/manutencao', (req, res) => {
+  const { ativo } = req.body;
+  estadoManutencao = !!ativo;
+  res.json({ ativo: estadoManutencao });
+});
+
+app.get('/api/relatorios/sintetico', (req, res) => {
+  const { mes, ano } = req.query;
+  const m = mes || new Date().getMonth() + 1;
+  const y = ano || new Date().getFullYear();
+  const sql = `SELECT COUNT(*) as total_reservas, COALESCE(SUM(CASE WHEN pago = 1 THEN valor_total ELSE 0 END), 0) as faturamento
+    FROM reservas WHERE MONTH(data_reserva) = ? AND YEAR(data_reserva) = ? AND status IN ('confirmada', 'concluida')`;
+  db.query(sql, [m, y], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const r = rows[0];
+    const totalReservas = r.total_reservas || 0;
+    const faturamento = Number(r.faturamento || 0);
+    res.json({ mes: Number(m), ano: Number(y), total_reservas: totalReservas, faturamento, media_diaria: totalReservas ? (faturamento / 30).toFixed(2) : 0 });
+  });
+});
+
+app.get('/api/relatorios/analitico', (req, res) => {
+  const { mes, ano } = req.query;
+  const m = mes || new Date().getMonth() + 1;
+  const y = ano || new Date().getFullYear();
+  const sqlReservas = `SELECT COALESCE(SUM(valor_total), 0) as total FROM reservas WHERE MONTH(data_reserva) = ? AND YEAR(data_reserva) = ? AND pago = 1`;
+  const sqlProdutos = `SELECT COALESCE(SUM(ir.subtotal), 0) as total FROM itens_reserva ir JOIN reservas r ON ir.reserva_id = r.id WHERE MONTH(r.data_reserva) = ? AND YEAR(r.data_reserva) = ? AND ir.pago = 1`;
+  db.query(sqlReservas, [m, y], (err, r1) => {
+    if (err) return res.status(500).json({ error: err.message });
+    db.query(sqlProdutos, [m, y], (err2, r2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      const vendasProdutos = Number((r2 && r2[0]) ? r2[0].total : 0);
+      const horasAvulsas = Number((r1 && r1[0]) ? r1[0].total : 0) - vendasProdutos;
+      res.json({
+        mes: Number(m), ano: Number(y),
+        venda_produtos: vendasProdutos,
+        horas_avulsas: horasAvulsas < 0 ? 0 : horasAvulsas,
+        faturamento_total: vendasProdutos + (horasAvulsas < 0 ? Number((r1 && r1[0]) ? r1[0].total : 0) : horasAvulsas)
+      });
+    });
+  });
+});
+
+app.put('/api/clientes/:id', (req, res) => {
+  const id = req.params.id;
+  const { nome, sobrenome, email, telefone } = req.body;
+  const fields = [];
+  const values = [];
+  if (nome != null) { fields.push('nome = ?'); values.push(nome); }
+  if (sobrenome != null) { fields.push('sobrenome = ?'); values.push(sobrenome); }
+  if (email != null) { fields.push('email = ?'); values.push(email); }
+  if (telefone != null) { fields.push('telefone = ?'); values.push(telefone); }
+  if (fields.length === 0) return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+  values.push(id);
+  db.query(`UPDATE clientes SET ${fields.join(', ')} WHERE id = ?`, values, (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
+    res.json({ ok: true });
+  });
+});
+
+app.patch('/api/reservas/:id/status', (req, res) => {
+  const { status } = req.body;
+  if (!['cancelada', 'confirmada', 'pendente', 'concluida'].includes(status)) return res.status(400).json({ error: 'Status inválido' });
+  db.query('UPDATE reservas SET status = ? WHERE id = ?', [status, req.params.id], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Reserva não encontrada' });
+    res.json({ ok: true });
+  });
+});
+
+app.get('/api/clientes', (req, res) => {
+  db.query('SELECT id, nome, sobrenome, email, telefone, tipo, ativo FROM clientes WHERE ativo = 1 ORDER BY nome', [], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results || []);
+  });
+});
+
+app.get('/api/observacoes-clientes', (req, res) => {
+  const sql = `SELECT o.id, o.cliente_id, o.tipo, o.observacao, o.alerta, o.data_criacao, CONCAT(c.nome, ' ', c.sobrenome) as cliente_nome, c.telefone
+    FROM observacoes_clientes o JOIN clientes c ON o.cliente_id = c.id ORDER BY o.data_criacao DESC`;
+  db.query(sql, [], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const rows = (results || []).map(r => ({ ...r, alerta: !!r.alerta }));
+    res.json(rows);
+  });
+});
+
+app.post('/api/observacoes-clientes', (req, res) => {
+  const { cliente_id, tipo, observacao, alerta, funcionario_id } = req.body;
+  const funcId = funcionario_id || 1;
+  const sql = 'INSERT INTO observacoes_clientes (cliente_id, funcionario_id, tipo, observacao, alerta) VALUES (?, ?, ?, ?, ?)';
+  db.query(sql, [cliente_id, funcId, tipo || 'neutra', observacao || '', alerta ? 1 : 0], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json({ id: result.insertId });
+  });
 });
 
 // Iniciar servidor

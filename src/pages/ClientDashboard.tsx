@@ -186,26 +186,23 @@ useEffect(() => {
 };
 
  const gerarHorarios = () => {
-  const horarios: string[] = [];
+  const horarios = [];
   
-  // Turno Manhã/Tarde: 09:00 às 17:30
-  for (let hora = 9; hora < 18; hora++) {
-    horarios.push(`${hora.toString().padStart(2, '0')}:00`);
-    horarios.push(`${hora.toString().padStart(2, '0')}:30`);
+  // Manhã e Tarde (09:00 às 17:30)
+  for (let h = 9; h <= 17; h++) {
+    horarios.push(`${String(h).padStart(2, '0')}:00`);
+    horarios.push(`${String(h).padStart(2, '0')}:30`);
   }
 
-  // Turno Noite: 18:00 às 22:00
-  for (let hora = 18; hora <= 22; hora++) {
-    // Adiciona o horário cheio (:00)
-    horarios.push(`${hora.toString().padStart(2, '0')}:00`);
-    
-    // SÓ adiciona o :30 se a hora for menor que 22
-    // Se for 22, ele pula essa parte e a lista acaba em 22:00
-    if (hora < 22) {
-      horarios.push(`${hora.toString().padStart(2, '0')}:30`);
+  // Noite (18:00 às 21:00) 
+  // Paramos no 21:00 para que o último slot de 1h termine às 22:00
+  for (let h = 18; h <= 21; h++) {
+    horarios.push(`${String(h).padStart(2, '0')}:00`);
+    // SÓ adiciona 21:30 se você permitir jogos que terminem 22:00 (30 min)
+    if (h < 21) {
+      horarios.push(`${String(h).padStart(2, '0')}:30`);
     }
   }
-
   return horarios;
 };
 

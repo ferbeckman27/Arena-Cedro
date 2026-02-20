@@ -242,7 +242,19 @@ const censurarTexto = (texto: string) => {
               </div>
             </div>
           )}
-
+         <div className="w-full max-w-[320px] md:max-w-[500px] mb-8 relative group">
+      <div className="absolute -inset-1 bg-[#22c55e]/20 rounded-[2rem] blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+      <video 
+        className="relative w-full rounded-[2rem] border border-white/10 shadow-2xl"
+        autoPlay 
+        loop 
+        muted 
+        playsInline
+      >
+        <source src="/media/venha-conhecer.mp4" />
+        Seu navegador não suporta vídeos.
+      </video>
+    </div>
           <div className="relative mb-6">
             <img src="/logo-arena.png" onError={(e) => { e.currentTarget.src = "/media/logo-arena.png" }} alt="Arena Cedro" className="w-[450px] md:w-[850px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
           </div>
