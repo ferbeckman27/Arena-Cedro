@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from '../lib/supabase';
 
 // Importação do seu componente novo
 import { FidelityCard } from "@/components/dashboard/FidelityCard";
@@ -51,6 +52,21 @@ interface CompraAntiga {
   produtoOriginal: Product;
 }
 
+useEffect(() => {
+  const testarConexao = async () => {
+    // Tenta buscar apenas 1 cliente para ver se o rádio está sintonizado
+    const { data, error } = await supabase.from('clientes').select('nome').limit(1);
+    
+    if (error) {
+      console.log("❌ Erro de conexão:", error.message);
+    } else {
+      console.log("✅ Conexão Sucesso! Cliente no banco:", data);
+    }
+  };
+
+  testarConexao();
+}, []);
+
 const ClienteDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -65,7 +81,8 @@ const ClienteDashboard = () => {
   const [metodoPagamento, setMetodoPagamento] = useState<"pix" | "dinheiro">("pix");
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [reservasFixas, setReservasFixas] = useState<any[]>([]);
-  
+  const [tipoReserva, setTipoReserva] = useState('avulsa');
+
   const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
   
   const getAuth = (key: string) => sessionStorage.getItem(key) || localStorage.getItem(key);
@@ -213,6 +230,10 @@ useEffect(() => {
     </div>
   );
 
+  function setTipoAgendamento(arg0: string): void {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
       <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
@@ -243,108 +264,167 @@ useEffect(() => {
           </TabsList>
 
           {/* AGENDA */}
-          <TabsContent value="agendar" className="grid lg:grid-cols-12 gap-8 outline-none">
-            <div className="lg:col-span-7">
-              <Card className="bg-white border-none overflow-hidden rounded-[2.5rem] shadow-2xl">
-                <div className="bg-[#22c55e] p-6 flex items-center justify-between text-black">
-                  <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))}><ChevronLeft size={24} /></button>
-                  <h2 className="text-xl font-black uppercase italic">{new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}</h2>
-                  <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() + 1)))}><ChevronRight size={24} /></button>
-                </div>
-                <div className="grid grid-cols-7 text-center bg-gray-50 text-[10px] font-black text-gray-400 py-2">
-                  {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map(d => <div key={d}>{d}</div>)}
-                </div>
-                <div className="grid grid-cols-7">
-                  {Array.from({ length: 31 }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setDiaSelecionado(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i + 1))}
-                      className={cn(
-                        "h-14 md:h-20 border-r border-b border-gray-50 flex flex-col items-center justify-center font-black",
-                        diaSelecionado.getDate() === i + 1 ? "bg-[#22c55e] text-black" : "bg-white text-black hover:bg-gray-100"
-                      )}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-5">
-              <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem] backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <Clock className="text-[#22c55e]" size={20}/>
-                    <h3 className="font-black uppercase italic text-sm">Horários Disponíveis</h3>
-                  </div>
-                  <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
-  {[30, 60, 90].map(m => (
-    <button 
-      key={m} 
-      onClick={() => {
-        setSelectedDuration(m);
-        setHorarioSelecionado(""); // Limpa seleção ao mudar duração
-      }} 
-      className={cn(
-        "px-4 py-2 rounded-lg text-[10px] font-black transition-all", 
-        selectedDuration === m ? "bg-[#22c55e] text-black shadow-[0_0_10px_rgba(34,197,94,0.3)]" : "text-gray-500 hover:text-gray-300"
-      )}
-    >
-      {m}M
-    </button>
-  ))}
-</div>
-                </div>
-                
-                <ScrollArea className="h-[400px] pr-4">
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    {gerarHorarios().map((hora) => {
-      // Cálculo do Horário de Término
-      const [h, m] = hora.split(":").map(Number);
-      const dataFim = new Date(0, 0, 0, h, m + selectedDuration);
-      const fim = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
-      
-      const isSelecionado = horarioSelecionado === hora;
-
-      return (
-        <button
-          key={hora}
-          onClick={() => setHorarioSelecionado(hora)}
-          className={cn(
-            "p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all h-20",
-            isSelecionado 
-              ? "border-[#22c55e] bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]" 
-              : "border-white/5 bg-white/5 text-white hover:border-white/20"
-          )}
-        >
-          {/* Exibição: 09:00 - 09:30 */}
-          <span className="text-sm font-black italic tracking-tighter">
-            {hora} — {fim}
-          </span>
-          
-          <span className={cn(
-            "text-[9px] font-bold uppercase mt-1", 
-            isSelecionado ? "text-black/60" : "text-[#22c55e]"
-          )}>
-            Livre
-          </span>
+<TabsContent value="agendar" className="grid lg:grid-cols-12 gap-8 outline-none border-none">
+  {/* COLUNA ESQUERDA: CALENDÁRIO */}
+  <div className="lg:col-span-7">
+    <Card className="bg-white border-none overflow-hidden rounded-[2.5rem] shadow-2xl">
+      <div className="bg-[#22c55e] p-6 flex items-center justify-between text-black">
+        <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))}>
+          <ChevronLeft size={24} />
         </button>
-      );
-    })}
-  </div>
-</ScrollArea>
+        <h2 className="text-xl font-black uppercase italic">
+          {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}
+        </h2>
+        <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() + 1)))}>
+          <ChevronRight size={24} />
+        </button>
+      </div>
 
-                <Button 
-                  disabled={!horarioSelecionado}
-                  onClick={() => setIsCheckoutOpen(true)} 
-                  className="w-full bg-[#22c55e] hover:bg-[#1eb054] text-black font-black uppercase italic h-14 rounded-2xl mt-6 transition-all"
-                >
-                  Reservar Agora
-                </Button>
-              </Card>
-            </div>
-          </TabsContent>
+      <div className="grid grid-cols-7 text-center bg-gray-50 text-[10px] font-black text-gray-400 py-2">
+        {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"].map(d => <div key={d}>{d}</div>)}
+      </div>
+
+      <div className="grid grid-cols-7">
+        {/* Lógica simplificada para o exemplo, mantenha sua lógica de dias real aqui */}
+        {Array.from({ length: 31 }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => setDiaSelecionado(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i + 1))}
+            className={cn(
+              "h-14 md:h-20 border-r border-b border-gray-50 flex flex-col items-center justify-center font-black transition-all",
+              diaSelecionado.getDate() === i + 1 ? "bg-[#22c55e] text-black" : "bg-white text-black hover:bg-gray-100"
+            )}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+    </Card>
+  </div>
+
+  {/* COLUNA DIREITA: HORÁRIOS E OPÇÕES */}
+  <div className="lg:col-span-5">
+    <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem] backdrop-blur-sm h-full flex flex-col">
+      
+      {/* SELETOR DE DURAÇÃO */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Clock className="text-[#22c55e]" size={20} />
+          <h3 className="font-black uppercase italic text-sm text-white">Horários</h3>
+        </div>
+        <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+          {[30, 60, 90].map(m => (
+            <button
+              key={m}
+              onClick={() => {
+                setSelectedDuration(m);
+                setHorarioSelecionado("");
+              }}
+              className={cn(
+                "px-4 py-2 rounded-lg text-[10px] font-black transition-all",
+                selectedDuration === m ? "bg-[#22c55e] text-black shadow-[0_0_10px_rgba(34,197,94,0.3)]" : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              {m}M
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* LISTA DE HORÁRIOS DISPONÍVEIS */}
+      <ScrollArea className="h-[320px] pr-4 flex-grow">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {gerarHorarios().map((hora) => {
+            const [h, m] = hora.split(":").map(Number);
+            const dataFim = new Date(0, 0, 0, h, m + selectedDuration);
+            const fim = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
+            const isSelecionado = horarioSelecionado === hora;
+
+            return (
+              <button
+                key={hora}
+                onClick={() => setHorarioSelecionado(hora)}
+                className={cn(
+                  "p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all h-20",
+                  isSelecionado
+                    ? "border-[#22c55e] bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                    : "border-white/5 bg-white/5 text-white hover:border-white/20"
+                )}
+              >
+                <span className="text-sm font-black italic tracking-tighter">
+                  {hora} — {fim}
+                </span>
+                <span className={cn(
+                  "text-[9px] font-bold uppercase mt-1",
+                  isSelecionado ? "text-black/60" : "text-[#22c55e]"
+                )}>
+                  Livre
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </ScrollArea>
+
+      {/* SELETOR DE TIPO DE AGENDAMENTO (NOVO) */}
+      <div className="mt-6 space-y-3">
+        <label className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest ml-1">
+          Tipo de Agendamento
+        </label>
+        <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
+  <button
+    type="button" // Adicione isso para evitar que o formulário dê reload
+    onClick={() => {
+      console.log("Selecionou Avulsa"); // Teste no console
+      setTipoReserva('avulsa');
+    }}
+    className={cn(
+      "py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2",
+      tipoReserva === 'avulsa' 
+        ? "bg-[#22c55e] text-black shadow-lg shadow-[#22c55e]/20" 
+        : "text-gray-500 hover:text-white hover:bg-white/5"
+    )}
+  >
+    ⚽ Avulsa
+  </button>
+
+  <button
+    type="button" // Adicione isso para evitar que o formulário dê reload
+    onClick={() => {
+      console.log("Selecionou Fixa"); // Teste no console
+      setTipoReserva('fixa');
+    }}
+    className={cn(
+      "py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2",
+      tipoReserva === 'fixa' 
+        ? "bg-[#22c55e] text-black shadow-lg shadow-[#22c55e]/20" 
+        : "text-gray-500 hover:text-white hover:bg-white/5"
+    )}
+  >
+    📅 Fixa
+  </button>
+</div>
+        
+        {tipoReserva === 'fixa' && (
+          <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-3 rounded-xl animate-in fade-in slide-in-from-top-1">
+             <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">
+               ✨ Mensalista: Horário reservado toda semana.
+             </p>
+          </div>
+        )}
+      </div>
+
+      {/* BOTÃO FINAL */}
+      <Button
+        disabled={!horarioSelecionado}
+        onClick={() => setIsCheckoutOpen(true)}
+        className="w-full bg-[#22c55e] hover:bg-[#1eb054] text-black font-black uppercase italic h-14 rounded-2xl mt-4 transition-all shadow-[0_10px_20px_rgba(34,197,94,0.2)]"
+      >
+        Reservar Agora
+      </Button>
+    </Card>
+  </div>
+</TabsContent>
 
           {/* LOJA */}
           <TabsContent value="loja" className="grid lg:grid-cols-3 gap-8 outline-none">
