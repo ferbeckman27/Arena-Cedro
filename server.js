@@ -302,6 +302,7 @@ app.get('/api/mensalistas', (req, res) => {
     db.query("SELECT * FROM mensalistas", (err, result) => {
         if (err) return res.status(500).send(err);
         res.json(result);
+    });
 });
 
 // SALVAR NOVO MENSALISTA
