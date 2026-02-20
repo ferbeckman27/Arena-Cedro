@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '../lib/supabase';
+
 
 const Login = () => {
   const navigate = useNavigate();
@@ -89,6 +91,38 @@ const Login = () => {
       toast({ variant: "destructive", title: "Erro", description: "Falha na conexão. Verifique se o servidor está rodando." });
     }
   };
+
+ const handleLogin = async (emailDigitado, senhaDigitada) => {
+  try {
+    // 1. Chamamos uma consulta que usa o crypt do banco
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('id, nome, tipo')
+      .eq('email', emailDigitado)
+      .filter('senha', 'eq', supabase.rpc('validar_senha', { 
+        senha_digitada: senhaDigitada 
+      })) 
+      // Nota: Para ser mais simples no início, vamos buscar o usuário e validar:
+      
+    // Alternativa mais direta se você não criou a RPC ainda:
+    const { data: usuario, error: erroUsuario } = await supabase
+      .rpc('login_cliente', { 
+        p_email: emailDigitado, 
+        p_senha: senhaDigitada 
+      });
+
+    if (usuario && usuario.length > 0) {
+      console.log("✅ Login realizado!", usuario[0]);
+      // Aqui você salva o usuário no estado e redireciona para o Dashboard
+      return usuario[0];
+    } else {
+      alert("❌ E-mail ou senha incorretos.");
+    }
+  } catch (err) {
+    console.error("Erro inesperado:", err);
+  }
+};
+
 
   const passwordValidations = useMemo(() => {
     const hasMinLength = regPassword.length >= 8;
