@@ -92,34 +92,27 @@ const Login = () => {
     }
   };
 
- const handleLogin = async (emailDigitado, senhaDigitada) => {
-  try {
-    // 1. Chamamos uma consulta que usa o crypt do banco
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('id, nome, tipo')
-      .eq('email', emailDigitado)
-      .filter('senha', 'eq', supabase.rpc('validar_senha', { 
-        senha_digitada: senhaDigitada 
-      })) 
-      // Nota: Para ser mais simples no início, vamos buscar o usuário e validar:
-      
-    // Alternativa mais direta se você não criou a RPC ainda:
-    const { data: usuario, error: erroUsuario } = await supabase
-      .rpc('login_cliente', { 
-        p_email: emailDigitado, 
-        p_senha: senhaDigitada 
-      });
+ const handleLogin = async (email, senha) => {
+  // Chamando a função SQL que criamos no passo anterior
+  const { data, error } = await supabase.rpc('login_cliente', {
+    p_email: email,
+    p_senha: senha
+  });
 
-    if (usuario && usuario.length > 0) {
-      console.log("✅ Login realizado!", usuario[0]);
-      // Aqui você salva o usuário no estado e redireciona para o Dashboard
-      return usuario[0];
-    } else {
-      alert("❌ E-mail ou senha incorretos.");
-    }
-  } catch (err) {
-    console.error("Erro inesperado:", err);
+  if (error) {
+    alert("Erro ao conectar: " + error.message);
+    return;
+  }
+
+  if (data && data.length > 0) {
+    const usuario = data[0];
+    // Salva no navegador para não precisar logar de novo ao dar F5
+    localStorage.setItem('arena_usuario', JSON.stringify(usuario));
+    
+    // Redireciona para o Dashboard (ajuste o caminho se necessário)
+    window.location.href = '/dashboard'; 
+  } else {
+    alert("E-mail ou senha incorretos!");
   }
 };
 

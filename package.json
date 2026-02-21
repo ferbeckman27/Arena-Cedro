@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "start": "node server.cjs",
+    "start": "node server.supabase.cjs",
     "run:site": "concurrently -k \"npm start\" \"npm run dev\""
   },
   "dependencies": {
