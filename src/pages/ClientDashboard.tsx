@@ -27,7 +27,7 @@ import {
   RefreshCcw,
   Banknote,
   Crown,
-  CircleCheck,
+ CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -613,7 +613,7 @@ const handleTipoReserva = (tipo: string) => {
                   <div className="flex items-center gap-3">
                     <span>R$ {item.preco.toFixed(2)}</span>
                     <button onClick={() => removeFromCart(idx)} className="text-red-500 hover:scale-125 transition-all">
-                      <CircleCheck className="rotate-45" size={14} />
+                      <CheckCircle2 className="rotate-45" size={14} />
                     </button>
                   </div>
                 </div>
