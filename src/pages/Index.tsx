@@ -511,7 +511,7 @@ const censurarTexto = (texto: string) => {
       <footer className="py-24 bg-black border-t border-white/5">
         <div className="container mx-auto px-4 flex flex-col items-center">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-20 h-20 bg-[#22c55e] rounded-full flex items-center justify-center"><Users size={10} className="text-black" /></div>
+            <div className="w-9 h-9 bg-[#22c55e] rounded-full flex items-center justify-center"><Users size={10} className="text-black" /></div>
             <span className="text-2xl font-black italic uppercase">Arena Cedro</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 w-full max-w-5xl text-center md:text-left border-t border-white/5 pt-12">
