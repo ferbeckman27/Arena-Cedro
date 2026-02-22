@@ -31,10 +31,10 @@ const AdminLogin = () => {
   try {
     // Chama a função SQL que criamos acima
     const { data: userValid, error: loginError } = await supabase
-      .rpc('login_funcionario', { 
-        p_email: email, 
-        p_senha: password 
-      });
+  .rpc('login_funcionario', { 
+    p_email: email,  // tem que ser p_email
+    p_senha: password // tem que ser p_senha
+  });
 
     // Se houver erro ou não retornar nenhum usuário
     if (loginError || !userValid || userValid.length === 0) {
