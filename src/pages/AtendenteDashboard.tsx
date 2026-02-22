@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+import { supabase } from '@/lib/supabase';
+
 const AtendenteDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -31,116 +33,111 @@ const AtendenteDashboard = () => {
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [agendaStatus, setAgendaStatus] = useState<Record<string, any>>({});
   const [filtroNome, setFiltroNome] = useState("");
-
   const [itensTemp, setItensTemp] = useState<any[]>([]);
   const [duracao, setDuracao] = useState<string>("60");
   const [metodoPgto, setMetodoPgto] = useState<string>("pix");
-
   const [editandoId, setEditandoId] = useState<number | null>(null);
-  
   const [isModalAberto, setIsModalAberto] = useState(false);
-
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
-
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
+  const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
+  const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
+
   const [novoVip, setNovoVip] = useState({
-     nome: "",
-  dia: "SEG",
-  horario: "19:00",
-  metodoPgto: "Mensal/PIX",
-  observacao: ""            
-});
+    nome: "",
+    dia: "SEG",
+    horario: "19:00",
+    metodoPgto: "Mensal/PIX",
+    observacao: ""
+  });
+
+  interface Mensalista {
+    id?: number;
+    nome: string;
+    dia: string;
+    horario: string;
+    metodoPgto: string;
+    observacao?: string;
+    status_pagamento?: 'em_dia' | 'em_atraso';
+    responsavel?: string;
+  }
 
   const [mensalistas, setMensalistas] = useState<Mensalista[]>([
   // Adicione um exemplo para teste ou deixe vazio []
   { id: 1, nome: "João Silva", dia: "SEG", horario: "19:00", metodoPgto: "Dinheiro" }
  ]);
 
- const adicionarAoCarrinho = (produto: any) => {
-  setItensCarrinho([...itensCarrinho, { ...produto, idUnico: Date.now() }]);
-  toast({ title: "Adicionado", description: `${produto.nome} somado à reserva.` });
-};
-
-const removerDoCarrinho = (idUnico: number) => {
-  setItensCarrinho(itensCarrinho.filter(item => item.idUnico !== idUnico));
-};
-
- interface Mensalista {
-  id?: number; // O ID é opcional no cadastro, pois o banco gera automático
-  nome: string;
-  dia: string;
-  horario: string;
-  metodoPgto: string;
-  observacao?: string; // Campo novo para o Admin ver na engrenagem
-  status_pagamento?: 'em_dia' | 'em_atraso'; 
-  responsavel?: string;
-}
-
-  // Dados Simulados (Em um app real viriam do Banco/API)
- const [estoque, setEstoque] = useState<any[]>([]);
-
- useEffect(() => {
-  const carregarProdutos = async () => {
-    try {
-      // O seu servidor Node deve estar rodando na porta 3001
-      const response = await fetch("http://localhost:3001/api/produtos");
-      const data = await response.json();
-      setEstoque(data);
-    } catch (error) {
-      console.error("Erro ao carregar estoque:", error);
-    }
-  };
-  carregarProdutos();
-}, []);
-
-const listaHorarios = useMemo(() => {
-    const horas = [];
-   for (let hora = 9; hora <= 17; hora++) {
-    horas.push(`${hora.toString().padStart(2, '0')}:00`);
-    horas.push(`${hora.toString().padStart(2, '0')}:30`);
-  }
-
-  for (let hora = 18; hora <= 22; hora++) {
-    horas.push(`${hora.toString().padStart(2, '0')}:00`);
-     horas.push(`${hora.toString().padStart(2, '0')}:30`);
-  }
-    return horas;
-  }, []);
-
+const [estoque, setEstoque] = useState<any[]>([]);
   const [clientes, setClientes] = useState<{ id: number; nome: string; sobrenome?: string; status?: string; telefone: string; obs?: string; isVip?: boolean }[]>([]);
   const [alertas, setAlertas] = useState<{ id: number; cliente: string; cliente_id?: number; obs: string; tipo: string; alerta?: boolean }[]>([]);
-  const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
-  const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
-  const clientesComObs = useMemo(() => clientes.map(c => {
-    const obsDoCliente = alertas.filter(a => a.cliente_id === c.id);
-    const comAlerta = obsDoCliente.find(o => o.alerta);
-    return { ...c, status: comAlerta ? "ruim" : "bom", obs: obsDoCliente[0]?.obs ?? c.obs ?? "—", alertaId: comAlerta?.id };
-  }), [clientes, alertas]);
 
-  const API = "http://localhost:3001/api";
+  // --- CARREGAMENTO DE DADOS (SUPABASE) ---
 
+  const buscarDadosIniciais = async () => {
+    // 1. Manutenção
+    const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+    if (config) setIsMaintenance(config.valor === 'true');
+
+    // 2. Produtos
+    const { data: prod } = await supabase.from('produtos').select('*');
+    if (prod) setEstoque(prod);
+
+    // 3. Clientes
+    const { data: cli } = await supabase.from('clientes').select('*');
+    if (cli) setClientes(cli.map(c => ({
+      id: c.id,
+      nome: [c.nome, c.sobrenome].filter(Boolean).join(" "),
+      telefone: c.telefone || "",
+      isVip: c.tipo === "mensalista"
+    })));
+
+    // 4. Observações
+    const { data: obs } = await supabase.from('observacoes_clientes').select('*');
+    if (obs) setAlertas(obs.map(o => ({
+      id: o.id,
+      cliente: o.cliente_nome,
+      cliente_id: o.cliente_id,
+      obs: o.observacao,
+      tipo: o.tipo || "neutra",
+      alerta: !!o.alerta
+    })));
+
+    buscarMensalistas();
+  };
+
+  const buscarMensalistas = async () => {
+    const { data } = await supabase.from('clientes').select('*').eq('tipo', 'mensalista');
+    if (data) setMensalistas(data.map(d => ({
+      id: d.id,
+      nome: d.nome,
+      dia: d.dia_fixo,
+      horario: d.horario_fixo,
+      metodoPgto: d.forma_pagamento,
+      status_pagamento: d.status_pagamento,
+      observacao: d.observacoes
+    })));
+  };
+
+  useEffect(() => { buscarDadosIniciais(); }, []);
+
+  // --- LOGICA DE MANUTENÇÃO ---
   useEffect(() => {
-    fetch(`${API}/clientes`).then(r => r.json()).then((rows: any[]) => setClientes((rows || []).map(c => ({ id: c.id, nome: [c.nome, c.sobrenome].filter(Boolean).join(" "), telefone: c.telefone || "", isVip: c.tipo === "vip" })))).catch(() => {});
-    fetch(`${API}/observacoes-clientes`).then(r => r.json()).then((rows: any[]) => setAlertas((rows || []).map((o: any) => ({ id: o.id, cliente: o.cliente_nome, cliente_id: o.cliente_id, obs: o.observacao, tipo: o.tipo || "neutra", alerta: !!o.alerta })))).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetch(`${API}/manutencao`).then(r => r.json()).then((d: { ativo: boolean }) => {
-      setIsMaintenance(!!d.ativo);
-      localStorage.setItem("arena_manutencao", String(d.ativo));
-    }).catch(() => {
-      const manutencaoSalva = localStorage.getItem("arena_manutencao") === "true";
-      setIsMaintenance(manutencaoSalva);
-    });
-    const agendaSalva = localStorage.getItem("arena_agenda");
-    if (agendaSalva) try { setAgendaStatus(JSON.parse(agendaSalva)); } catch (_) {}
-  }, []);
-
-  useEffect(() => {
-    const handler = () => { const v = localStorage.getItem("arena_manutencao") === "true"; setIsMaintenance(v); };
+    const handler = () => { setIsMaintenance(localStorage.getItem("arena_manutencao") === "true"); };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
+
+  const handleToggleMaintenance = async () => {
+    const novoStatus = !isMaintenance;
+    await supabase.from('configuracoes').update({ valor: String(novoStatus) }).eq('chave', 'manutencao');
+    setIsMaintenance(novoStatus);
+    localStorage.setItem("arena_manutencao", String(novoStatus));
+    window.dispatchEvent(new Event("storage"));
+    toast({
+      variant: novoStatus ? "destructive" : "default",
+      title: novoStatus ? "⚠️ SISTEMA BLOQUEADO" : "✅ SISTEMA LIBERADO",
+    });
+  };
 
   // --- LÓGICA DO CALENDÁRIO ---
   const diasMes = useMemo(() => {
@@ -152,164 +149,96 @@ const listaHorarios = useMemo(() => {
     return days;
   }, [mesAtual]);
 
-  // --- FUNÇÕES ---
-  const handleToggleMaintenance = () => {
-  const novoStatus = !isMaintenance;
-  fetch(`${API}/manutencao`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: novoStatus }) }).catch(() => {});
-  setIsMaintenance(novoStatus);
-  localStorage.setItem("arena_manutencao", novoStatus.toString());
-  window.dispatchEvent(new Event("storage"));
-  toast({
-    variant: novoStatus ? "destructive" : "default",
-    title: novoStatus ? "⚠️ SISTEMA BLOQUEADO" : "✅ SISTEMA LIBERADO",
-    description: novoStatus ? "Clientes e painel admin foram alertados." : "Agendamento liberado.",
-  });
-};
+  const listaHorarios = useMemo(() => {
+    const horas = [];
+    for (let h = 9; h <= 17; h++) {
+      horas.push(`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`);
+    }
+    for (let h = 18; h <= 22; h++) {
+      horas.push(`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`);
+    }
+    return horas;
+  }, []);
 
-const playApito = () => {
-  const audio = new Audio('/sound/apito.mp3');
-  audio.volume = 0.5;
-  audio.play().catch(e => console.log("Erro som:", e));
-};
+  const clientesComObs = useMemo(() => clientes.map(c => {
+    const obsDoCliente = alertas.filter(a => a.cliente_id === c.id);
+    const comAlerta = obsDoCliente.find(o => o.alerta);
+    return { ...c, status: comAlerta ? "ruim" : "bom", obs: obsDoCliente[0]?.obs ?? c.obs ?? "—", alertaId: comAlerta?.id };
+  }), [clientes, alertas]);
 
-const playTorcida = () => {
-  const audio = new Audio('/sound/torcida.mp3');
-  audio.volume = 0.4;
-  audio.play().catch(e => console.log("Erro som:", e));
-};
+  // --- FUNÇÕES DE AUXÍLIO ---
+  const playApito = () => { new Audio('/sound/apito.mp3').play().catch(() => {}); };
+  const playTorcida = () => { new Audio('/sound/torcida.mp3').play().catch(() => {}); };
 
-const verificarDisponibilidade = (horaInicio: string, min: number) => {
-  const indexInicio = listaHorarios.indexOf(horaInicio);
-  const slotsNecessarios = min / 30;
-  for (let i = 0; i < slotsNecessarios; i++) {
-    const horaCheck = listaHorarios[indexInicio + i];
-    const idCheck = `${diaSelecionado.toDateString()}-${horaCheck}`;
-    if (agendaStatus[idCheck]) return false;
-  }
-  return true;
-};
-
-const handleSuspenderMensalista = (id: number) => {
-  if (window.confirm("Tem certeza que deseja suspender este horário fixo?")) {
-    setMensalistas(prev => prev.filter(m => m.id !== id));
-    toast({
-      title: "Mensalista Suspenso",
-      variant: "destructive",
-    });
-  }
-};
-
-// Função para abrir o modal de Edição (Você pode usar o mesmo modal de 'Novo VIP')
-const handleEditarMensalista = (mensalista: Mensalista) => {
-  setNovoVip(novoVip);
-  setIsModalVipAberto(true); // Abre o modal
-};
-
-
-useEffect(() => {
-  fetch("http://localhost:3001/api/mensalistas")
-    .then(res => res.json())
-    .then(data => setMensalistas(data));
-}, []);
-
-// Função disparada pelo botão "+ NOVO VIP"
-const salvarNovoVip = async () => {
-  const response = await fetch("http://localhost:3001/api/mensalistas", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(novoVip),
-  });
-  if (response.ok) {
-    setIsModalVipAberto(false);
-    window.location.reload(); // Atualiza a lista
-  }
-};
-
-
-const handleSalvarVip = async () => {
-  const atendenteNome = localStorage.getItem("userName") || "Atendente";
-
-  // Criamos o objeto seguindo a Interface
-  const dadosParaEnviar: Mensalista = {
-    nome: novoVip.nome,
-    dia: novoVip.dia,
-    horario: novoVip.horario,
-    metodoPgto: novoVip.metodoPgto,
-    observacao: novoVip.observacao || "", // Pega a observação real
-    responsavel: atendenteNome,           // Nome real de quem está logado
-    status_pagamento: 'em_dia'            // Começa verdinho no Admin
+  const adicionarAoCarrinho = (produto: any) => {
+    setItensCarrinho([...itensCarrinho, { ...produto, idUnico: Date.now() }]);
+    toast({ title: "Adicionado", description: `${produto.nome} somado à reserva.` });
   };
 
-  try {
-    const response = await fetch("http://localhost:3001/api/mensalistas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dadosParaEnviar),
-    });
+  const removerDoCarrinho = (idUnico: number) => {
+    setItensCarrinho(itensCarrinho.filter(item => item.idUnico !== idUnico));
+  };
 
-    if (response.ok) {
-      toast({ 
-        title: "✅ VIP CADASTRADO!", 
-        description: "Os dados já estão disponíveis no painel do Admin." 
-      });
+  const verificarDisponibilidade = (horaInicio: string, min: number) => {
+    const indexInicio = listaHorarios.indexOf(horaInicio);
+    const slotsNecessarios = min / 30;
+    for (let i = 0; i < slotsNecessarios; i++) {
+      const horaCheck = listaHorarios[indexInicio + i];
+      const idCheck = `${diaSelecionado.toDateString()}-${horaCheck}`;
+      if (agendaStatus[idCheck]) return false;
+    }
+    return true;
+  };
+
+  // --- AÇÕES MENSALISTAS ---
+  const handleSuspenderMensalista = async (id: number) => {
+    if (window.confirm("Tem certeza que deseja suspender este horário fixo?")) {
+      await supabase.from('clientes').delete().eq('id', id);
+      setMensalistas(prev => prev.filter(m => m.id !== id));
+      toast({ title: "Mensalista Suspenso", variant: "destructive" });
+    }
+  };
+
+  const handleSalvarVip = async () => {
+    const atendenteNome = localStorage.getItem("userName") || "Atendente";
+    const { error } = await supabase.from('clientes').insert([{
+      nome: novoVip.nome,
+      tipo: 'mensalista',
+      dia_fixo: novoVip.dia,
+      horario_fixo: novoVip.horario,
+      forma_pagamento: novoVip.metodoPgto,
+      observacoes: novoVip.observacao,
+      cadastrado_por: atendenteNome,
+      status_pagamento: 'em_dia'
+    }]);
+
+    if (!error) {
+      toast({ title: "✅ VIP CADASTRADO!" });
       setIsModalVipAberto(false);
-      buscarMensalistas(); 
+      buscarMensalistas();
     }
-  } catch (error) {
-    console.error("Erro ao salvar:", error);
-  }
-};
+  };
 
-
-const alternarStatusPagamento = async (id: number, statusAtual: string) => {
-  const novoStatus = statusAtual === 'em_dia' ? 'em_atraso' : 'em_dia';
-  
-  try {
-    const response = await fetch(`http://localhost:3001/api/mensalistas/status/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ novoStatus })
-    });
-
-    if (response.ok) {
-      toast({ 
-        title: "Status Atualizado!", 
-        description: `O VIP agora está ${novoStatus === 'em_dia' ? 'Em Dia' : 'Em Atraso'}.`,
-        variant: novoStatus === 'em_dia' ? "default" : "destructive"
-      });
-      
-      // Atualiza a lista local para o atendente ver a mudança na hora
+  const alternarStatusPagamento = async (id: number, statusAtual: string) => {
+    const novoStatus = statusAtual === 'em_dia' ? 'em_atraso' : 'em_dia';
+    const { error } = await supabase.from('clientes').update({ status_pagamento: novoStatus }).eq('id', id);
+    if (!error) {
       setMensalistas(prev => prev.map(v => v.id === id ? { ...v, status_pagamento: novoStatus } : v));
+      toast({ title: "Status Atualizado!", variant: novoStatus === 'em_dia' ? "default" : "destructive" });
     }
-  } catch (error) {
-    console.error("Erro ao atualizar status:", error);
-  }
-};
+  };
 
-  
-// 2. SEGUNDO: A Função de Agendar Completa
+  // --- LÓGICA DE AGENDAMENTO COMPLETA ---
   function handleAgendar(horaInicio: string, clienteNome: string) {
     if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
-
     const duracaoMin = parseInt(duracao, 10);
 
-    // Verifica se o horário está livre antes de seguir
     if (!verificarDisponibilidade(horaInicio, duracaoMin)) {
-      return toast({
-        variant: "destructive",
-        title: "Conflito de Horário!",
-        description: "Este período invade uma reserva existente."
-      });
+      return toast({ variant: "destructive", title: "Conflito de Horário!" });
     }
 
-    // Toca o som baseado no pagamento
-    if (metodoPgto === 'pix') {
-      playApito();
-    } else {
-      playTorcida();
-    }
+    metodoPgto === 'pix' ? playApito() : playTorcida();
 
-    // Cálculos de Valores
     const horaH = parseInt(horaInicio.split(":")[0]);
     const valorBase = horaH >= 18 ? 120 : 80;
     const valorReserva = valorBase * (duracaoMin / 60);
@@ -322,14 +251,10 @@ const alternarStatusPagamento = async (id: number, statusAtual: string) => {
     const novaAgenda = { ...agendaStatus };
     const indexBase = listaHorarios.indexOf(horaInicio);
 
-    // LOOP para marcar todos os blocos de 30min necessários
     for (let i = 0; i < slotsNecessarios; i++) {
       const horaOcupada = listaHorarios[indexBase + i];
       if (!horaOcupada) break;
-
-      const idOcupado = `${diaSelecionado.toDateString()}-${horaOcupada}`;
-
-      novaAgenda[idOcupado] = {
+      novaAgenda[`${diaSelecionado.toDateString()}-${horaOcupada}`] = {
         cliente: clienteNome,
         isRaiz: i === 0,
         referenciaRaiz: idDataRaiz,
@@ -342,48 +267,38 @@ const alternarStatusPagamento = async (id: number, statusAtual: string) => {
       };
     }
 
-    // ATUALIZA ESTADOS E FECHA MODAL
     setAgendaStatus(novaAgenda);
-    setItensTemp([]); // Limpa o "carrinho"
-    setIsModalAberto(false); // Fecha o modal
+    setItensTemp([]);
+    setIsModalAberto(false);
     toast({ title: "Reserva Confirmada!" });
   }
 
-// 3. TERCEIRO: Outras funções de Gestão
-const limparHorario = (id: string) => {
-  const reserva = agendaStatus[id];
-  const novaAgenda = { ...agendaStatus };
-  Object.keys(novaAgenda).forEach(key => {
-    if (novaAgenda[key].referenciaRaiz === (reserva.referenciaRaiz || id)) {
-      delete novaAgenda[key];
-    }
-  });
-  setAgendaStatus(novaAgenda);
-  toast({ title: "Horário Liberado!" });
-};
+  const limparHorario = (id: string) => {
+    const reserva = agendaStatus[id];
+    const novaAgenda = { ...agendaStatus };
+    Object.keys(novaAgenda).forEach(key => {
+      if (novaAgenda[key].referenciaRaiz === (reserva.referenciaRaiz || id)) delete novaAgenda[key];
+    });
+    setAgendaStatus(novaAgenda);
+    toast({ title: "Horário Liberado!" });
+  };
 
-const handleToggleAlerta = (id: number) => {
-  setClientes(prev => prev.map(c => 
-    c.id === id ? { ...c, status: c.status === "ruim" ? "bom" : "ruim" } : c
-  ));
-};
+  const resumoFinanceiro = useMemo(() => {
+    const reservasDoDia = Object.keys(agendaStatus).filter(key =>
+      key.startsWith(diaSelecionado.toDateString()) && agendaStatus[key].isRaiz
+    );
+    return reservasDoDia.reduce((acc, key) => {
+      const res = agendaStatus[key];
+      if (res.metodo === "pix") acc.pix += res.valorPagoAgora;
+      else acc.dinheiro += res.valorPagoAgora;
+      acc.restante += res.restante;
+      return acc;
+    }, { pix: 0, dinheiro: 0, restante: 0 });
+  }, [agendaStatus, diaSelecionado]);
 
-// FINANCEIRO (Memoizado para performance)
-const resumoFinanceiro = useMemo(() => {
-  const reservasDoDia = Object.keys(agendaStatus).filter(key => 
-    key.startsWith(diaSelecionado.toDateString()) && agendaStatus[key].isRaiz
-  );
-  return reservasDoDia.reduce((acc, key) => {
-    const reserva = agendaStatus[key];
-    if (reserva.metodo === "pix") {
-      acc.pix += reserva.valorPagoAgora;
-    } else {
-      acc.dinheiro += reserva.valorPagoAgora;
-    }
-    acc.restante += reserva.restante;
-    return acc;
-  }, { pix: 0, dinheiro: 0, restante: 0 });
-}, [agendaStatus, diaSelecionado]);
+  function handleEditarMensalista(m: Mensalista): void {
+    throw new Error("Function not implemented.");
+  }
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
@@ -728,11 +643,55 @@ const resumoFinanceiro = useMemo(() => {
             <label className="text-[10px] font-bold uppercase text-gray-500">Observação</label>
             <Textarea value={novoAlertaForm.observacao} onChange={e => setNovoAlertaForm(prev => ({ ...prev, observacao: e.target.value }))} className="bg-white/5 border-white/10 mt-1 min-h-[80px]" placeholder="Descreva a observação..." />
           </div>
-          <Button className="w-full bg-[#22c55e] text-black font-black" onClick={() => {
-            if (!novoAlertaForm.cliente_id || !novoAlertaForm.observacao.trim()) { toast({ variant: "destructive", title: "Preencha cliente e observação." }); return; }
-            fetch(`${API}/observacoes-clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cliente_id: Number(novoAlertaForm.cliente_id), tipo: novoAlertaForm.tipo, observacao: novoAlertaForm.observacao.trim(), funcionario_id: Number(localStorage.getItem("userId") || 1) }) })
-              .then(r => r.json()).then(() => { toast({ title: "Alerta criado!" }); setModalNovoAlertaAberto(false); fetch(`${API}/observacoes-clientes`).then(r => r.json()).then((rows: any[]) => setAlertas((rows || []).map((o: any) => ({ id: o.id, cliente: o.cliente_nome, cliente_id: o.cliente_id, obs: o.observacao, tipo: o.tipo || "neutra" })))); }).catch(() => toast({ variant: "destructive", title: "Erro ao criar alerta." }));
-          }}>Salvar alerta</Button>
+          <Button 
+  className="w-full bg-[#22c55e] text-black font-black" 
+  onClick={async () => {
+    // Validação básica
+    if (!novoAlertaForm.cliente_id || !novoAlertaForm.observacao.trim()) { 
+      toast({ variant: "destructive", title: "Preencha cliente e observação." }); 
+      return; 
+    }
+
+    try {
+      // 1. Inserir no Supabase
+      const { error: insertError } = await supabase
+        .from('observacoes_clientes')
+        .insert([{
+          cliente_id: Number(novoAlertaForm.cliente_id),
+          tipo: novoAlertaForm.tipo,
+          observacao: novoAlertaForm.observacao.trim(),
+          funcionario_id: Number(localStorage.getItem("userId") || 1)
+        }]);
+
+      if (insertError) throw insertError;
+
+      toast({ title: "Alerta criado!" });
+      setModalNovoAlertaAberto(false);
+
+      // 2. Recarregar lista de alertas do Supabase
+      const { data: rows, error: fetchError } = await supabase
+        .from('observacoes_clientes')
+        .select('*');
+
+      if (fetchError) throw fetchError;
+
+      if (rows) {
+        setAlertas(rows.map((o: any) => ({
+          id: o.id,
+          cliente: o.cliente_nome,
+          cliente_id: o.cliente_id,
+          obs: o.observacao,
+          tipo: o.tipo || "neutra"
+        })));
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Erro ao processar alerta." });
+    }
+  }}
+>
+  Salvar alerta
+</Button>
         </div>
       </DialogContent>
     </Dialog>

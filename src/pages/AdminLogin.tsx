@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
+import { supabase } from '@/lib/supabase';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -25,67 +26,95 @@ const AdminLogin = () => {
 
   // FUNÇÃO DE LOGIN (CONECTADA AO BANCO)
   const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      const response = await fetch("http://localhost:3001/api/login-unificado", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+    // 1. Busca o funcionário pelo e-mail e verifica a senha usando o crypt do Postgres
+    // Usamos o RPC (Remote Procedure Call) para maior segurança ou uma query direta:
+    const { data, error } = await supabase
+      .from('funcionarios')
+      .select('id, nome, tipo, senha')
+      .eq('email', email)
+      .single();
 
-      const data = await response.json();
+    if (error || !data) throw new Error("Usuário não encontrado.");
 
-      if (response.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("userName", data.nome);
-        localStorage.setItem("userRole", data.cargo ?? data.tipo);
-        if (data.id != null) localStorage.setItem("userId", String(data.id));
-        
-        toast({
-          title: `Bem-vindo, ${data.nome}!`,
-          description: "Acesso autorizado.",
-        });
-        
-        navigate(data.redirect ?? "/");
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Erro de Acesso",
-          description: data.message || "Credenciais inválidas.",
-        });
-      }
-    } catch (error) {
-      toast({
+    // 2. Verifica a senha comparando o hash
+    // Nota: Em um ambiente real Supabase Auth é o ideal, mas seguindo sua lógica de banco:
+    const { data: passwordMatch } = await supabase.rpc('verificar_senha_funcionario', {
+      pass: password,
+      stored_hash: data.senha
+    });
+
+    // Se você não criou a função RPC acima, use esta lógica simplificada de comparação direta (se não houver crypt)
+    // ou busque o registro onde o crypt bata:
+    const { data: userValid, error: loginError } = await supabase
+      .rpc('login_funcionario', { p_email: email, p_senha: password });
+
+    if (loginError || !userValid || userValid.length === 0) {
+      return toast({
         variant: "destructive",
-        title: "Erro de Conexão",
-        description: "O servidor Node.js está desligado.",
+        title: "Erro de Acesso",
+        description: "E-mail ou senha inválidos.",
       });
     }
-  };
+
+    const funcionario = userValid[0];
+
+    // 3. Salva a sessão localmente
+    localStorage.setItem("userName", funcionario.nome);
+    localStorage.setItem("userRole", funcionario.tipo);
+    localStorage.setItem("userId", String(funcionario.id));
+    
+    toast({
+      title: `Bem-vindo, ${funcionario.nome}!`,
+      description: "Acesso administrativo autorizado.",
+    });
+    
+    // 4. Redireciona baseado no cargo
+    navigate(funcionario.tipo === "administrador" ? "/admin" : "/atendimento");
+
+  } catch (error: any) {
+    toast({
+      variant: "destructive",
+      title: "Falha no Login",
+      description: error.message || "Erro ao conectar com o banco.",
+    });
+  }
+};
 
   // FUNÇÃO DE SOLICITAR CADASTRO (ENVIA PARA O BANCO)
   const handleRequestAccess = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch("http://localhost:3001/api/solicitar-cadastro", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, sobrenome, email_pessoal: emailPessoal, tipo: role }),
-      });
+  e.preventDefault();
+  
+  try {
+    const { error } = await supabase
+      .from('funcionarios')
+      .insert([{ 
+        nome, 
+        sobrenome, 
+        email_pessoal: emailPessoal, 
+        tipo: role,
+        email: `${nome.toLowerCase()}@atendcedro.com`, // Sugestão de e-mail corporativo
+        senha: 'PENDENTE_CADASTRO' // Senha provisória até aprovação
+      }]);
 
-      if (response.ok) {
-        toast({
-          title: "Solicitação Enviada",
-          description: "Verifique seu e-mail pessoal em instantes.",
-        });
-        setActiveTab("adminlogin"); // Volta para a aba de login
-      }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro ao enviar solicitação." });
-    }
-  };
+    if (error) throw error;
+
+    toast({
+      title: "Solicitação Enviada",
+      description: "O administrador revisará seu acesso em breve.",
+    });
+    
+    setActiveTab("adminlogin"); 
+  } catch (error: any) {
+    toast({ 
+      variant: "destructive", 
+      title: "Erro ao enviar solicitação",
+      description: "E-mail já cadastrado ou erro no servidor."
+    });
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">

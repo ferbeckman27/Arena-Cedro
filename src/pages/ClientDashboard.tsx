@@ -31,17 +31,18 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Importação do seu componente novo
 import { FidelityCard } from "@/components/dashboard/FidelityCard";
 
 // --- TIPOS ---
 interface Product {
+  preco: number;
   id: number;
   nome: string;
-  preco: number;
-  tipo: 'venda' | 'aluguel';
+  preco_venda: number;
+  tipo: 'venda' | 'aluguel' | 'ambos';
 }
 
 interface CompraAntiga {
@@ -49,86 +50,73 @@ interface CompraAntiga {
   data: string;
   item: string;
   valor: number;
-  produtoOriginal: Product;
+  produtoOriginal: Product; // Verifique se 'Product' também está definido!
 }
-
-useEffect(() => {
-  const testarConexao = async () => {
-    // Tenta buscar apenas 1 cliente para ver se o rádio está sintonizado
-    const { data, error } = await supabase.from('clientes').select('nome').limit(1);
-    
-    if (error) {
-      console.log("❌ Erro de conexão:", error.message);
-    } else {
-      console.log("✅ Conexão Sucesso! Cliente no banco:", data);
-    }
-  };
-
-  testarConexao();
-}, []);
 
 const ClienteDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // --- ESTADOS ---
-  const [cart, setCart] = useState<Product[]>([]);
+  const [cart, setCart] = useState<any[]>([]);
   const [selectedDuration, setSelectedDuration] = useState(60);
-  const [emManutencao] = useState(false);
+  const [emManutencao, setEmManutencao] = useState(false);
   const [mesAtual, setMesAtual] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [horarioSelecionado, setHorarioSelecionado] = useState<string | null>(null);
   const [metodoPagamento, setMetodoPagamento] = useState<"pix" | "dinheiro">("pix");
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [reservasFixas, setReservasFixas] = useState<any[]>([]);
-  const [tipoReserva, setTipoReserva] = useState('avulsa');
+  const [produtos, setProdutos] = useState<Product[]>([]);
+  const [progressoFidelidade, setProgressoFidelidade] = useState(0);
 
-  const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
-  
-  const getAuth = (key: string) => sessionStorage.getItem(key) || localStorage.getItem(key);
-  const [userData, setUserData] = useState({
-  id: getAuth("userId") || "",
-  nome: getAuth("userName") || "Jogador",
-  email: getAuth("userEmail") || "",
-  isVip: getAuth("userRole") === "vip"
-});
-
-// Adicione um useEffect para buscar o progresso de fidelidade real do banco
-const [progressoFidelidade, setProgressoFidelidade] = useState(0);
-
-useEffect(() => {
-  const carregarDadosReais = async () => {
-    try {
-      const response = await fetch(`http://localhost:3001/api/fidelidade/${userData.id}`);
-      const data = await response.json();
-      setProgressoFidelidade(data.totalConcluido);
-    } catch (e) {
-      console.log("Erro ao carregar fidelidade");
-    }
-  };
-  if(userData.id) carregarDadosReais();
-}, [userData.id]);
+  const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'fixa'>('avulsa');
 
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
 
-  const [produtos, setProdutos] = useState<Product[]>([]);
+  const [historicoCompras, setHistoricoCompras] = useState<CompraAntiga[]>([]);
 
-useEffect(() => {
-  const buscarProdutos = async () => {
-    try {
-      const response = await fetch("http://localhost:3001/api/produtos");
-      const data = await response.json();
-      setProdutos(data);
-    } catch (error) {
-      console.error("Erro ao carregar produtos:", error);
-    }
-  };
-  buscarProdutos();
-}, []);
+  const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
+  
+  const [reservasFixas, setReservasFixas] = useState<{
+  dia?: string; 
+  dia_semana?: string; 
+  hora?: string; 
+  horario?: string;
+}[]>([]);
 
-  const [historicoCompras] = useState<CompraAntiga[]>([
-    { id: "101", data: "10/02/2026", item: "Gatorade 500ml", valor: 10, produtoOriginal: produtos[2] },
-  ]);
+  const getAuth = (key: string) => sessionStorage.getItem(key) || localStorage.getItem(key);
+  const [userData] = useState({
+    id: getAuth("userId") || "",
+    nome: getAuth("userName") || "Jogador",
+    email: getAuth("userEmail") || "",
+    isVip: getAuth("userRole") === "vip"
+  });
+
+  // --- CARREGAMENTO DE DADOS (SUPABASE) ---
+
+  useEffect(() => {
+    const inicializarDados = async () => {
+      // 1. Verificar Manutenção
+      const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+      if (config) setEmManutencao(config.valor === 'true');
+
+      // 2. Carregar Produtos
+      const { data: prod } = await supabase.from('produtos').select('*').eq('ativo', true);
+      if (prod) setProdutos(prod);
+
+      // 3. Carregar Fidelidade (Reservas Concluídas)
+      if (userData.id) {
+        const { data: user } = await supabase
+          .from('clientes')
+          .select('reservas_concluidas')
+          .eq('id', userData.id)
+          .single();
+        if (user) setProgressoFidelidade(user.reservas_concluidas);
+      }
+    };
+
+    inicializarDados();
+  }, [userData.id]);
 
   // --- CÁLCULOS ---
   const valorApenasReserva = useMemo(() => {
@@ -139,52 +127,84 @@ useEffect(() => {
   }, [horarioSelecionado, selectedDuration]);
 
   const totalGeral = useMemo(() => {
-    const totalItens = cart.reduce((acc, item) => acc + item.preco, 0);
+    const totalItens = cart.reduce((acc, item) => acc + (item.preco_venda || 0), 0);
     return totalItens + valorApenasReserva;
   }, [cart, valorApenasReserva]);
 
   // --- FUNÇÕES ---
+
   const addToCart = (product: Product) => {
     setCart([...cart, product]);
     toast({ title: "Adicionado!", description: `${product.nome} no carrinho.` });
   };
 
-  const removeFromCart = (index: number) => {
-    const newCart = [...cart];
-    newCart.splice(index, 1);
-    setCart(newCart);
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem("user_session");
+    localStorage.clear();
+    sessionStorage.clear();
     navigate("/"); 
   };
 
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (!review.texto) return toast({ variant: "destructive", title: "Escreva algo!" });
-    toast({ title: "Obrigado!", description: "Sua avaliação foi enviada para moderação." });
-    setReview({ nome: "", estrelas: 5, texto: "" });
+    
+    const { error } = await supabase.from('depoimentos').insert([{
+      cliente_id: Number(userData.id),
+      comentario: review.texto,
+      estrelas: review.estrelas,
+      nome: review.nome
+    }]);
+
+    if (!error) {
+      toast({ title: "Obrigado!", description: "Sua avaliação foi enviada para moderação." });
+      setReview({ nome: "", estrelas: 5, texto: "" });
+    }
   };
+
+  const gerarHorarios = () => {
+  const horarios = [];
+  // Manhã e Tarde (09:00 às 17:00)
+  for (let h = 9; h <= 17; h++) {
+    horarios.push(`${String(h).padStart(2, '0')}:00`);
+    horarios.push(`${String(h).padStart(2, '0')}:30`);
+  }
+  // Noite (18:00 às 22:00) 
+  for (let h = 18; h <= 22; h++) {
+    horarios.push(`${String(h).padStart(2, '0')}:00`);
+    horarios.push(`${String(h).padStart(2, '0')}:30`);
+  }
+  return horarios;
+};
 
   const handleFinalizePedido = async () => {
-  const reservaData = {
-    cliente_id: 1, // Pegar do seu localStorage ou Contexto de Login
-    data: diaSelecionado.toISOString().split('T')[0],
-    horario: horarioSelecionado,
-    duracao: selectedDuration,
-    metodo_pagamento: metodoPagamento,
-    total: totalGeral,
-    itens: cart.map(item => item.id) // IDs dos produtos (Gatorade, colete, etc)
-  };
+    if (!horarioSelecionado) return;
 
-  try {
-    const response = await fetch("http://localhost:3001/api/finalizar-reserva", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reservaData),
-    });
+    try {
+      // 1. Criar a Reserva
+      const { data: reserva, error: resError } = await supabase.from('reservas').insert([{
+        cliente_id: Number(userData.id),
+        data_reserva: diaSelecionado.toISOString().split('T')[0],
+        horario_inicio: horarioSelecionado,
+        valor_total: totalGeral,
+        forma_pagamento: metodoPagamento,
+        status: 'pendente'
+      }]).select().single();
 
-    if (response.ok) {
+      if (resError) throw resError;
+
+      // 2. Inserir Itens (se houver)
+      if (cart.length > 0) {
+        const itensParaInserir = cart.map(item => ({
+          reserva_id: reserva.id,
+          produto_id: item.id,
+          quantidade: 1,
+          preco_unitario: item.preco_venda,
+          subtotal: item.preco_venda,
+          tipo: item.tipo === 'aluguel' ? 'aluguel' : 'venda'
+        }));
+        await supabase.from('itens_reserva').insert(itensParaInserir);
+      }
+
+      // 3. Feedback Final
       if (metodoPagamento === "pix") {
         navigator.clipboard.writeText(pixCode);
         toast({ title: "PIX Copiado!", description: "Pague para validar sua reserva." });
@@ -192,47 +212,38 @@ useEffect(() => {
         toast({ title: "Confirmado!", description: "Reserva salva! Pague na recepção." });
       }
       
-      // Limpa tudo após o sucesso
       setIsCheckoutOpen(false);
       setCart([]);
       setHorarioSelecionado(null);
-    }
-  } catch (error) {
-    toast({ variant: "destructive", title: "Erro ao salvar reserva." });
-  }
-};
 
- const gerarHorarios = () => {
-  const horarios = [];
-  
-  // Manhã e Tarde (09:00 às 17:30)
-  for (let h = 9; h <= 17; h++) {
-    horarios.push(`${String(h).padStart(2, '0')}:00`);
-    horarios.push(`${String(h).padStart(2, '0')}:30`);
-  }
-
-  // Noite (18:00 às 21:00) 
-  // Paramos no 21:00 para que o último slot de 1h termine às 22:00
-  for (let h = 18; h <= 21; h++) {
-    horarios.push(`${String(h).padStart(2, '0')}:00`);
-    // SÓ adiciona 21:30 se você permitir jogos que terminem 22:00 (30 min)
-    if (h < 21) {
-      horarios.push(`${String(h).padStart(2, '0')}:30`);
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Erro ao salvar reserva." });
     }
-  }
-  return horarios;
-};
+  };
 
   if (emManutencao) return (
     <div className="min-h-screen bg-[#060a08] flex flex-col items-center justify-center p-6 text-center">
       <AlertTriangle size={60} className="text-red-500 animate-pulse mb-4" />
       <h1 className="text-4xl font-black text-white italic uppercase">Arena em Pausa</h1>
+      <p className="text-gray-400 mt-2">Estamos realizando uma manutenção rápida. Voltamos logo!</p>
     </div>
   );
 
-  function setTipoAgendamento(arg0: string): void {
-    throw new Error("Function not implemented.");
-  }
+ const removeFromCart = (idx: number) => {
+  setCart((prevCart) => prevCart.filter((_, i) => i !== idx));
+  toast({ 
+    title: "Removido", 
+    description: "O item foi retirado do seu pedido.",
+    variant: "default" 
+  });
+};
+
+const handleTipoReserva = (tipo: string) => {
+  setTipoReserva(tipoReserva === 'avulsa' ? 'fixa' : 'avulsa');
+  // Se mudar para fixa, você pode resetar o horário selecionado para evitar erros
+  setHorarioSelecionado(null);
+};
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
@@ -262,6 +273,7 @@ useEffect(() => {
             <TabsTrigger value="feedback" className="rounded-xl font-bold uppercase italic">Avaliar</TabsTrigger>
             <TabsTrigger value="perfil" className="rounded-xl font-bold uppercase italic">Perfil</TabsTrigger>
           </TabsList>
+        </Tabs>
 
           {/* AGENDA */}
 <TabsContent value="agendar" className="grid lg:grid-cols-12 gap-8 outline-none border-none">
@@ -497,53 +509,82 @@ useEffect(() => {
           </TabsContent>
 
           {/* PERFIL */}
-          <TabsContent value="perfil" className="grid md:grid-cols-3 gap-8 outline-none">
-            <Card className="bg-white/5 border-white/10 p-8 rounded-[2.5rem] flex flex-col items-center text-center">
-                <div className="relative">
-                  <div className="w-24 h-24 bg-[#22c55e]/20 rounded-full flex items-center justify-center border-2 border-[#22c55e]">
-                    <User size={48} className="text-[#22c55e]" />
-                  </div>
-                  {userData.isVip && <div className="absolute -top-2 -right-2 bg-yellow-500 p-2 rounded-full text-black animate-bounce"><Crown size={16}/></div>}
-                </div>
-                <h3 className="font-black italic uppercase text-xl mt-4 text-white">{userData.nome}</h3>
-                <p className="text-gray-500 text-xs font-bold">{userData.email}</p>
-                <Badge className="bg-[#22c55e] text-black font-black mt-4 px-4 py-1 rounded-full uppercase italic">Membro Ouro</Badge>
-            </Card>
-            
-            <div className="md:col-span-2 space-y-6">
-                <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem]">
-                  <h4 className="text-[#22c55e] text-xs font-black uppercase italic mb-6 flex items-center gap-2 tracking-widest"><CalendarCheck size={18}/> Horários Fixos (VIP)</h4>
-                  {reservasFixas.length === 0 ? (
-                    <p className="text-gray-500 text-xs italic">Nenhuma reserva fixa registrada.</p>
-                  ) : (
-                    reservasFixas.map((r, i) => (
-                      <div key={i} className="flex justify-between bg-black/40 p-4 rounded-2xl mb-3 border border-white/5 items-center">
-                          <span className="font-black uppercase text-xs italic">{r.dia}s</span>
-                          <span className="bg-[#22c55e] text-black px-3 py-1 rounded-lg font-black text-xs">{r.hora}</span>
-                      </div>
-                    ))
-                  )}
-                </Card>
+<TabsContent value="perfil" className="grid md:grid-cols-3 gap-8 outline-none border-none">
+  {/* Card Lateral do Usuário */}
+  <Card className="bg-white/5 border-white/10 p-8 rounded-[2.5rem] flex flex-col items-center text-center h-fit">
+    <div className="relative">
+      <div className="w-24 h-24 bg-[#22c55e]/20 rounded-full flex items-center justify-center border-2 border-[#22c55e]">
+        <User size={48} className="text-[#22c55e]" />
+      </div>
+      {userData.isVip && (
+        <div className="absolute -top-2 -right-2 bg-yellow-500 p-2 rounded-full text-black animate-bounce shadow-lg">
+          <Crown size={16} />
+        </div>
+      )}
+    </div>
+    <h3 className="font-black italic uppercase text-xl mt-4 text-white">{userData.nome}</h3>
+    <p className="text-gray-500 text-xs font-bold">{userData.email}</p>
+    <Badge className="bg-[#22c55e] text-black font-black mt-4 px-4 py-1 rounded-full uppercase italic">
+      {userData.isVip ? "Membro Ouro" : "Cliente Arena"}
+    </Badge>
+    
+    <Button 
+      onClick={handleLogout}
+      variant="ghost" 
+      className="mt-8 text-red-500 hover:text-red-400 hover:bg-red-500/10 text-xs font-black uppercase italic gap-2"
+    >
+      <LogOut size={14}/> Sair da Conta
+    </Button>
+  </Card>
+  
+  <div className="md:col-span-2 space-y-6">
+    {/* Horários Fixos */}
+    <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem]">
+      <h4 className="text-[#22c55e] text-xs font-black uppercase italic mb-6 flex items-center gap-2 tracking-widest">
+        <CalendarCheck size={18}/> Horários Fixos (VIP)
+      </h4>
+      {reservasFixas.length === 0 ? (
+        <p className="text-gray-500 text-xs italic">Nenhuma reserva fixa registrada.</p>
+      ) : (
+        reservasFixas.map((r, i) => (
+          <div key={i} className="flex justify-between bg-black/40 p-4 rounded-2xl mb-3 border border-white/5 items-center">
+            <span className="font-black uppercase text-xs italic">{r.dia || r.dia_semana}s</span>
+            <span className="bg-[#22c55e] text-black px-3 py-1 rounded-lg font-black text-xs">{r.hora || r.horario}</span>
+          </div>
+        ))
+      )}
+    </Card>
 
-                <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem]">
-                  <h4 className="text-[#22c55e] text-xs font-black uppercase italic mb-6 flex items-center gap-2 tracking-widest"><History size={18}/> Histórico Recente</h4>
-                  <div className="space-y-3">
-                    {historicoCompras.map(c => (
-                      <div key={c.id} className="flex justify-between items-center bg-black/40 p-4 rounded-2xl border border-white/5">
-                          <div>
-                            <p className="font-black text-xs uppercase text-white italic">{c.item}</p>
-                            <p className="text-[10px] text-gray-500 font-bold">{c.data}</p>
-                          </div>
-                          <Button onClick={() => addToCart(c.produtoOriginal)} size="sm" variant="outline" className="border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-black text-[10px] font-black uppercase italic gap-2 transition-all">
-                            <RefreshCcw size={12}/> Recomprar
-                          </Button>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
+    {/* Histórico Recente */}
+    <Card className="bg-white/5 border-white/10 p-6 rounded-[2.5rem]">
+      <h4 className="text-[#22c55e] text-xs font-black uppercase italic mb-6 flex items-center gap-2 tracking-widest">
+        <History size={18}/> Histórico Recente
+      </h4>
+      <div className="space-y-3">
+        {historicoCompras.length === 0 ? (
+          <p className="text-gray-500 text-xs italic">Nenhuma compra registrada.</p>
+        ) : (
+          historicoCompras.map((c) => (
+            <div key={c.id} className="flex justify-between items-center bg-black/40 p-4 rounded-2xl border border-white/5">
+              <div>
+                <p className="font-black text-xs uppercase text-white italic">{c.item}</p>
+                <p className="text-[10px] text-gray-500 font-bold">{c.data}</p>
+              </div>
+              <Button 
+                onClick={() => addToCart(c.produtoOriginal)} 
+                size="sm" 
+                variant="outline" 
+                className="border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-black text-[10px] font-black uppercase italic gap-2 transition-all"
+              >
+                <RefreshCcw size={12}/> Recomprar
+              </Button>
             </div>
-          </TabsContent>
-        </Tabs>
+          ))
+        )}
+      </div>
+    </Card>
+  </div>
+</TabsContent>
       </main>
 
       {/* MODAL DE CHECKOUT UNIFICADO */}
@@ -636,3 +677,7 @@ useEffect(() => {
 };
 
 export default ClienteDashboard;
+
+function setTipoReserva(tipo: string) {
+  throw new Error("Function not implemented.");
+}

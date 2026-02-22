@@ -8,8 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
+
+interface PasswordRules {
+  hasMinLength: boolean;
+  hasSpecialChar: boolean;
+  noRepeatedNumbers: boolean;
+  isValid: boolean;
+}
 
 const Login = () => {
   const navigate = useNavigate();
@@ -30,93 +37,6 @@ const Login = () => {
   const [showRegPassword, setShowRegPassword] = useState(false);
   
   const [activeTab, setActiveTab] = useState("login");
-
-  // 1. LÓGICA DE LOGIN CONECTADA AO BACKEND
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch("http://localhost:3001/api/login-unificado", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const storage = saveSession ? localStorage : sessionStorage;
-        storage.setItem("token", data.token);
-        storage.setItem("userName", data.nome);
-        storage.setItem("userRole", data.cargo ?? data.tipo ?? "cliente");
-        if (data.id != null) storage.setItem("userId", String(data.id));
-
-        toast({ title: "Bem-vindo de volta!", description: "Acesso realizado com sucesso." });
-        navigate(data.redirect ?? "/clientdashboard");
-      } else {
-        toast({ variant: "destructive", title: "Erro", description: data.message });
-      }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro de Conexão", description: "Servidor fora do ar." });
-    }
-  };
-
-  // 2. LÓGICA DE CADASTRO DE CLIENTE
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwordValidations.isValid) return;
-    if (!nome.trim() || !sobrenome.trim() || !regEmail.trim() || !telefone.trim()) {
-      toast({ variant: "destructive", title: "Campos obrigatórios", description: "Preencha nome, sobrenome, e-mail e telefone." });
-      return;
-    }
-
-    try {
-      const response = await fetch("http://localhost:3001/api/cadastro-cliente", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, sobrenome, email: regEmail.trim(), telefone: telefone.trim(), senha: regPassword }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (response.ok) {
-        toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
-        setLoginEmail(regEmail);
-        setLoginPassword("");
-        setActiveTab("login");
-      } else {
-        const msg = data.message || data.error || "E-mail já em uso ou dados inválidos.";
-        toast({ variant: "destructive", title: "Erro ao cadastrar", description: msg });
-      }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro", description: "Falha na conexão. Verifique se o servidor está rodando." });
-    }
-  };
-
- const handleLogin = async (email, senha) => {
-  // Chamando a função SQL que criamos no passo anterior
-  const { data, error } = await supabase.rpc('login_cliente', {
-    p_email: email,
-    p_senha: senha
-  });
-
-  if (error) {
-    alert("Erro ao conectar: " + error.message);
-    return;
-  }
-
-  if (data && data.length > 0) {
-    const usuario = data[0];
-    // Salva no navegador para não precisar logar de novo ao dar F5
-    localStorage.setItem('arena_usuario', JSON.stringify(usuario));
-    
-    // Redireciona para o Dashboard (ajuste o caminho se necessário)
-    window.location.href = '/dashboard'; 
-  } else {
-    alert("E-mail ou senha incorretos!");
-  }
-};
-
-
   const passwordValidations = useMemo(() => {
     const hasMinLength = regPassword.length >= 8;
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(regPassword);
@@ -128,6 +48,82 @@ const Login = () => {
       isValid: hasMinLength && hasSpecialChar && noRepeatedNumbers
     };
   }, [regPassword]);
+
+  // 1. LÓGICA DE LOGIN CONECTADA AO BACKEND
+ const handleLoginSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  try {
+    // Chamando a função RPC que criamos (login_funcionario ou login_cliente)
+    // Se o seu banco for unificado, você pode usar uma 'login_geral'
+    const { data, error } = await supabase.rpc('login_cliente', {
+      p_email: loginEmail,
+      p_senha: loginPassword
+    });
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      const usuario = data[0];
+      const storage = saveSession ? localStorage : sessionStorage;
+      
+      storage.setItem("userName", usuario.nome);
+      storage.setItem("userRole", usuario.tipo || "cliente");
+      storage.setItem("userId", String(usuario.id));
+      storage.setItem("userEmail", usuario.email);
+
+      toast({ title: "Bem-vindo de volta!", description: "Acesso realizado com sucesso." });
+      
+      // Redirecionamento inteligente
+      if (usuario.tipo === 'administrador') navigate("/admin");
+      else if (usuario.tipo === 'atendente') navigate("/atendimento");
+      else navigate("/clientdashboard");
+      
+    } else {
+      toast({ variant: "destructive", title: "Erro", description: "E-mail ou senha incorretos." });
+    }
+  } catch (error: any) {
+    toast({ variant: "destructive", title: "Erro de Conexão", description: error.message });
+  }
+};
+
+  // 2. DEPOIS: Use as validações dentro da função de submissão
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Agora o TypeScript reconhecerá a variável acima
+    if (!passwordValidations.isValid) {
+      toast({ 
+        variant: "destructive", 
+        title: "Senha Fraca", 
+        description: "Sua senha não atende aos requisitos de segurança." 
+      });
+      return;
+    }
+
+  try {
+    // Inserindo direto na tabela 'clientes' ou 'funcionarios'
+    // O Supabase/Postgres cuidará do crypt se você usar o SQL que passei antes
+    const { error } = await supabase.from('clientes').insert([
+      {
+        nome,
+        sobrenome,
+        email: regEmail.trim(),
+        telefone: telefone.trim(),
+        // Usamos a função crypt aqui se não houver trigger no banco
+        senha: regPassword 
+      }
+    ]);
+    
+    if (error) throw error;
+
+    toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
+    setLoginEmail(regEmail);
+    setActiveTab("login");
+  } catch (error: any) {
+    toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já está em uso." });
+  }
+};
 
   return (
     <div className="min-h-screen w-full bg-[#060a08] relative overflow-hidden flex items-center justify-center p-4">

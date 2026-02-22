@@ -24,7 +24,18 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { jsPDF } from "jspdf";
 
-const API = "http://localhost:3001/api";
+import { supabase } from '@/lib/supabase';
+
+interface Produto {
+  id: number;
+  nome: string;
+  tipo: "venda" | "aluguel";
+  preco: number;
+  preco_venda?: number;
+  preco_aluguel?: number;
+  estoque: number;
+}
+
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -36,9 +47,11 @@ function AdminDashboard() {
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [detalhesAgenda, setDetalhesAgenda] = useState<any[]>([]);
   const [agendaSlots, setAgendaSlots] = useState<any[]>([]);
+
   const [promoAtiva, setPromoAtiva] = useState(localStorage.getItem("arena_promo_ativa") === "true");
   const [promoTexto, setPromoTexto] = useState(localStorage.getItem("arena_promo_texto") || "Promoção Relâmpago!");
   const [promoLink, setPromoLink] = useState(localStorage.getItem("arena_promo_link") || "");
+  
   const [depoimentos, setDepoimentos] = useState<{ id: number; autor: string; texto: string; data: string; status: 'pendente' | 'aprovado' | 'rejeitado' }[]>([]);
   const refPendentesDepoimentos = useRef(0);
 
@@ -46,53 +59,116 @@ function AdminDashboard() {
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
 
  const [vipsReais, setVipsReais] = useState([]);
+ const [produtos, setProdutos] = useState<Produto[]>([]);
+ const [listaEquipe, setListaEquipe] = useState<any[]>([]);
+ 
+const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
+  const [editandoProduto, setEditandoProduto] = useState<any | null>(null);
+  const [formProduto, setFormProduto] = useState({ 
+    nome: "", 
+    tipo: "venda" as "venda" | "aluguel" | "ambos", 
+    preco_venda: "", 
+    preco_aluguel: "", 
+    quantidade_estoque: "" 
+  });
 
-useEffect(() => {
-  const buscarVips = async () => {
-    try {
-      const response = await fetch("http://localhost:3001/api/mensalistas");
-      const data = await response.json();
-      setVipsReais(data);
-    } catch (error) {
-      console.error("Erro ao carregar VIPs:", error);
-    }
-  };
-  buscarVips();
-}, []);
-
-  const [produtos, setProdutos] = useState<{ id: number; nome: string; tipo: string; preco: number; preco_venda?: number; preco_aluguel?: number; estoque: number }[]>([]);
-  const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
-  const [editandoProduto, setEditandoProduto] = useState<typeof produtos[0] | null>(null);
-  const [formProduto, setFormProduto] = useState({ nome: "", tipo: "venda" as "venda" | "aluguel" | "ambos", preco_venda: "", preco_aluguel: "", quantidade_estoque: "" });
-
+    // --- FUNÇÕES DE SOM E ESTILO ---
   const playApito = () => {
     const audio = new Audio('/sound/apito.mp3');
     audio.volume = 0.5;
     audio.play().catch(() => {});
   };
 
+  const getCorStatus = (status: string) => {
+    switch(status) {
+      case 'venda_balcao': return 'bg-yellow-500/20 border-yellow-500 text-yellow-500';
+      case 'pago': return 'bg-red-500/20 border-red-500 text-red-500';
+      default: return 'bg-white/5 border-white/10';
+    }
+  };
 
-  interface Depoimento {
-  id: number;
-  autor: string;
-  texto: string;
-  data: string;
-  status: 'pendente' | 'aprovado';
-  estrelas: number; // <-- Adicione esta linha
-}
+  // --- CARREGAMENTO DE DADOS (SUPABASE) ---
 
+  const carregarDadosIniciais = async () => {
+    // 1. VIPs
+    const { data: vips } = await supabase.from('clientes').select('*').eq('tipo', 'mensalista');
+    if (vips) setVipsReais(vips);
 
-  useEffect(() => {
-    fetch(`${API}/depoimentos`).then(r => r.json()).then((rows: any[]) => {
-      const list = (rows || []).map(d => ({
+    // 2. Equipe
+    const { data: equipe } = await supabase.from('funcionarios').select('*').order('nome');
+    if (equipe) setListaEquipe(equipe);
+
+    // 3. Manutenção
+    const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+    if (config) setEmManutencao(config.valor === 'true');
+
+    // 4. Depoimentos
+    const { data: deps } = await supabase.from('depoimentos').select('*').order('data_publicacao', { ascending: false });
+    if (deps) {
+      setDepoimentos(deps.map(d => ({
         id: d.id,
         autor: d.autor,
         texto: d.comentario,
         data: d.data_publicacao ? new Date(d.data_publicacao).toLocaleDateString('pt-BR') : '',
-        status: (d.aprovado ? 'aprovado' : 'pendente') as 'pendente' | 'aprovado' | 'rejeitado'
-      }));
-      setDepoimentos(list);
-    }).catch(() => {});
+        status: d.aprovado ? 'aprovado' : 'pendente'
+      })));
+    }
+    carregarProdutos();
+  };
+
+  const carregarProdutos = async () => {
+    const { data } = await supabase.from('produtos').select('*').order('nome');
+    if (data) {
+      setProdutos(data.map(p => ({
+        id: p.id,
+        nome: p.nome,
+        tipo: p.tipo,
+        preco: p.preco_venda ?? p.preco_aluguel ?? 0,
+        preco_venda: p.preco_venda,
+        preco_aluguel: p.preco_aluguel,
+        estoque: p.quantidade_estoque ?? 0
+      })));
+    }
+  };
+
+  const diasMes = useMemo<(Date | null)[]>(() => {
+  const start = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1);
+  const end = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0);
+  const days: (Date | null)[] = [];
+  
+  // Preenche os dias vazios do início da semana
+  for (let i = 0; i < start.getDay(); i++) {
+    days.push(null);
+  }
+  
+  // Preenche os dias do mês
+  for (let i = 1; i <= end.getDate(); i++) {
+    days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
+  }
+  
+  return days;
+}, [mesAtual]);
+
+  const dataStr = diaSelecionado.toISOString().slice(0, 10);
+  useEffect(() => {
+    const carregarAgenda = async () => {
+      const { data: agenda } = await supabase.from('agenda').select('*').eq('data', dataStr);
+      if (agenda) {
+        setAgendaSlots(agenda.map(a => ({
+          inicio: String(a.horario_inicio).slice(0, 5),
+          fim: a.horario_fim ? String(a.horario_fim).slice(0, 5) : '',
+          turno: (a.turno || '').toLowerCase(),
+          status: a.status === 'confirmada' ? 'reservado' : 'livre'
+        })));
+      }
+      const { data: detalhes } = await supabase.from('reservas_detalhes').select('*').eq('data_reserva', dataStr);
+      setDetalhesAgenda(detalhes || []);
+    };
+    carregarAgenda();
+  }, [dataStr]);
+
+  useEffect(() => {
+    carregarDadosIniciais();
   }, []);
 
   useEffect(() => {
@@ -104,45 +180,90 @@ useEffect(() => {
     if (pendentes === 0) refPendentesDepoimentos.current = 0;
   }, [depoimentos]);
 
-  useEffect(() => {
-    fetch(`${API}/produtos`).then(r => r.json()).then((rows: any[]) => {
-      setProdutos((rows || []).map(p => ({
-        id: p.id,
-        nome: p.nome,
-        tipo: p.tipo,
-        preco: p.preco_venda ?? p.preco_aluguel ?? 0,
-        preco_venda: p.preco_venda,
-        preco_aluguel: p.preco_aluguel,
-        estoque: p.quantidade_estoque ?? 0
-      })));
-    }).catch(() => {});
-  }, []);
+  // --- LÓGICA DE NEGÓCIO ---
 
-  useEffect(() => {
-    fetch(`${API}/manutencao`).then(r => r.json()).then((d: { ativo: boolean }) => {
-      setEmManutencao(!!d.ativo);
-      localStorage.setItem("arena_manutencao", String(d.ativo));
-    }).catch(() => {});
-  }, []);
+  const handleToggleManutencao = async () => {
+    const novoEstado = !emManutencao;
+    await supabase.from('configuracoes').update({ valor: String(novoEstado) }).eq('chave', 'manutencao');
+    setEmManutencao(novoEstado);
+    localStorage.setItem("arena_manutencao", String(novoEstado));
+    window.dispatchEvent(new Event("storage"));
+    toast({ title: novoEstado ? "SISTEMA BLOQUEADO" : "SISTEMA ONLINE" });
+  };
 
-  const dataStr = diaSelecionado.toISOString().slice(0, 10);
-  useEffect(() => {
-    fetch(`${API}/agenda?data=${dataStr}`).then(r => r.json()).then((agenda: any[]) => {
-      const slots = (agenda || []).map(a => ({
-        inicio: String(a.horario_inicio).slice(0, 5),
-        fim: a.horario_fim ? String(a.horario_fim).slice(0, 5) : '',
-        turno: (a.turno || '').toLowerCase(),
-        valor: 0,
-        status: a.cor_status === 'vermelho' || a.status === 'confirmada' ? 'reservado' : 'livre',
-        reserva: null as any
-      }));
-      setAgendaSlots(slots);
-    }).catch(() => setAgendaSlots([]));
-    fetch(`${API}/agenda-detalhes?data=${dataStr}`).then(r => r.json()).then((detalhes: any[]) => {
-      setDetalhesAgenda(detalhes || []);
-    }).catch(() => setDetalhesAgenda([]));
-  }, [dataStr]);
+  const processarComentario = async (id: number, acao: 'aprovado' | 'rejeitado' | 'pendente') => {
+    if (acao === 'rejeitado') {
+      await supabase.from('depoimentos').delete().eq('id', id);
+      setDepoimentos(prev => prev.filter(item => item.id !== id));
+    } else {
+      await supabase.from('depoimentos').update({ aprovado: acao === 'aprovado' }).eq('id', id);
+      setDepoimentos(prev => prev.map(item => item.id === id ? { ...item, status: acao } : item));
+    }
+    toast({ title: "Moderação concluída." });
+  };
 
+  const salvarProduto = async () => {
+    const payload = {
+      nome: formProduto.nome,
+      tipo: formProduto.tipo,
+      preco_venda: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_venda) : 0,
+      preco_aluguel: formProduto.tipo !== "venda" ? Number(formProduto.preco_aluguel) : 0,
+      quantidade_estoque: Number(formProduto.quantidade_estoque) || 0
+    };
+    if (editandoProduto) {
+      await supabase.from('produtos').update(payload).eq('id', editandoProduto.id);
+    } else {
+      await supabase.from('produtos').insert([payload]);
+    }
+    setModalProdutoAberto(false);
+    carregarProdutos();
+    toast({ title: "Produto salvo!" });
+  };
+
+  const excluirProduto = async (id: number) => {
+    if (confirm("Excluir produto?")) {
+      await supabase.from('produtos').delete().eq('id', id);
+      carregarProdutos();
+    }
+  };
+
+  const handleToggleStatusEquipe = async (id: number, statusAtual: boolean) => {
+    if (confirm(`Deseja ${statusAtual ? 'bloquear' : 'ativar'} este funcionário?`)) {
+      await supabase.from('funcionarios').update({ ativo: !statusAtual }).eq('id', id);
+      setListaEquipe(prev => prev.map(f => f.id === id ? { ...f, ativo: !statusAtual } : f));
+    }
+  };
+
+  // --- RELATÓRIOS (SINTÉTICO E ANALÍTICO) ---
+
+  const baixarPdfSintetico = async () => {
+    const { data } = await supabase.from('reservas').select('valor_total').eq('status', 'confirmada');
+    const total = data?.reduce((acc, cur) => acc + (cur.valor_total || 0), 0) || 0;
+    const doc = new jsPDF();
+    doc.text("Relatorio Sintetico - Arena Cedro", 20, 20);
+    doc.text(`Faturamento Total: R$ ${total.toFixed(2)}`, 20, 30);
+    doc.save("sintetico.pdf");
+  };
+
+  const baixarPdfAnalitico = async () => {
+    // Busca dados detalhados para o relatório analítico
+    const { data: reservas } = await supabase.from('reservas').select('valor_total, tipo').eq('status', 'confirmada');
+    const { data: vendas } = await supabase.from('vendas_produtos').select('valor_total');
+
+    const faturamentoReservas = reservas?.reduce((acc, cur) => acc + (cur.valor_total || 0), 0) || 0;
+    const faturamentoVendas = vendas?.reduce((acc, cur) => acc + (cur.valor_total || 0), 0) || 0;
+
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Relatorio Analitico - Arena Cedro", 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Venda de Produtos: R$ ${faturamentoVendas.toFixed(2)}`, 20, 40);
+    doc.text(`Locacao de Quadras: R$ ${faturamentoReservas.toFixed(2)}`, 20, 50);
+    doc.text(`Faturamento Geral: R$ ${(faturamentoReservas + faturamentoVendas).toFixed(2)}`, 20, 65);
+    doc.save("analitico.pdf");
+  };
+
+  // --- AUXILIARES ---
   const slotsCalculados = useMemo(() => {
     const detalhesPorHorario: Record<string, any> = {};
     detalhesAgenda.forEach(d => { detalhesPorHorario[String(d.horario_inicio).slice(0, 5)] = d; });
@@ -157,196 +278,29 @@ useEffect(() => {
     });
   }, [agendaSlots, detalhesAgenda, duracaoFiltro]);
 
-  const [listaEquipe, setListaEquipe] = useState([]);
-
-useEffect(() => {
-  const carregarEquipe = async () => {
-    const res = await fetch("http://localhost:3001/api/equipe");
-    const data = await res.json();
-    setListaEquipe(data);
-  };
-  carregarEquipe();
-}, []);
-
-  const handleToggleManutencao = () => {
-    const novoEstado = !emManutencao;
-    fetch(`${API}/manutencao`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: novoEstado }) })
-      .then(r => r.json()).then(() => {}).catch(() => {});
-    setEmManutencao(novoEstado);
-    localStorage.setItem("arena_manutencao", String(novoEstado));
-    window.dispatchEvent(new Event("storage"));
-    toast({
-      variant: novoEstado ? "destructive" : "default",
-      title: novoEstado ? "SISTEMA BLOQUEADO" : "SISTEMA ONLINE",
-      description: novoEstado ? "Clientes e atendentes verão o aviso de manutenção." : "Agendamentos liberados.",
-    });
-  };
-
-  const salvarPromocao = () => {
-    localStorage.setItem("arena_promo_ativa", String(promoAtiva));
-    localStorage.setItem("arena_promo_texto", promoTexto);
-    localStorage.setItem("arena_promo_link", promoLink);
-    toast({ title: "Marketing Atualizado!", description: "As alterações já estão no site." });
-  };
-
-  const processarComentario = async (id: number, acao: 'aprovado' | 'rejeitado' | 'pendente') => {
-  try {
-    // Definimos o endpoint dinamicamente baseado na ação
-    let endpoint = `http://localhost:3001/api/depoimentos/aprovar/${id}`;
-    
-    if (acao === 'rejeitado') {
-      endpoint = `http://localhost:3001/api/depoimentos/rejeitar/${id}`;
-    } else if (acao === 'pendente') {
-      // Reutilizamos a rota de aprovação, mas enviando 'false' para despublicar
-      endpoint = `http://localhost:3001/api/depoimentos/aprovar/${id}`;
-    }
-
-    const response = await fetch(endpoint, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      // Se a ação for 'aprovado', enviamos true. Caso contrário (pendente/rejeitado), enviamos false.
-      body: JSON.stringify({ status: acao === 'aprovado' })
-    });
-
-    if (response.ok) {
-      setDepoimentos((prev: any[]) => {
-        // Se foi rejeitado, removemos da lista
-        if (acao === 'rejeitado') {
-          return prev.filter(item => item.id !== id);
-        }
-        // Se aprovado ou pendente, apenas mudamos o 'status' para ele pular de coluna
-        return prev.map(item => 
-          item.id === id ? { ...item, status: acao } : item
-        );
-      });
-      
-      toast({ 
-        title: acao === 'aprovado' ? "✅ Publicado!" : acao === 'pendente' ? "⏳ Em análise" : "🗑️ Removido", 
-        description: acao === 'aprovado' ? "Visível no site." : "Atualizado com sucesso." 
-      });
-    }
-  } catch (error) {
-    console.error("Erro na moderação:", error);
-    toast({ variant: "destructive", title: "Erro ao processar" });
-  }
-};
-
-  const abrirDetalheSlot = (slot: typeof slotsCalculados[0]) => {
-    if (slot.reserva) setSlotDetalhe(slot.reserva); else setSlotDetalhe({ cliente: "-", reservadoPor: "-", pagamento: "-", obs: "Horário livre." });
-    setIsModalDetalheAberto(true);
-  };
-
-  const getCorStatus = (status: string) => {
-  switch(status) {
-    case 'venda_balcao': return 'bg-yellow-500/20 border-yellow-500 text-yellow-500'; // Alerta de venda nova
-    case 'pago': return 'bg-red-500/20 border-red-500 text-red-500';
-    default: return 'bg-white/5 border-white/10';
-  }
-};
-
-  const salvarProduto = () => { 
-    if (editandoProduto) {
-      fetch(`${API}/produtos/${editandoProduto.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome: formProduto.nome || editandoProduto.nome,
-          tipo: formProduto.tipo,
-          preco_venda: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_venda) : undefined,
-          preco_aluguel: formProduto.tipo !== "venda" ? Number(formProduto.preco_aluguel) : undefined,
-          quantidade_estoque: Number(formProduto.quantidade_estoque) || 0
-        })
-      }).then(r => r.json()).then(() => { toast({ title: "Produto atualizado!" }); setEditandoProduto(null); setModalProdutoAberto(false); carregarProdutos(); }).catch(() => toast({ variant: "destructive", title: "Erro ao atualizar." }));
-    } else {
-      fetch(`${API}/produtos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome: formProduto.nome,
-          tipo: formProduto.tipo,
-          preco_venda: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_venda) : 0,
-          preco_aluguel: formProduto.tipo !== "venda" ? Number(formProduto.preco_aluguel) : 0,
-          quantidade_estoque: Number(formProduto.quantidade_estoque) || 0
-        })
-      }).then(r => r.json()).then(() => { toast({ title: "Produto cadastrado!" }); setModalProdutoAberto(false); setFormProduto({ nome: "", tipo: "venda", preco_venda: "", preco_aluguel: "", quantidade_estoque: "" }); carregarProdutos(); }).catch(() => toast({ variant: "destructive", title: "Erro ao cadastrar." }));
-    }
-  };
-  const carregarProdutos = () => fetch(`${API}/produtos`).then(r => r.json()).then((rows: any[]) => setProdutos((rows || []).map(p => ({ id: p.id, nome: p.nome, tipo: p.tipo, preco: p.preco_venda ?? p.preco_aluguel ?? 0, preco_venda: p.preco_venda, preco_aluguel: p.preco_aluguel, estoque: p.quantidade_estoque ?? 0 })))).catch(() => {});
-  const excluirProduto = (id: number) => {
-    if (!confirm("Excluir este produto?")) return;
-    fetch(`${API}/produtos/${id}`, { method: "DELETE" }).then(r => r.json()).then(() => { toast({ title: "Produto excluído." }); carregarProdutos(); }).catch(() => toast({ variant: "destructive", title: "Erro." }));
-  };
-
-  const baixarPdfSintetico = () => {
-    const mes = mesAtual.getMonth() + 1, ano = mesAtual.getFullYear();
-    fetch(`${API}/relatorios/sintetico?mes=${mes}&ano=${ano}`).then(r => r.json()).then((d: any) => {
-      const doc = new jsPDF();
-      doc.setFontSize(18); doc.text("Relatório Sintético - Arena Cedro", 20, 20);
-      doc.setFontSize(12); doc.text(`Período: ${mes}/${ano}`, 20, 30);
-      doc.text(`Faturamento Total: R$ ${Number(d.faturamento || 0).toFixed(2)}`, 20, 40);
-      doc.text(`Total de Reservas (pagos): ${d.total_reservas || 0}`, 20, 48);
-      doc.text(`Média diária: R$ ${Number(d.media_diaria || 0).toFixed(2)}`, 20, 56);
-      doc.save(`relatorio-sintetico-${ano}-${mes}.pdf`);
-      toast({ title: "PDF baixado!" });
-    }).catch(() => toast({ variant: "destructive", title: "Erro ao gerar PDF." }));
-  };
-  const baixarPdfAnalitico = () => {
-    const mes = mesAtual.getMonth() + 1, ano = mesAtual.getFullYear();
-    fetch(`${API}/relatorios/analitico?mes=${mes}&ano=${ano}`).then(r => r.json()).then((d: any) => {
-      const doc = new jsPDF();
-      doc.setFontSize(18); doc.text("Relatório Analítico - Arena Cedro", 20, 20);
-      doc.setFontSize(12); doc.text(`Período: ${mes}/${ano}`, 20, 30);
-      doc.text(`Venda de Produtos: R$ ${Number(d.venda_produtos || 0).toFixed(2)}`, 20, 40);
-      doc.text(`Horas Avulsas: R$ ${Number(d.horas_avulsas || 0).toFixed(2)}`, 20, 48);
-      doc.text(`Faturamento Total: R$ ${Number(d.faturamento_total || 0).toFixed(2)}`, 20, 58);
-      doc.save(`relatorio-analitico-${ano}-${mes}.pdf`);
-      toast({ title: "PDF baixado!" });
-    }).catch(() => toast({ variant: "destructive", title: "Erro ao gerar PDF." }));
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem("isAdmin"); // Exemplo de limpeza de auth
-    toast({ title: "Saindo...", description: "Retornando à página inicial." });
+    localStorage.removeItem("isAdmin");
     navigate("/");
   };
 
-  // --- CALENDÁRIO ---
-  const diasMes = useMemo(() => {
-    const start = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1);
-    const end = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0);
-    const days = [];
-    for (let i = 0; i < start.getDay(); i++) days.push(null);
-    for (let i = 1; i <= end.getDate(); i++) days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
-    return days;
-  }, [mesAtual]);
-
-
- const handleToggleStatus = async (id: number, statusAtual: boolean) => {
-  const acao = statusAtual ? 'BLOQUEAR' : 'ATIVAR';
-  
-  // Usando um toast ou alert para confirmação
-  if (confirm(`Deseja realmente ${acao} este funcionário?`)) {
-    try {
-      const response = await fetch(`http://localhost:3001/api/funcionarios/status/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ativo: !statusAtual }) 
-      });
-
-      if (response.ok) {
-        // Atualiza o estado local para refletir a mudança sem recarregar a página inteira
-        setListaEquipe(prev => prev.map(f => f.id === id ? { ...f, ativo: !statusAtual } : f));
-      }
-    } catch (err) {
-      console.error("Erro ao mudar status:", err);
-    }
+  function abrirDetalheSlot(slot: any): void {
+    throw new Error("Function not implemented.");
   }
-};
-
 
   function handlePagarVip(id: any): void {
     throw new Error("Function not implemented.");
   }
+
+  const salvarPromocao = () => {
+  localStorage.setItem("arena_promo_ativa", String(promoAtiva));
+  localStorage.setItem("arena_promo_texto", promoTexto);
+  localStorage.setItem("arena_promo_link", promoLink);
+  
+  toast({ 
+    title: "Marketing Atualizado!", 
+    description: "As alterações já estão no site." 
+  });
+};
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
@@ -829,12 +783,12 @@ useEffect(() => {
       </TableHeader>
       <TableBody>
         {listaEquipe.length > 0 ? (
-          listaEquipe.map((membro) => (
-            <TableRow key={membro.id} className={`border-white/5 transition-opacity ${!membro.ativo ? 'opacity-40' : ''}`}>
-              <TableCell className="font-bold italic uppercase">
-                {membro.nome} {membro.sobrenome}
-                {!membro.ativo && <span className="ml-2 text-[8px] bg-red-500 text-white px-1 rounded">BLOQUEADO</span>}
-              </TableCell>
+  listaEquipe.map((membro: any) => (
+    <TableRow key={membro.id} className={`border-white/5 transition-opacity ${!membro.ativo ? 'opacity-40' : ''}`}>
+      <TableCell className="font-bold italic uppercase">
+        {membro.nome} {membro.sobrenome}
+        {!membro.ativo && <span className="ml-2 text-[8px] bg-red-500 text-white px-1 rounded">BLOQUEADO</span>}
+      </TableCell>
               
               <TableCell className="text-[#22c55e] font-black">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(membro.total_vendas || 0)}
@@ -859,7 +813,7 @@ useEffect(() => {
                   variant="ghost" 
                   size="sm"
                   className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? 'text-red-500 hover:bg-red-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
-                  onClick={() => handleToggleStatus(membro.id, membro.ativo)}
+                  onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}
                 >
                   {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
                   <span className="ml-2 text-[9px] font-black uppercase">
@@ -892,3 +846,11 @@ useEffect(() => {
 }
 
 export default AdminDashboard;
+
+function setListaEquipe(data: any) {
+  throw new Error("Function not implemented.");
+}
+function setProdutos(arg0: any) {
+  throw new Error("Function not implemented.");
+}
+

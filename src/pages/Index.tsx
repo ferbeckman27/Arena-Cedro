@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { 
   Calendar, Clock, Users, ChevronRight, Star,
   Instagram, Facebook, Phone, MapPin, Camera, 
-  PlayCircle, MessageSquare, ArrowDown, 
-  ShieldCheck, X, Bell
+  PlayCircle, ArrowDown, 
+  ShieldCheck, X, Bell,
+  MessageCircle
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
-// Função auxiliar para evitar erro de compilação na variável slotsHoje
+import { supabase } from '@/lib/supabase';
+
 const gerarSlotsAgenda = (duracao: number) => {
   const slotsBase = [
     // --- TURNO DIURNO (R$ 80,00/h) ---
@@ -72,9 +74,10 @@ export const Index = () => {
 ];
   
 const censurarTexto = (texto: string) => {
+  if (!texto) return "";
   let textoCensurado = texto;
   PALAVRAS_BLOQUEADAS.forEach((palavra) => {
-    const regex = new RegExp(palavra, "gi"); // "gi" faz ignorar maiúsculas/minúsculas
+    const regex = new RegExp(palavra, "gi");
     textoCensurado = textoCensurado.replace(regex, "****");
   });
   return textoCensurado;
@@ -83,21 +86,24 @@ const censurarTexto = (texto: string) => {
   useEffect(() => {
   const carregarDepoimentos = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/depoimentos');
-      const data = await response.json();
+      // 1. Busca no Supabase em vez de fetch localhost
+      const { data, error } = await supabase
+        .from('depoimentos')
+        .select('*')
+        .eq('aprovado', true) // Filtro de aprovação
+        .eq('censurado', false) // Filtro de censura
+        .order('created_at', { ascending: false }); // Mais recentes primeiro
 
-      // Filtro 1: Apenas os aprovados pelo Admin
-      // Filtro 2: Apenas os que não foram censurados
-      const aprovados = data.filter((d: any) => d.aprovado === 1 && d.censurado === 0);
+      if (error) throw error;
 
-      // Aplicando sua lógica de censura de texto (opcional se o banco já estiver limpo)
-      const formatados = aprovados.map((d: any) => ({
+      // 2. Aplicando a lógica de censura local (camada extra de segurança)
+      const formatados = data.map((d: any) => ({
         ...d,
         comentario: censurarTexto(d.comentario),
-        autor: censurarTexto(d.autor)
+        // No seu SQL a coluna é 'nome_exibicao', ajuste se necessário:
+        autor: censurarTexto(d.nome_exibicao || "Anônimo") 
       }));
 
-      // Pega os 3 mais recentes para a Página Principal
       setComentarios(formatados.slice(0, 3));
     } catch (err) {
       console.error("Erro ao carregar depoimentos reais:", err);
@@ -493,7 +499,7 @@ const censurarTexto = (texto: string) => {
         {/* Efeito de Ondas de Pulso (Opcional, mas fica profissa) */}
         <span className="absolute inset-0 rounded-full bg-[#25D366] animate-ping opacity-20"></span>
         
-        <MessageSquare size={32} fill="currentColor" className="relative z-10" />
+        <MessageCircle size={32} fill="currentColor" className="relative z-10" />
         
         {/* Etiqueta Flutuante ao passar o mouse */}
         <span className="absolute right-20 bg-white text-black text-[10px] font-black uppercase py-2 px-4 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
@@ -505,14 +511,14 @@ const censurarTexto = (texto: string) => {
       <footer className="py-24 bg-black border-t border-white/5">
         <div className="container mx-auto px-4 flex flex-col items-center">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-[#22c55e] rounded-full flex items-center justify-center"><Users size={20} className="text-black" /></div>
+            <div className="w-20 h-20 bg-[#22c55e] rounded-full flex items-center justify-center"><Users size={20} className="text-black" /></div>
             <span className="text-2xl font-black italic uppercase">Arena Cedro</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 w-full max-w-5xl text-center md:text-left border-t border-white/5 pt-12">
             <div className="space-y-4">
-              <h4 className="text-[10px] uppercase font-black text-gray-500">Contato</h4>
+              <h4 className="text-[20px] uppercase font-black text-gray-500">Contato</h4>
               <a href="tel:98999910535" className="flex items-center justify-center md:justify-start gap-3 text-white hover:text-[#22c55e] transition-all font-black italic">
-                <Phone size={18} className="text-[#22c55e]" /> (98) 99991-0535
+                <Phone size={20} className="text-[#22c55e]" /> (98) 99991-0535
               </a>
             </div>
             <div className="space-y-4">
@@ -524,7 +530,7 @@ const censurarTexto = (texto: string) => {
                 className="flex items-center justify-center md:justify-start gap-3 text-gray-300 hover:text-[#22c55e] transition-all text-xs font-bold group"
               >
                 <div className="bg-[#22c55e]/10 p-2 rounded-lg group-hover:bg-[#22c55e] transition-all">
-                   <MapPin size={18} className="text-[#22c55e] group-hover:text-black shrink-0" />
+                   <MapPin size={20} className="text-[#22c55e] group-hover:text-black shrink-0" />
                 </div>
                 <span className="leading-relaxed">
                   Av. Trindade, 3126, Matinha,<br /> 
