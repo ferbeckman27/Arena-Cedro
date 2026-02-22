@@ -168,7 +168,7 @@ const ClienteDashboard = () => {
     horarios.push(`${String(h).padStart(2, '0')}:30`);
   }
   // Noite (18:00 às 22:00) 
-  for (let h = 18; h <= 22; h++) {
+  for (let h = 18; h <= 21; h++) {
     horarios.push(`${String(h).padStart(2, '0')}:00`);
     horarios.push(`${String(h).padStart(2, '0')}:30`);
   }
@@ -177,6 +177,12 @@ const ClienteDashboard = () => {
 
   const handleFinalizePedido = async () => {
     if (!horarioSelecionado) return;
+
+    const mapaBlocos: Record<number, number> = {
+    30: 1, 
+    60: 2,
+    90: 3
+  };
 
     try {
       // 1. Criar a Reserva
@@ -187,7 +193,8 @@ const ClienteDashboard = () => {
         horario_inicio: horarioSelecionado,
         valor_total: totalGeral,
         forma_pagamento: metodoPagamento,
-        status: 'pendente'
+        status: 'pendente',
+        bloco_id: mapaBlocos[selectedDuration]
       }]).select().single();
 
       if (resError) throw resError;
