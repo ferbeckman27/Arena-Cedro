@@ -384,32 +384,26 @@ const handleTipoReserva = (tipo: string) => {
         </label>
         <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
   <button
-    type="button" // Adicione isso para evitar que o formulário dê reload
-    onClick={() => {
-      console.log("Selecionou Avulsa"); // Teste no console
-      setTipoReserva('avulsa');
-    }}
+    type="button" 
+    onClick={() => setTipoReserva('avulsa')} // Define como avulsa
     className={cn(
       "py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2",
       tipoReserva === 'avulsa' 
-        ? "bg-[#22c55e] text-black shadow-lg shadow-[#22c55e]/20" 
-        : "text-gray-500 hover:text-white hover:bg-white/5"
+        ? "bg-[#22c55e] text-black shadow-lg" 
+        : "text-gray-500 hover:text-white"
     )}
   >
     ⚽ Avulsa
   </button>
 
   <button
-    type="button" // Adicione isso para evitar que o formulário dê reload
-    onClick={() => {
-      console.log("Selecionou Fixa"); // Teste no console
-      setTipoReserva('fixa');
-    }}
+    type="button" 
+    onClick={() => setTipoReserva('fixa')} // Define como fixa
     className={cn(
       "py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2",
       tipoReserva === 'fixa' 
-        ? "bg-[#22c55e] text-black shadow-lg shadow-[#22c55e]/20" 
-        : "text-gray-500 hover:text-white hover:bg-white/5"
+        ? "bg-[#22c55e] text-black shadow-lg" 
+        : "text-gray-500 hover:text-white"
     )}
   >
     📅 Fixa
