@@ -511,7 +511,7 @@ const censurarTexto = (texto: string) => {
       <footer className="py-24 bg-black border-t border-white/5">
         <div className="container mx-auto px-4 flex flex-col items-center">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-20 h-20 bg-[#22c55e] rounded-full flex items-center justify-center"><Users size={20} className="text-black" /></div>
+            <div className="w-20 h-20 bg-[#22c55e] rounded-full flex items-center justify-center"><Users size={10} className="text-black" /></div>
             <span className="text-2xl font-black italic uppercase">Arena Cedro</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 w-full max-w-5xl text-center md:text-left border-t border-white/5 pt-12">
@@ -522,7 +522,7 @@ const censurarTexto = (texto: string) => {
               </a>
             </div>
             <div className="space-y-4">
-              <h4 className="text-[10px] uppercase font-black text-gray-500 italic tracking-widest">Localização</h4>
+              <h4 className="text-[20px] uppercase font-black text-gray-500 italic tracking-widest">Localização</h4>
               <a 
                 href="https://www.google.com/maps/search/?api=1&query=Av.+Trindade,+3126,+Matinha,+São+José+de+Ribamar+-+MA" 
                 target="_blank" 
@@ -539,13 +539,13 @@ const censurarTexto = (texto: string) => {
               </a>
             </div>
             <div className="space-y-4">
-              <h4 className="text-[10px] uppercase font-black text-gray-500">Redes Sociais</h4>
+              <h4 className="text-[20px] uppercase font-black text-gray-500">Redes Sociais</h4>
               <div className="flex justify-center md:justify-start gap-4">
                 <a href="https://www.instagram.com/arenacedrofut7/" target="_blank" className="p-3 bg-white/5 rounded-xl hover:bg-[#22c55e] hover:text-black transition-all"><Instagram size={40} /></a>
               </div>
             </div>
             <div className="space-y-4">
-              <h4 className="text-[10px] uppercase font-black text-gray-500">Acesso Restrito</h4>
+              <h4 className="text-[20px] uppercase font-black text-gray-500">Acesso Restrito</h4>
               <Button 
   className="bg-[#22c55e] hover:bg-[#1db053] text-black text-[10px] md:text-xs py-5 px-6 rounded-xl font-black uppercase italic transition-all active:scale-95 shadow-[0_5px_20px_-5px_rgba(34,197,94,0.4)]" 
   onClick={() => navigate("/adminlogin")}
@@ -555,7 +555,7 @@ const censurarTexto = (texto: string) => {
 </Button>
             </div>
           </div>
-          <p className="mt-20 text-[9px] text-gray-800 font-bold uppercase italic tracking-widest">© 2026 Arena Cedro.</p>
+          <p className="mt-20 text-[10px] text-gray-800 font-bold uppercase italic tracking-widest">© 2026 Arena Cedro. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
