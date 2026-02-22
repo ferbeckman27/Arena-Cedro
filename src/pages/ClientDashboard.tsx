@@ -182,6 +182,7 @@ const ClienteDashboard = () => {
       // 1. Criar a Reserva
       const { data: reserva, error: resError } = await supabase.from('reservas').insert([{
         cliente_id: Number(userData.id),
+        tipo: tipoReserva,
         data_reserva: diaSelecionado.toISOString().split('T')[0],
         horario_inicio: horarioSelecionado,
         valor_total: totalGeral,
