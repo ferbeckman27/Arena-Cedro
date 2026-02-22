@@ -273,7 +273,6 @@ const handleTipoReserva = (tipo: string) => {
             <TabsTrigger value="feedback" className="rounded-xl font-bold uppercase italic">Avaliar</TabsTrigger>
             <TabsTrigger value="perfil" className="rounded-xl font-bold uppercase italic">Perfil</TabsTrigger>
           </TabsList>
-        </Tabs>
 
           {/* AGENDA */}
 <TabsContent value="agendar" className="grid lg:grid-cols-12 gap-8 outline-none border-none">
@@ -585,6 +584,7 @@ const handleTipoReserva = (tipo: string) => {
     </Card>
   </div>
 </TabsContent>
+</Tabs>
       </main>
 
       {/* MODAL DE CHECKOUT UNIFICADO */}
@@ -677,7 +677,3 @@ const handleTipoReserva = (tipo: string) => {
 };
 
 export default ClienteDashboard;
-
-function setTipoReserva(tipo: string) {
-  throw new Error("Function not implemented.");
-}
