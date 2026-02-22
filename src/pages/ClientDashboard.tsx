@@ -176,59 +176,90 @@ const ClienteDashboard = () => {
 };
 
   const handleFinalizePedido = async () => {
-    if (!horarioSelecionado) return;
+  if (!horarioSelecionado) return;
 
-    const mapaBlocos: Record<number, number> = {
-    30: 1, 
-    60: 2,
-    90: 3
-  };
+  // 1. Mapas de IDs (Confirme se esses IDs batem com seu banco!)
+  const mapaBlocos: Record<number, number> = { 30: 1, 60: 2, 90: 3 };
+  const hora = parseInt(horarioSelecionado.split(":")[0]);
+  let turno_id = 1; // Manhã
+  if (hora >= 12 && hora < 18) turno_id = 2; // Tarde
+  if (hora >= 18) turno_id = 3; // Noite
 
-    try {
-      // 1. Criar a Reserva
-      const { data: reserva, error: resError } = await supabase.from('reservas').insert([{
+  try {
+    let resError;
+    let reservaId;
+
+    if (tipoReserva === 'fixa') {
+      // --- LOGICA PARA RESERVA FIXA ---
+      const diaSemanaId = diaSelecionado.getDay() + 1; // SQL costuma usar 1 para Domingo ou Segunda
+
+      const { data: fixa, error } = await supabase.from('reservas_fixas').insert([{
         cliente_id: Number(userData.id),
-        tipo: tipoReserva,
+        dia_semana_id: diaSemanaId,
+        horario_inicio: horarioSelecionado,
+        bloco_id: mapaBlocos[selectedDuration],
+        turno_id: turno_id,
+        data_inicio: diaSelecionado.toISOString().split('T')[0],
+        ativo: true
+      }]).select().single();
+      
+      resError = error;
+      reservaId = fixa?.id;
+
+    } else {
+      // --- LOGICA PARA RESERVA AVULSA ---
+      const { data: avulsa, error } = await supabase.from('reservas').insert([{
+        cliente_id: Number(userData.id),
         data_reserva: diaSelecionado.toISOString().split('T')[0],
         horario_inicio: horarioSelecionado,
-        valor_total: totalGeral,
-        forma_pagamento: metodoPagamento,
+        bloco_id: mapaBlocos[selectedDuration],
+        turno_id: turno_id,
+        tipo: 'avulsa',
         status: 'pendente',
-        bloco_id: mapaBlocos[selectedDuration]
+        valor_total: totalGeral,
+        forma_pagamento: metodoPagamento
       }]).select().single();
-
-      if (resError) throw resError;
-
-      // 2. Inserir Itens (se houver)
-      if (cart.length > 0) {
-        const itensParaInserir = cart.map(item => ({
-          reserva_id: reserva.id,
-          produto_id: item.id,
-          quantidade: 1,
-          preco_unitario: item.preco_venda,
-          subtotal: item.preco_venda,
-          tipo: item.tipo === 'aluguel' ? 'aluguel' : 'venda'
-        }));
-        await supabase.from('itens_reserva').insert(itensParaInserir);
-      }
-
-      // 3. Feedback Final
-      if (metodoPagamento === "pix") {
-        navigator.clipboard.writeText(pixCode);
-        toast({ title: "PIX Copiado!", description: "Pague para validar sua reserva." });
-      } else {
-        toast({ title: "Confirmado!", description: "Reserva salva! Pague na recepção." });
-      }
       
-      setIsCheckoutOpen(false);
-      setCart([]);
-      setHorarioSelecionado(null);
-
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Erro ao salvar reserva." });
+      resError = error;
+      reservaId = avulsa?.id;
     }
-  };
+
+    if (resError) throw resError;
+
+    // 2. Inserir Itens na Loja (Apenas se for reserva avulsa ou se sua lógica permitir)
+    if (cart.length > 0 && reservaId && tipoReserva === 'avulsa') {
+      const itensParaInserir = cart.map(item => ({
+        reserva_id: reservaId,
+        produto_id: item.id,
+        quantidade: 1,
+        preco_unitario: item.preco_venda || item.preco,
+        subtotal: item.preco_venda || item.preco,
+        tipo: item.tipo === 'aluguel' ? 'aluguel' : 'venda'
+      }));
+      await supabase.from('itens_reserva').insert(itensParaInserir);
+    }
+
+    // 3. Feedback e Limpeza
+    if (metodoPagamento === "pix") {
+      navigator.clipboard.writeText(pixCode);
+      toast({ title: "PIX Copiado!", description: "Pague para confirmar." });
+    } else {
+      toast({ title: "Sucesso!", description: "Sua reserva foi registrada." });
+    }
+    
+    setIsCheckoutOpen(false);
+    setCart([]);
+    setHorarioSelecionado(null);
+
+  } catch (error: any) {
+    console.error("Erro ao salvar:", error);
+    toast({ 
+      variant: "destructive", 
+      title: "Erro no Banco de Dados", 
+      description: error.message || "Verifique se o horário já está ocupado." 
+    });
+  }
+};
 
   if (emManutencao) return (
     <div className="min-h-screen bg-[#060a08] flex flex-col items-center justify-center p-6 text-center">

@@ -29,39 +29,21 @@ const AdminLogin = () => {
   e.preventDefault();
 
   try {
-    // 1. Busca o funcionário pelo e-mail e verifica a senha usando o crypt do Postgres
-    // Usamos o RPC (Remote Procedure Call) para maior segurança ou uma query direta:
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .select('id, nome, tipo, senha')
-      .eq('email', email)
-      .single();
-
-    if (error || !data) throw new Error("Usuário não encontrado.");
-
-    // 2. Verifica a senha comparando o hash
-    // Nota: Em um ambiente real Supabase Auth é o ideal, mas seguindo sua lógica de banco:
-    const { data: passwordMatch } = await supabase.rpc('verificar_senha_funcionario', {
-      pass: password,
-      stored_hash: data.senha
-    });
-
-    // Se você não criou a função RPC acima, use esta lógica simplificada de comparação direta (se não houver crypt)
-    // ou busque o registro onde o crypt bata:
+    // Chama a função SQL que criamos acima
     const { data: userValid, error: loginError } = await supabase
-      .rpc('login_funcionario', { p_email: email, p_senha: password });
-
-    if (loginError || !userValid || userValid.length === 0) {
-      return toast({
-        variant: "destructive",
-        title: "Erro de Acesso",
-        description: "E-mail ou senha inválidos.",
+      .rpc('login_funcionario', { 
+        p_email: email, 
+        p_senha: password 
       });
+
+    // Se houver erro ou não retornar nenhum usuário
+    if (loginError || !userValid || userValid.length === 0) {
+      throw new Error("E-mail ou senha inválidos.");
     }
 
     const funcionario = userValid[0];
 
-    // 3. Salva a sessão localmente
+    // Salva a sessão (Dica: use sessionStorage se quiser que deslogue ao fechar a aba)
     localStorage.setItem("userName", funcionario.nome);
     localStorage.setItem("userRole", funcionario.tipo);
     localStorage.setItem("userId", String(funcionario.id));
@@ -71,7 +53,7 @@ const AdminLogin = () => {
       description: "Acesso administrativo autorizado.",
     });
     
-    // 4. Redireciona baseado no cargo
+    // Redireciona baseado no seu ENUM ('administrador' ou 'atendente')
     navigate(funcionario.tipo === "administrador" ? "/admin" : "/atendimento");
 
   } catch (error: any) {
@@ -80,8 +62,7 @@ const AdminLogin = () => {
       title: "Falha no Login",
       description: error.message || "Erro ao conectar com o banco.",
     });
-  }
-};
+  }};
 
   // FUNÇÃO DE SOLICITAR CADASTRO (ENVIA PARA O BANCO)
   const handleRequestAccess = async (e: React.FormEvent) => {
