@@ -324,16 +324,16 @@ const [estoque, setEstoque] = useState<any[]>([]);
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-4 bg-white/5 rounded-xl border border-white/5">
                       <p className="text-[10px] text-gray-400 uppercase">PIX (Sinais)</p>
-                      <p className="text-xl font-black text-[#22c55e]">R$ {resumoFinanceiro.pix.toFixed(2)}</p>
+                     <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.pix || 0).toFixed(2)}</p>
                     </div>
                     <div className="p-4 bg-white/5 rounded-xl border border-white/5">
                       <p className="text-[10px] text-gray-400 uppercase">Dinheiro</p>
-                      <p className="text-xl font-black text-[#22c55e]">R$ {resumoFinanceiro.dinheiro.toFixed(2)}</p>
+                      <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.dinheiro || 0).toFixed(2)}</p>
                     </div>
                   </div>
                   <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between">
                     <span className="text-xs uppercase font-bold">A receber no local:</span>
-                    <span className="font-black text-red-500">R$ {resumoFinanceiro.restante.toFixed(2)}</span>
+                    <span className="font-black text-red-500">R$ {(resumoFinanceiro.restante || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </DialogContent>
@@ -573,7 +573,7 @@ const [estoque, setEstoque] = useState<any[]>([]);
               {item.tipo.toUpperCase()}
             </Badge>
             <p className="font-bold text-lg mt-2">{item.nome}</p>
-            <p className="text-[#22c55e] font-black">R$ {item.preco.toFixed(2)}</p>
+           <p className="text-[#22c55e] font-black">R$ {(item.preco || 0).toFixed(2)}</p>
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
             <span className="text-xs font-bold text-gray-500 uppercase">Estoque: {item.qtd}</span>
@@ -954,26 +954,3 @@ const [estoque, setEstoque] = useState<any[]>([]);
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
 export default AtendenteDashboard;
-
-function setAgendaStatus(novaAgenda: any) {
-  throw new Error("Function not implemented.");
-}
-
-
-function toast(arg0: { title: string; }) {
-  throw new Error("Function not implemented.");
-}
-
-
-function setClientes(arg0: (prev: any) => any) {
-  throw new Error("Function not implemented.");
-}
-
-
-function setEditandoId(arg0: null) {
-  throw new Error("Function not implemented.");
-}
-function buscarMensalistas() {
-  throw new Error("Function not implemented.");
-}
-
