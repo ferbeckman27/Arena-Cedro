@@ -154,7 +154,7 @@ const [estoque, setEstoque] = useState<any[]>([]);
     for (let h = 9; h <= 17; h++) {
       horas.push(`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`);
     }
-    for (let h = 18; h <= 22; h++) {
+    for (let h = 18; h <= 21; h++) {
       horas.push(`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`);
     }
     return horas;
