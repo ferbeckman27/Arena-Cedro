@@ -23,6 +23,7 @@ const AdminLogin = () => {
   const [sobrenome, setSobrenome] = useState("");
   const [emailPessoal, setEmailPessoal] = useState("");
   const [role, setRole] = useState<string>("");
+  const [telefone, setTelefone] = useState("");
 
   // FUNÇÃO DE LOGIN (CONECTADA AO BANCO)
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -54,7 +55,11 @@ const AdminLogin = () => {
     });
     
     // Redireciona baseado no seu ENUM ('administrador' ou 'atendente')
-    navigate(funcionario.tipo === "administrador" ? "/admin" : "/atendimento");
+    if (funcionario.tipo === "administrador") {
+  navigate("/admindashboard");
+} else {
+  navigate("/atendentedashboard");
+}
 
   } catch (error: any) {
     toast({
@@ -70,15 +75,16 @@ const AdminLogin = () => {
   
   try {
     const { error } = await supabase
-      .from('funcionarios')
-      .insert([{ 
-        nome, 
-        sobrenome, 
-        email_pessoal: emailPessoal, 
-        tipo: role,
-        email: `${nome.toLowerCase()}@atendcedro.com`, // Sugestão de e-mail corporativo
-        senha: 'PENDENTE_CADASTRO' // Senha provisória até aprovação
-      }]);
+  .from('funcionarios')
+  .insert([{ 
+    nome, 
+    sobrenome, 
+    email_pessoal: emailPessoal, 
+    tipo: role,
+    telefone: telefone, // <--- Adicione este campo para não dar erro de banco!
+    email: `${nome.toLowerCase()}.${sobrenome.toLowerCase()}@atendcedro.com`,
+    senha: 'PENDENTE_CADASTRO' 
+  }]);
 
     if (error) throw error;
 
@@ -174,6 +180,7 @@ const AdminLogin = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <Input required placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                   <Input required placeholder="Sobrenome" value={sobrenome} onChange={(e)=>setSobrenome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                  <Input required placeholder="Telefone" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white col-span-2" />
                 </div>
                 <Select required onValueChange={setRole}>
                   <SelectTrigger className="bg-white/5 border-white/10 text-white">
