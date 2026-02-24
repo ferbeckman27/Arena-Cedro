@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, Send, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserPlus, ArrowLeft } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { supabase } from '@/lib/supabase';
 
@@ -15,93 +15,117 @@ const AdminLogin = () => {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
+  const [loading, setLoading] = useState(false);
   
-  // Estados para os inputs
+  // Estados para Login
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  // Estados para Cadastro (Operado pelo Admin)
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
-  const [emailPessoal, setEmailPessoal] = useState("");
   const [role, setRole] = useState<string>("");
   const [telefone, setTelefone] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
 
-  // FUNÇÃO DE LOGIN (CONECTADA AO BANCO)
+  // --- VALIDAÇÃO DE SENHA ---
+  const validarSenha = (senha: string) => {
+    if (senha.length !== 8) return "A senha deve ter exatamente 8 caracteres.";
+    if (!/[a-zA-Z]/.test(senha)) return "A senha deve conter letras.";
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(senha)) return "A senha deve conter caracteres especiais.";
+
+    const numerosEncontrados = senha.match(/\d/g);
+    if (!numerosEncontrados) return "A senha deve conter pelo menos um número.";
+
+    const temRepetido = numerosEncontrados.some((num, idx) => numerosEncontrados.indexOf(num) !== idx);
+    if (temRepetido) return "Os números na senha não podem ser repetidos.";
+
+    return null;
+  };
+
+  // --- FUNÇÃO DE LOGIN ---
   const handleAdminLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    // Chama a função SQL que criamos acima
-    const { data: userValid, error: loginError } = await supabase
-  .rpc('login_funcionario', { 
-    p_email: email,  // tem que ser p_email
-    p_senha: password // tem que ser p_senha
-  });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
 
-    // Se houver erro ou não retornar nenhum usuário
-    if (loginError || !userValid || userValid.length === 0) {
-      throw new Error("E-mail ou senha inválidos.");
+      if (error) throw new Error("Credenciais corporativas inválidas.");
+
+      const userEmail = data.user?.email || "";
+      
+      toast({ title: "Bem-vindo!", description: "Acesso autorizado." });
+      
+      if (userEmail.endsWith('@admincedro.com')) {
+        navigate("/admindashboard");
+      } else {
+        navigate("/atendentedashboard");
+      }
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Falha no Login", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- FUNÇÃO DE CADASTRO (Cria no Auth e na Tabela Funcionarios) ---
+  const handleCreateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const erroSenha = validarSenha(novaSenha);
+    if (erroSenha) {
+      toast({ variant: "destructive", title: "Senha Inválida", description: erroSenha });
+      return;
     }
 
-    const funcionario = userValid[0];
+    setLoading(true);
+    try {
+      // 1. Gera o e-mail automático
+      const sufixo = role === "administrador" ? "@admincedro.com" : "@atendcedro.com";
+      const emailGerado = `${nome.toLowerCase()}${sobrenome.toLowerCase()}${sufixo}`;
 
-    // Salva a sessão (Dica: use sessionStorage se quiser que deslogue ao fechar a aba)
-    localStorage.setItem("userName", funcionario.nome);
-    localStorage.setItem("userRole", funcionario.tipo);
-    localStorage.setItem("userId", String(funcionario.id));
-    
-    toast({
-      title: `Bem-vindo, ${funcionario.nome}!`,
-      description: "Acesso administrativo autorizado.",
-    });
-    
-    // Redireciona baseado no seu ENUM ('administrador' ou 'atendente')
-    if (funcionario.tipo === "administrador") {
-  navigate("/admindashboard");
-} else {
-  navigate("/atendentedashboard");
-}
+      // 2. Cria o usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: emailGerado,
+        password: novaSenha,
+      });
 
-  } catch (error: any) {
-    toast({
-      variant: "destructive",
-      title: "Falha no Login",
-      description: error.message || "Erro ao conectar com o banco.",
-    });
-  }};
+      if (authError) throw authError;
 
-  // FUNÇÃO DE SOLICITAR CADASTRO (ENVIA PARA O BANCO)
-  const handleRequestAccess = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  try {
-    const { error } = await supabase
-  .from('funcionarios')
-  .insert([{ 
-    nome, 
-    sobrenome, 
-    email_pessoal: emailPessoal, 
-    tipo: role,
-    telefone: telefone, // <--- Adicione este campo para não dar erro de banco!
-    email: `${nome.toLowerCase()}.${sobrenome.toLowerCase()}@atendcedro.com`,
-    senha: 'PENDENTE_CADASTRO' 
-  }]);
+      // 3. Salva os dados na sua tabela 'funcionarios' usando o UUID gerado
+      if (authData.user) {
+        const { error: dbError } = await supabase
+          .from('funcionarios')
+          .insert([{
+            id: authData.user.id, // Liga o perfil ao Auth
+            nome,
+            sobrenome,
+            email_corporativo: emailGerado,
+            telefone,
+            tipo: role
+          }]);
 
-    if (error) throw error;
+        if (dbError) throw dbError;
+      }
 
-    toast({
-      title: "Solicitação Enviada",
-      description: "O administrador revisará seu acesso em breve.",
-    });
-    
-    setActiveTab("adminlogin"); 
-  } catch (error: any) {
-    toast({ 
-      variant: "destructive", 
-      title: "Erro ao enviar solicitação",
-      description: "E-mail já cadastrado ou erro no servidor."
-    });
-  }
-};
+      toast({
+        title: "Sucesso!",
+        description: `Funcionário ${nome} cadastrado como ${role}.`,
+      });
+      
+      // Limpeza
+      setNome(""); setSobrenome(""); setNovaSenha(""); setTelefone("");
+      setActiveTab("login");
+
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro no Cadastro", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
@@ -113,7 +137,6 @@ const AdminLogin = () => {
         <span className="text-[10px] font-black uppercase tracking-widest italic">Voltar ao site</span>
       </button>
 
-      {/* Background */}
       <div className="absolute inset-0 z-0">
         <img src={heroArena} className="w-full h-full object-cover opacity-20" alt="Arena Background" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-[#060a08]/50 to-transparent" />
@@ -125,14 +148,14 @@ const AdminLogin = () => {
             <ShieldCheck className="w-10 h-10 text-[#22c55e]" />
           </div>
           <h1 className="text-2xl font-black uppercase italic text-white tracking-tighter">Portal Corporativo</h1>
-          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Arena Cedro</p>
+          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Cedro Arena</p>
         </div>
 
         <div className="bg-[#0c120f] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8 bg-white/5 p-1 rounded-2xl h-14">
-              <TabsTrigger value="login" className="rounded-xl font-bold uppercase">Acessar</TabsTrigger>
-              <TabsTrigger value="register" className="rounded-xl font-bold uppercase">Solicitar</TabsTrigger>
+              <TabsTrigger value="login" className="rounded-xl font-bold uppercase tracking-widest">Acessar</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl font-bold uppercase tracking-widest text-[10px]">Novo Funcionário</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -168,32 +191,46 @@ const AdminLogin = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full bg-white text-black font-black h-14 rounded-2xl uppercase italic">
-                    Entrar no Painel
+                  <Button disabled={loading} type="submit" className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all">
+                    {loading ? "Autenticando..." : "Entrar no Sistema"}
                   </Button>
                 </div>
               </form>
             </TabsContent>
 
             <TabsContent value="register">
-              <form onSubmit={handleRequestAccess} className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <Input required placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
-                  <Input required placeholder="Sobrenome" value={sobrenome} onChange={(e)=>setSobrenome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
-                  <Input required placeholder="Telefone" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white col-span-2" />
+              <form onSubmit={handleCreateEmployee} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input required placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="bg-white/5 border-white/10 text-white h-12 rounded-xl" />
+                  <Input required placeholder="Sobrenome" value={sobrenome} onChange={(e)=>setSobrenome(e.target.value)} className="bg-white/5 border-white/10 text-white h-12 rounded-xl" />
                 </div>
+                
+                <Input required placeholder="Telefone" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white h-12 rounded-xl" />
+                
                 <Select required onValueChange={setRole}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                    <SelectValue placeholder="Cargo" />
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-12 rounded-xl">
+                    <SelectValue placeholder="Tipo de Acesso" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0c120f] text-white">
-                    <SelectItem value="atendente">Atendente</SelectItem>
-                    <SelectItem value="administrador">Administrador</SelectItem>
+                  <SelectContent className="bg-[#0c120f] text-white border-white/10">
+                    <SelectItem value="atendente">Atendente (@atendcedro.com)</SelectItem>
+                    <SelectItem value="administrador">Administrador (@admincedro.com)</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input required type="email" placeholder="E-mail Pessoal" value={emailPessoal} onChange={(e)=>setEmailPessoal(e.target.value)} className="bg-white/5 border-white/10 text-white" />
-                <Button type="submit" className="w-full bg-[#22c55e] text-black font-black h-14 rounded-2xl uppercase italic gap-2">
-                  <Send size={20} /> Enviar Pedido
+
+                <div className="space-y-1">
+                  <Input 
+                    required 
+                    type="password"
+                    placeholder="Definir Senha (8 caracteres)" 
+                    value={novaSenha} 
+                    onChange={(e)=>setNovaSenha(e.target.value)} 
+                    className="bg-white/5 border-white/10 text-white h-12 rounded-xl" 
+                  />
+                  <p className="text-[9px] text-[#22c55e] uppercase px-1 font-bold italic">Regra: 8 dígitos, símbolos e s/ números repetidos.</p>
+                </div>
+
+                <Button disabled={loading} type="submit" className="w-full bg-white text-black font-black h-14 rounded-2xl uppercase italic gap-2 hover:bg-gray-200">
+                  <UserPlus size={20} /> {loading ? "Cadastrando..." : "Cadastrar Funcionário"}
                 </Button>
               </form>
             </TabsContent>

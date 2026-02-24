@@ -53,6 +53,19 @@ interface CompraAntiga {
   produtoOriginal: Product; // Verifique se 'Product' também está definido!
 }
 
+interface SlotHorario {
+  inicio: string;
+  fim: string;
+  valor: number;
+}
+
+interface Reserva {
+  horario_inicio: string;
+  data_reserva: string;
+  id?: number;
+  cliente_nome?: string;
+}
+
 const ClienteDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -74,6 +87,8 @@ const ClienteDashboard = () => {
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
 
   const [historicoCompras, setHistoricoCompras] = useState<CompraAntiga[]>([]);
+
+  const [listaReservas, setListaReservas] = useState<Reserva[]>([]);
 
   const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
   
@@ -118,6 +133,19 @@ const ClienteDashboard = () => {
     inicializarDados();
   }, [userData.id]);
 
+  useEffect(() => {
+  const carregarReservasOcupadas = async () => {
+    const { data } = await supabase
+      .from('reservas')
+      .select('horario_inicio, data_reserva')
+      .eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
+
+    if (data) setListaReservas(data as Reserva[]);
+  };
+
+  carregarReservasOcupadas();
+}, [diaSelecionado]);
+
   // --- CÁLCULOS ---
   const valorApenasReserva = useMemo(() => {
     if (!horarioSelecionado) return 0;
@@ -160,19 +188,40 @@ const ClienteDashboard = () => {
     }
   };
 
-  const gerarHorarios = () => {
-  const horarios = [];
-  // Manhã e Tarde (09:00 às 17:00)
-  for (let h = 9; h <= 17; h++) {
-    horarios.push(`${String(h).padStart(2, '0')}:00`);
-    horarios.push(`${String(h).padStart(2, '0')}:30`);
+  const gerarHorarios = (duracaoMinutos: number): SlotHorario[] => {
+  const slots: SlotHorario[] = []; // Tipagem aqui também
+  const periodos = [
+    { inicio: 9, fim: 17.5 },
+    { inicio: 18, fim: 22 }
+  ];
+
+  for (const periodo of periodos) {
+    let atual = periodo.inicio;
+    
+    while (atual + duracaoMinutos / 60 <= periodo.fim) {
+      const horas = Math.floor(atual);
+      const minutos = (atual % 1) * 60;
+      
+      const inicioFormatado = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+      
+      const totalMinutosFim = horas * 60 + minutos + duracaoMinutos;
+      const fimHoras = Math.floor(totalMinutosFim / 60);
+      const fimMinutos = totalMinutosFim % 60;
+      const fimFormatado = `${String(fimHoras).padStart(2, '0')}:${String(fimMinutos).padStart(2, '0')}`;
+
+      const precoBase = horas >= 18 ? 120 : 80;
+      const valorFinal = (precoBase * duracaoMinutos) / 60;
+
+      slots.push({
+        inicio: inicioFormatado,
+        fim: fimFormatado,
+        valor: valorFinal
+      });
+
+      atual += 0.5; 
+    }
   }
-  // Noite (18:00 às 22:00) 
-  for (let h = 18; h <= 21; h++) {
-    horarios.push(`${String(h).padStart(2, '0')}:00`);
-    horarios.push(`${String(h).padStart(2, '0')}:30`);
-  }
-  return horarios;
+  return slots;
 };
 
   const handleFinalizePedido = async () => {
@@ -286,10 +335,10 @@ const handleTipoReserva = (tipo: string) => {
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
-      <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <header className="w-full bg-[#0c120f] border-b border-white/5 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex flex-col items-center">
-            <img src="/media/logo-arena.png" alt="Logo" className="w-40 h-40 object-contain" />
+            <img src="/media/logo-arena.png" alt="Logo" className="h-16 md:h-20 w-auto object-contain transition-transform hover:scale-105" />
           <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO AO PAINEL DO CLIENTE</span>
         </div>
         </div>
@@ -382,39 +431,52 @@ const handleTipoReserva = (tipo: string) => {
       </div>
 
       {/* LISTA DE HORÁRIOS DISPONÍVEIS */}
-      <ScrollArea className="h-[320px] pr-4 flex-grow">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {gerarHorarios().map((hora) => {
-            const [h, m] = hora.split(":").map(Number);
-            const dataFim = new Date(0, 0, 0, h, m + selectedDuration);
-            const fim = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
-            const isSelecionado = horarioSelecionado === hora;
+<ScrollArea className="h-[320px] pr-4 flex-grow">
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {/* Forçamos o retorno da função a ser tratado como um array de qualquer coisa (any) */}
+    {gerarHorarios(selectedDuration).map((slot: SlotHorario) => {
+      
+      // Criamos uma referência segura para a lista de reservas
+      const reservasSeguras = (listaReservas || []) as any[];
 
-            return (
-              <button
-                key={hora}
-                onClick={() => setHorarioSelecionado(hora)}
-                className={cn(
-                  "p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all h-20",
-                  isSelecionado
-                    ? "border-[#22c55e] bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]"
-                    : "border-white/5 bg-white/5 text-white hover:border-white/20"
-                )}
-              >
-                <span className="text-sm font-black italic tracking-tighter">
-                  {hora} — {fim}
-                </span>
-                <span className={cn(
-                  "text-[9px] font-bold uppercase mt-1",
-                  isSelecionado ? "text-black/60" : "text-[#22c55e]"
-                )}>
-                  Livre
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </ScrollArea>
+      // Verificamos se está ocupado comparando strings
+      const isOcupado = reservasSeguras.some((res: any) => 
+        String(res.horario_inicio) === String(slot.inicio) && 
+        String(res.data_reserva) === diaSelecionado.toLocaleDateString('sv-SE')
+      );
+
+      const isSelecionado = horarioSelecionado === slot.inicio;
+
+      return (
+        <button
+          key={slot.inicio}
+          disabled={isOcupado}
+          onClick={() => setHorarioSelecionado(slot.inicio)}
+          className={cn(
+            "p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all h-20",
+            isOcupado 
+              ? "opacity-40 cursor-not-allowed border-white/5 bg-gray-900" 
+              : isSelecionado
+                ? "border-[#22c55e] bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                : "border-white/5 bg-white/5 text-white hover:border-white/20"
+          )}
+        >
+          <span className="text-sm font-black italic tracking-tighter">
+            {slot.inicio} — {slot.fim}
+          </span>
+          <span className={cn(
+            "text-[9px] font-bold uppercase mt-1",
+            isOcupado 
+              ? "text-red-500" 
+              : isSelecionado ? "text-black/60" : "text-[#22c55e]"
+          )}>
+            {isOcupado ? "Ocupado" : `Livre • R$ ${Number(slot.valor).toFixed(2)}`}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+</ScrollArea>
 
       {/* SELETOR DE TIPO DE AGENDAMENTO (NOVO) */}
       <div className="mt-6 space-y-3">

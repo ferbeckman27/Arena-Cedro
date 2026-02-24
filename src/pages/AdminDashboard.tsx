@@ -202,6 +202,36 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
     toast({ title: "Moderação concluída." });
   };
 
+  const gerarEstruturaAgenda = (duracaoMinutos: number) => {
+  const slots = [];
+  // Define os períodos de funcionamento da Arena
+  const periodos = [
+    { inicio: 9, fim: 17.5 }, // Manhã/Tarde
+    { inicio: 18, fim: 22 }   // Noite
+  ];
+
+  for (const periodo of periodos) {
+    let atual = periodo.inicio;
+    while (atual + duracaoMinutos / 60 <= periodo.fim) {
+      const horas = Math.floor(atual);
+      const minutos = (atual % 1) * 60;
+      const inicio = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+      
+      const totalMinutosFim = horas * 60 + minutos + duracaoMinutos;
+      const fim = `${String(Math.floor(totalMinutosFim / 60)).padStart(2, '0')}:${String(totalMinutosFim % 60).padStart(2, '0')}`;
+
+      slots.push({
+        inicio,
+        fim,
+        turno: horas >= 18 ? 'noturno' : 'diurno',
+        status: 'livre'
+      });
+      atual += 0.5; // Incremento de 30 em 30 min para permitir encaixes
+    }
+  }
+  return slots;
+};
+
   const salvarProduto = async () => {
     const payload = {
       nome: formProduto.nome,
@@ -227,10 +257,44 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
     }
   };
 
-  const handleToggleStatusEquipe = async (id: number, statusAtual: boolean) => {
-    if (confirm(`Deseja ${statusAtual ? 'bloquear' : 'ativar'} este funcionário?`)) {
-      await supabase.from('funcionarios').update({ ativo: !statusAtual }).eq('id', id);
-      setListaEquipe(prev => prev.map(f => f.id === id ? { ...f, ativo: !statusAtual } : f));
+  const handleToggleStatusEquipe = async (id: string, statusAtual: boolean) => {
+    // Usamos um confirm estilizado ou o nativo para segurança
+    if (confirm(`Deseja ${statusAtual ? 'DESATIVAR' : 'ATIVAR'} este funcionário?`)) {
+      const { error } = await supabase
+        .from('funcionarios')
+        .update({ ativo: !statusAtual })
+        .eq('id', id);
+
+      if (error) {
+        toast({ variant: "destructive", title: "Erro na operação", description: error.message });
+      } else {
+        toast({ title: statusAtual ? "Funcionário Desativado" : "Funcionário Ativado" });
+        // Atualiza a lista local para refletir a mudança visualmente
+        setListaEquipe(prev => prev.map(f => f.id === id ? { ...f, ativo: !statusAtual } : f));
+      }
+    }
+  };
+
+  const editarFuncionario = async (funcionario: any) => {
+    // Aqui você pode abrir um modal. Para fins de exemplo, usaremos o prompt para campos simples
+    const novoTelefone = prompt("Editar Telefone:", funcionario.telefone);
+    const novoTurno = prompt("Editar Turno (DIURNO/NOTURNO):", funcionario.turno);
+
+    if (novoTelefone || novoTurno) {
+      const { error } = await supabase
+        .from('funcionarios')
+        .update({ 
+          telefone: novoTelefone || funcionario.telefone, 
+          turno: novoTurno || funcionario.turno 
+        })
+        .eq('id', funcionario.id);
+
+      if (error) {
+        toast({ variant: "destructive", title: "Erro ao atualizar", description: error.message });
+      } else {
+        toast({ title: "Dados atualizados com sucesso!" });
+        carregarDadosIniciais(); // Recarrega a lista completa
+      }
     }
   };
 
@@ -265,27 +329,68 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
 
   // --- AUXILIARES ---
   const slotsCalculados = useMemo(() => {
-    const detalhesPorHorario: Record<string, any> = {};
-    detalhesAgenda.forEach(d => { detalhesPorHorario[String(d.horario_inicio).slice(0, 5)] = d; });
-    return agendaSlots.map(s => {
-      const det = detalhesPorHorario[s.inicio];
-      const valor = det?.valor_total ?? (s.turno === 'noturno' ? 120 : 80) * (duracaoFiltro / 60);
+  // 1. Gera a grade vazia baseada na duração selecionada no filtro
+  const gradeMestre = gerarEstruturaAgenda(duracaoFiltro);
+
+  // 2. Cria um mapa de busca rápida para os detalhes vindos do Supabase
+  const detalhesPorHorario: Record<string, any> = {};
+  detalhesAgenda.forEach(d => { 
+    detalhesPorHorario[String(d.horario_inicio).slice(0, 5)] = d; 
+  });
+
+  // 3. Mescla a grade com os dados reais
+  return gradeMestre.map(slotVazio => {
+    const reservaReal = detalhesPorHorario[slotVazio.inicio];
+    
+    // Calcula valor padrão se não houver reserva
+    const valorPadrao = (slotVazio.turno === 'noturno' ? 120 : 80) * (duracaoFiltro / 60);
+
+    if (reservaReal) {
       return {
-        ...s,
-        valor,
-        reserva: det ? { cliente: det.cliente_nome, reservadoPor: det.reservado_por, pagamento: det.forma_pagamento, obs: det.observacoes } : null
+        ...slotVazio,
+        status: 'reservado',
+        valor: reservaReal.valor_total || valorPadrao,
+        reserva: {
+          cliente: reservaReal.cliente_nome,
+          pagamento: reservaReal.forma_pagamento,
+          obs: reservaReal.observacoes,
+          tipo: reservaReal.tipo // avulsa ou fixa
+        }
       };
-    });
-  }, [agendaSlots, detalhesAgenda, duracaoFiltro]);
+    }
+
+    return {
+      ...slotVazio,
+      valor: valorPadrao,
+      reserva: null
+    };
+  });
+}, [detalhesAgenda, duracaoFiltro]);
 
   const handleLogout = () => {
     localStorage.removeItem("isAdmin");
     navigate("/");
   };
 
-  function abrirDetalheSlot(slot: any): void {
-    throw new Error("Function not implemented.");
+  const abrirDetalheSlot = (slot: any) => {
+  if (slot.status === 'reservado') {
+    setSlotDetalhe({
+      inicio: slot.inicio,
+      fim: slot.fim,
+      cliente: slot.reserva?.cliente || "Não informado",
+      reservadoPor: slot.reserva?.reservadoPor || "Cliente (App)",
+      pagamento: slot.reserva?.pagamento || "Pendente",
+      obs: slot.reserva?.obs || "",
+      valor: slot.valor
+    });
+    setIsModalDetalheAberto(true);
+  } else {
+    toast({
+      title: "Horário Livre",
+      description: `O horário das ${slot.inicio} está disponível para reserva.`,
+    });
   }
+};
 
   function handlePagarVip(id: any): void {
     throw new Error("Function not implemented.");
@@ -305,12 +410,12 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
       {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-black/60 backdrop-blur-xl border-b border-white/5 p-4">
-        <div className="max-w-[1600px] mx-auto flex justify-between items-center">
+      <header className="w-full bg-[#0c120f] border-b border-white/5 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-center">
-              <img src="/media/logo-arena.png" alt="Logo" className="w-60 h-60 object-contain" />
-              <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO AO PAINEL ADMINISTRATIVO</span>
+              <img src="/media/logo-arena.png" alt="Logo" className="h-16 md:h-20 w-auto object-contain transition-transform hover:scale-105" />
+              <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO ADMINISTRADOR </span>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -398,26 +503,70 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
               <ScrollArea className="h-[400px] pr-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {slotsCalculados.map((slot, i) => (
-                    <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-4 rounded-2xl border text-left transition-all hover:border-[#22c55e]/50", slot.status === 'reservado' ? "bg-red-500/10 border-red-500/20" : "bg-white/5 border-white/5")}>
-                      <span className="text-[8px] font-black uppercase text-[#22c55e]">{slot.turno}</span>
-                      <p className="text-xl font-black italic">{slot.inicio}</p>
-                      <p className="text-[10px] font-bold text-gray-500 italic">R$ {Number(slot.valor).toFixed(2)}</p>
-                    </button>
+                    <button 
+  key={i} 
+  onClick={() => abrirDetalheSlot(slot)} 
+  className={cn(
+    "p-4 rounded-2xl border text-left transition-all relative overflow-hidden",
+    slot.status === 'reservado' 
+      ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/20" 
+      : "bg-white/5 border-white/5 hover:border-[#22c55e]/50"
+  )}
+>
+  <div className="flex justify-between items-start">
+    <span className="text-[8px] font-black uppercase text-[#22c55e]">{slot.turno}</span>
+    {slot.status === 'reservado' && (
+      <span className="text-[8px] bg-red-500 text-white px-1 rounded font-bold">OCUPADO</span>
+    )}
+  </div>
+  
+  <p className="text-xl font-black italic text-white">{slot.inicio}</p>
+  
+  {/* Mostra o nome do cliente resumido se estiver ocupado */}
+  {slot.status === 'reservado' ? (
+    <p className="text-[10px] font-bold text-red-400 truncate mt-1">
+      👤 {slot.reserva?.cliente}
+    </p>
+  ) : (
+    <p className="text-[10px] font-bold text-gray-500 italic mt-1">
+      R$ {Number(slot.valor).toFixed(2)}
+    </p>
+  )}
+</button>
                   ))}
                 </div>
               </ScrollArea>
               <Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
                 <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-                  <DialogHeader><DialogTitle className="italic uppercase font-black">Detalhes do horário</DialogTitle></DialogHeader>
-                  {slotDetalhe && (
-                    <div className="space-y-4 pt-2">
-                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Cliente</p><p className="font-bold">{slotDetalhe.cliente}</p></div>
-                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Quem fez a reserva</p><p className="font-bold">{slotDetalhe.reservadoPor}</p></div>
-                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Modo de pagamento</p><p className="font-bold">{slotDetalhe.pagamento}</p></div>
-                      <div><p className="text-[10px] text-gray-500 font-black uppercase">Observações</p><p className="text-sm italic">{slotDetalhe.obs || "—"}</p></div>
-                    </div>
-                  )}
-                </DialogContent>
+  <DialogHeader>
+    <DialogTitle className="italic uppercase font-black flex items-center gap-2">
+      <div className="w-2 h-6 bg-[#22c55e]" />
+      Detalhes da Reserva ({slotDetalhe?.inicio})
+    </DialogTitle>
+  </DialogHeader>
+  
+  {slotDetalhe && (
+    <div className="space-y-6 pt-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-[10px] text-gray-500 font-black uppercase">Cliente</p>
+          <p className="font-bold text-lg text-[#22c55e]">{slotDetalhe.cliente}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-gray-500 font-black uppercase">Pagamento</p>
+          <p className="font-bold uppercase">{slotDetalhe.pagamento}</p>
+        </div>
+      </div>
+
+      <div className="border-t border-white/5 pt-4">
+        <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Observações</p>
+        <div className="bg-white/5 p-3 rounded-xl min-h-[60px]">
+          <p className="text-sm italic text-gray-300">{slotDetalhe.obs || "Nenhuma observação registrada."}</p>
+        </div>
+      </div>
+      </div>
+  )}
+</DialogContent>
               </Dialog>
             </div>
           </TabsContent>
@@ -785,10 +934,14 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
         {listaEquipe.length > 0 ? (
   listaEquipe.map((membro: any) => (
     <TableRow key={membro.id} className={`border-white/5 transition-opacity ${!membro.ativo ? 'opacity-40' : ''}`}>
-      <TableCell className="font-bold italic uppercase">
-        {membro.nome} {membro.sobrenome}
-        {!membro.ativo && <span className="ml-2 text-[8px] bg-red-500 text-white px-1 rounded">BLOQUEADO</span>}
-      </TableCell>
+      <TableCell className={`font-bold italic uppercase ${!membro.ativo ? 'line-through text-gray-600' : ''}`}>
+  {membro.nome} {membro.sobrenome}
+  {!membro.ativo && (
+    <span className="ml-2 text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-black not-italic inline-block align-middle">
+      BLOQUEADO
+    </span>
+  )}
+</TableCell>
               
               <TableCell className="text-[#22c55e] font-black">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(membro.total_vendas || 0)}
@@ -846,11 +999,3 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
 }
 
 export default AdminDashboard;
-
-function setListaEquipe(data: any) {
-  throw new Error("Function not implemented.");
-}
-function setProdutos(arg0: any) {
-  throw new Error("Function not implemented.");
-}
-

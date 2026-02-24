@@ -13,41 +13,54 @@ import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
 import { supabase } from '@/lib/supabase';
 
-const gerarSlotsAgenda = (duracao: number) => {
+const gerarSlotsAgenda = (duracaoSelecionada: number) => {
   const slotsBase = [
-    // --- TURNO DIURNO (R$ 80,00/h) ---
-    { inicio: "09:00", fim30: "09:30", fim60: "10:00", fim90: "10:30", s: "livre" },
-    { inicio: "10:30", fim30: "11:00", fim60: "11:30", fim90: "12:00", s: "livre" },
-    { inicio: "12:00", fim30: "12:30", fim60: "13:00", fim90: "13:30", s: "livre" },
-    { inicio: "13:30", fim30: "14:00", fim60: "14:30", fim90: "15:00", s: "livre" },
-    { inicio: "15:00", fim30: "15:30", fim60: "16:00", fim90: "16:30", s: "livre" },
-    { inicio: "16:30", fim30: "17:00", fim60: "17:30", fim90: "18:00", s: "livre" },
+  // --- TURNO DIURNO (R$ 80,00/h) ---
+  { inicio: "09:00", fim30: "09:30", fim60: "10:00", fim90: "10:30", s: "livre" },
+  { inicio: "09:30", fim30: "10:00", fim60: "10:30", fim90: "11:00", s: "livre" },
+  { inicio: "10:00", fim30: "10:30", fim60: "11:00", fim90: "11:30", s: "livre" },
+  { inicio: "10:30", fim30: "11:00", fim60: "11:30", fim90: "12:00", s: "livre" },
+  { inicio: "11:00", fim30: "11:30", fim60: "12:00", fim90: "12:30", s: "livre" },
+  { inicio: "11:30", fim30: "12:00", fim60: "12:30", fim90: "13:00", s: "livre" },
+  { inicio: "12:00", fim30: "12:30", fim60: "13:00", fim90: "13:30", s: "livre" },
+  { inicio: "12:30", fim30: "13:00", fim60: "13:30", fim90: "14:00", s: "livre" },
+  { inicio: "13:00", fim30: "13:30", fim60: "14:00", fim90: "14:30", s: "livre" },
+  { inicio: "13:30", fim30: "14:00", fim60: "14:30", fim90: "15:00", s: "livre" },
+  { inicio: "14:00", fim30: "14:30", fim60: "15:00", fim90: "15:30", s: "livre" },
+  { inicio: "14:30", fim30: "15:00", fim60: "15:30", fim90: "16:00", s: "livre" },
+  { inicio: "15:00", fim30: "15:30", fim60: "16:00", fim90: "16:30", s: "livre" },
+  { inicio: "15:30", fim30: "16:00", fim60: "16:30", fim90: "17:00", s: "livre" },
+  { inicio: "16:00", fim30: "16:30", fim60: "17:00", fim90: "17:30", s: "livre" },
+  { inicio: "16:30", fim30: "17:00", fim60: "17:30", fim90: "18:00", s: "livre" },
+  { inicio: "17:00", fim30: "17:30", fim60: "18:00", fim90: "18:30", s: "livre" },
+  { inicio: "17:30", fim30: "18:00", fim60: "18:30", fim90: "19:00", s: "livre" },
 
-    // --- TURNO NOTURNO (R$ 120,00/h) ---
-    { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
-    { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "livre" },
-    
-    // Último slot: Se escolher 90min aqui, ele trava em 22:00 conforme seu pedido
-    { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
-    { inicio: "21:30", fim30: "22:00", fim60: "22:00", fim90: "22:00", s: "livre" },
-  ];
+  // --- TURNO NOTURNO (R$ 120,00/h) ---
+  { inicio: "18:00", fim30: "18:30", fim60: "19:00", fim90: "19:30", s: "livre" },
+  { inicio: "18:30", fim30: "19:00", fim60: "19:30", fim90: "20:00", s: "livre" },
+  { inicio: "19:00", fim30: "19:30", fim60: "20:00", fim90: "20:30", s: "livre" },
+  { inicio: "19:30", fim30: "20:00", fim60: "20:30", fim90: "21:00", s: "livre" },
+  { inicio: "20:00", fim30: "20:30", fim60: "21:00", fim90: "21:30", s: "livre" },
+  { inicio: "20:30", fim30: "21:00", fim60: "21:30", fim90: "22:00", s: "livre" },
+  
+  // LIMITES DE FECHAMENTO (Travando em 22:00)
+  { inicio: "21:00", fim30: "21:30", fim60: "22:00", fim90: "22:00", s: "livre" },
+  { inicio: "21:30", fim30: "22:00", fim60: "22:00", fim90: "22:00", s: "livre" },
+];
 
   return slotsBase.map((slot) => {
     const hora = parseInt(slot.inicio.split(":")[0]);
     const isNoturno = hora >= 18;
     
-    // Escolhe o horário de fim baseado na duração selecionada
-    const fim = duracao === 30 ? slot.fim30 : duracao === 60 ? slot.fim60 : slot.fim90;
-    
+    const fim = duracaoSelecionada === 30 ? slot.fim30 : duracaoSelecionada === 60 ? slot.fim60 : slot.fim90;
     const precoBase = isNoturno ? 120 : 80;
-    // Cálculo do valor garantindo que nunca seja undefined
-    const valorCalculado = (precoBase / 60) * duracao;
+    const valorCalculado = (precoBase / 60) * duracaoSelecionada;
 
     return {
       inicio: slot.inicio,
       fim: fim,
       turno: isNoturno ? "noturno" : "diurno",
-      valor: valorCalculado || 0, // Fallback para 0 para evitar o erro de toFixed
+      valor: valorCalculado || 0,
       status: slot.s === "reservado" || slot.s === "ocupado" ? "reservado" : "livre",
     };
   });

@@ -15,13 +15,18 @@ import {
   Package,
   AlertCircle,
   BellRing,
-  Trash2
+  Trash2,
+  Clock,
+  Table
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { supabase } from '@/lib/supabase';
+import { TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { AlertDialogHeader, AlertDialogFooter } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@radix-ui/react-alert-dialog";
 
 const AtendenteDashboard = () => {
   const navigate = useNavigate();
@@ -44,10 +49,10 @@ const AtendenteDashboard = () => {
   const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
 
   const [novoVip, setNovoVip] = useState({
-    nome: "",
-    dia: "SEG",
-    horario: "19:00",
-    metodoPgto: "Mensal/PIX",
+   nome: "",
+    dia: "",
+    horario: "",
+    metodoPgto: "",
     observacao: ""
   });
 
@@ -62,14 +67,66 @@ const AtendenteDashboard = () => {
     responsavel?: string;
   }
 
+ interface Produto {
+   id: number;
+   nome: string;
+   tipo: "venda" | "aluguel";
+   preco: number;
+   preco_venda?: number;
+   preco_aluguel?: number;
+   estoque: number;   
+ }
+
+ interface ReservaCompleta {
+    id: number;
+    data_reserva: string;
+    horario_inicio: string;
+    horario_fim: string;
+    tipo: 'avulsa' | 'fixa';
+    valor_total: number;
+    valor_pago_sinal: number;
+    reserva_fixa_id: number | null;
+    forma_pagamento: string;
+    pago: boolean;
+    clientes: { nome: string } | null;
+ }
+
+  interface SlotAgenda {
+    inicio: string;
+    fim: string;
+    turno: string;
+    valor: number;
+    status: string;
+  }
+
   const [mensalistas, setMensalistas] = useState<Mensalista[]>([
   // Adicione um exemplo para teste ou deixe vazio []
-  { id: 1, nome: "João Silva", dia: "SEG", horario: "19:00", metodoPgto: "Dinheiro" }
+  { id: 1, nome: "João Silva", dia: "SEG", horario: "19:00", metodoPgto: "Dinheiro" },
+  { id: 2, nome: "Maria Oliveira", dia: "QUA", horario: "18:30", metodoPgto: "PIX" }
  ]);
 
 const [estoque, setEstoque] = useState<any[]>([]);
   const [clientes, setClientes] = useState<{ id: number; nome: string; sobrenome?: string; status?: string; telefone: string; obs?: string; isVip?: boolean }[]>([]);
   const [alertas, setAlertas] = useState<{ id: number; cliente: string; cliente_id?: number; obs: string; tipo: string; alerta?: boolean }[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [listaReservas, setListaReservas] = useState<ReservaCompleta[]>([]);
+
+  const carregarReservasFinancas = async () => {
+  const { data, error } = await supabase
+    .from('reservas')
+    .select(`
+      *,
+      clientes ( nome )
+    `)
+    .order('data_reserva', { ascending: true });
+
+  if (error) {
+    console.error(error);
+  } else {
+    // Garantimos que os dados batem com a nossa interface
+    setListaReservas(data as unknown as ReservaCompleta[]);
+  }
+};
 
   // --- CARREGAMENTO DE DADOS (SUPABASE) ---
 
@@ -149,16 +206,53 @@ const [estoque, setEstoque] = useState<any[]>([]);
     return days;
   }, [mesAtual]);
 
-  const listaHorarios = useMemo(() => {
-    const horas = [];
-    for (let h = 9; h <= 17; h++) {
-      horas.push(`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`);
+  const gerarSlotsAgenda = (duracaoMinutos: number): SlotAgenda[] => {
+  const slots: SlotAgenda[] = [];
+  let atual = new Date();
+  atual.setHours(8, 0, 0); // Começa às 08:00
+  const fimDia = 22; // Termina às 22:00
+
+  while (atual.getHours() < fimDia) {
+    const inicio = atual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const valorBase = atual.getHours() >= 18 ? 120 : 80;
+    
+    atual.setMinutes(atual.getMinutes() + duracaoMinutos);
+    const fim = atual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    if (atual.getHours() <= fimDia) {
+      slots.push({
+        inicio,
+        fim,
+        turno: atual.getHours() < 12 ? 'Manhã' : atual.getHours() < 18 ? 'Tarde' : 'Noite',
+        valor: (valorBase * duracaoMinutos) / 60,
+        status: 'livre'
+      });
     }
-    for (let h = 18; h <= 21; h++) {
-      horas.push(`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`);
-    }
-    return horas;
-  }, []);
+  }
+  return slots;
+};
+
+  const listaSlotsAgendamento = useMemo(() => {
+  // Forçamos a tipagem como 'any' aqui para evitar o erro do .map
+  const slotsCalculados = gerarSlotsAgenda(Number(duracao)) as any[];
+
+  return slotsCalculados.map((slot) => {
+    const dataFormatada = diaSelecionado.toLocaleDateString('sv-SE');
+
+    const reservaEncontrada = listaReservas?.find((reserva) => {
+      return (
+        reserva.horario_inicio === slot.inicio &&
+        reserva.data_reserva === dataFormatada
+      );
+    });
+
+    return {
+      ...slot,
+      status: reservaEncontrada ? "reservado" : "livre",
+      detalhes: reservaEncontrada || null
+    };
+  }) as SlotAgenda[];
+}, [duracao, listaReservas, diaSelecionado]);
 
   const clientesComObs = useMemo(() => clientes.map(c => {
     const obsDoCliente = alertas.filter(a => a.cliente_id === c.id);
@@ -179,16 +273,111 @@ const [estoque, setEstoque] = useState<any[]>([]);
     setItensCarrinho(itensCarrinho.filter(item => item.idUnico !== idUnico));
   };
 
-  const verificarDisponibilidade = (horaInicio: string, min: number) => {
-    const indexInicio = listaHorarios.indexOf(horaInicio);
-    const slotsNecessarios = min / 30;
-    for (let i = 0; i < slotsNecessarios; i++) {
-      const horaCheck = listaHorarios[indexInicio + i];
-      const idCheck = `${diaSelecionado.toDateString()}-${horaCheck}`;
-      if (agendaStatus[idCheck]) return false;
+  const finalizarPedidoReserva = async (reservaId: number) => {
+  setLoading(true);
+  try {
+    // 1. Pegamos o ID do funcionário logado (para o ranking da View de Performance)
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 2. Formatamos os itens para o padrão da tabela 'itens_reserva'
+    const novosItens = itensCarrinho.map(item => ({
+      reserva_id: reservaId,
+      produto_id: item.id,
+      tipo: item.tipo, // 'venda' ou 'aluguel'
+      quantidade: 1, // Você pode adicionar um campo 'quantidade' no estado se desejar
+      preco_unitario: item.preco,
+      subtotal: item.preco,
+      pago: false
+    }));
+
+    // 3. Salvamos no Supabase
+    const { error } = await supabase
+      .from('itens_reserva')
+      .insert(novosItens);
+
+    if (error) throw error;
+
+    // 4. Limpamos o carrinho e avisamos o usuário
+    setItensCarrinho([]);
+    toast({ 
+      title: "Pedido Finalizado!", 
+      description: "Itens vinculados à reserva e estoque atualizado." 
+    });
+
+  } catch (error: any) {
+    toast({ 
+      variant: "destructive", 
+      title: "Erro ao salvar pedido", 
+      description: error.message 
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+const gerarReservasDoMes = async (reservaFixaId: number, clienteId: number, valorMensal: number) => {
+  const datas = [];
+  const hoje = new Date();
+  
+  // Exemplo: Gerar para as próximas 4 semanas
+  for (let i = 0; i < 4; i++) {
+    const dataReserva = new Date();
+    dataReserva.setDate(hoje.getDate() + (i * 7)); // Soma 7 dias a cada volta
+    
+    datas.push({
+      cliente_id: clienteId,
+      reserva_fixa_id: reservaFixaId,
+      data_reserva: dataReserva.toISOString().split('T')[0],
+      horario_inicio: "19:00", // Pega do estado da reserva fixa
+      tipo: 'fixa',
+      valor_total: valorMensal / 4, // Divide o valor total pelas semanas
+      pago: false,
+      valor_pago_sinal: 0
+    });
+  }
+
+  const { error } = await supabase.from('reservas').insert(datas);
+  if (error) console.error("Erro ao gerar parcelas:", error);
+};
+
+const totalCarrinho = useMemo(() => {
+  return itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
+}, [itensCarrinho]);
+
+  const verificarDisponibilidade = (horaInicio: string, duracaoMinutos: number) => {
+  // Encontramos a posição do horário de início na nossa nova lista de slots
+  const indexInicio = listaSlotsAgendamento.findIndex(s => s.inicio === horaInicio);
+  
+  if (indexInicio === -1) return false;
+
+  const slotsNecessarios = duracaoMinutos / 30;
+
+  // Verificamos se os próximos blocos de 30min estão livres
+  for (let i = 0; i < slotsNecessarios; i++) {
+    const slotParaCheck = listaSlotsAgendamento[indexInicio + i];
+    
+    // Se o slot não existir (passou das 22h) ou se o status não for "livre"
+    if (!slotParaCheck || slotParaCheck.status !== "livre") {
+      return false;
     }
-    return true;
-  };
+  }
+  
+  return true;
+};
+
+  const carregarProdutos = async () => {
+  const { data } = await supabase.from('produtos').select('*').order('nome');
+  if (data) {
+    setProdutos(data.map(p => ({
+      id: p.id,
+      nome: p.nome,
+      tipo: p.tipo,
+      // Usamos o preco_venda ou preco_aluguel dependendo do tipo
+      preco: p.preco_venda ?? p.preco_aluguel ?? 0, 
+      estoque: p.quantidade_estoque ?? 0 // Garanta que o nome aqui seja igual ao da interface
+    })));
+  }
+};
 
   // --- AÇÕES MENSALISTAS ---
   const handleSuspenderMensalista = async (id: number) => {
@@ -229,49 +418,75 @@ const [estoque, setEstoque] = useState<any[]>([]);
   };
 
   // --- LÓGICA DE AGENDAMENTO COMPLETA ---
-  function handleAgendar(horaInicio: string, clienteNome: string) {
-    if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
-    const duracaoMin = parseInt(duracao, 10);
+  async function handleAgendar(slot: any, clienteNome: string) {
+  if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
+  
+  const duracaoMin = parseInt(duracao, 10);
+  setLoading(true);
 
-    if (!verificarDisponibilidade(horaInicio, duracaoMin)) {
-      return toast({ variant: "destructive", title: "Conflito de Horário!" });
+  try {
+    // 1. Verificação de Conflito (Frontend)
+   if (!verificarDisponibilidade(slot.inicio, duracaoMin)) {
+      throw new Error("Conflito de Horário! Outro jogador já reservou este slot.");
     }
 
-    metodoPgto === 'pix' ? playApito() : playTorcida();
-
-    const horaH = parseInt(horaInicio.split(":")[0]);
+    // 2. Cálculo de Valores (Sua lógica original mantida)
+    const horaH = parseInt(slot.inicio.split(":")[0]);
     const valorBase = horaH >= 18 ? 120 : 80;
     const valorReserva = valorBase * (duracaoMin / 60);
-    const totalProdutos = itensTemp.reduce((acc, item) => acc + item.preco, 0);
+    const totalProdutos = itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
     const totalGeral = valorReserva + totalProdutos;
     const valorSinal = metodoPgto === "pix" ? totalGeral * 0.5 : totalGeral;
 
-    const idDataRaiz = `${diaSelecionado.toDateString()}-${horaInicio}`;
-    const slotsNecessarios = duracaoMin / 30;
-    const novaAgenda = { ...agendaStatus };
-    const indexBase = listaHorarios.indexOf(horaInicio);
+    // 3. Pegar ID do funcionário logado
+    const { data: { user } } = await supabase.auth.getUser();
 
-    for (let i = 0; i < slotsNecessarios; i++) {
-      const horaOcupada = listaHorarios[indexBase + i];
-      if (!horaOcupada) break;
-      novaAgenda[`${diaSelecionado.toDateString()}-${horaOcupada}`] = {
-        cliente: clienteNome,
-        isRaiz: i === 0,
-        referenciaRaiz: idDataRaiz,
+    // 4. Salvar Reserva Principal no Supabase
+    const { data: reserva, error: resError } = await supabase
+      .from('reservas')
+      .insert([{
+        cliente_nome: clienteNome,
+        data_reserva: diaSelecionado.toLocaleDateString('sv-SE'),
+        horario_inicio: slot.inicio,
+        horario_fim: slot.fim,
         duracao: duracaoMin,
-        metodo: metodoPgto,
-        valorTotal: totalGeral,
-        valorPagoAgora: valorSinal,
-        restante: totalGeral - valorSinal,
-        itens: i === 0 ? itensTemp : []
-      };
+        valor_total: totalGeral,
+        forma_pagamento: metodoPgto,
+        funcionario_id: user?.id,
+        pago: metodoPgto !== 'pix'
+      }])
+      .select()
+      .single();
+
+    if (resError) throw resError;
+
+    // 5. Salvar Itens do Carrinho
+    if (itensCarrinho.length > 0) {
+      await supabase.from('itens_reserva').insert(
+        itensCarrinho.map(item => ({
+          reserva_id: reserva.id,
+          produto_id: item.id,
+          tipo: item.tipo,
+          quantidade: 1,
+          preco_unitario: item.preco,
+          subtotal: item.preco
+        }))
+      );
     }
 
-    setAgendaStatus(novaAgenda);
-    setItensTemp([]);
-    setIsModalAberto(false);
+    metodoPgto === 'pix' ? playApito() : playTorcida();
     toast({ title: "Reserva Confirmada!" });
+
+    setItensCarrinho([]);
+    buscarDadosIniciais(); 
+    carregarReservasFinancas(); // Atualiza a lista de reservas
+    
+  } catch (error: any) {
+    toast({ variant: "destructive", title: "Erro", description: error.message });
+  } finally {
+    setLoading(false);
   }
+}
 
   const limparHorario = (id: string) => {
     const reserva = agendaStatus[id];
@@ -300,49 +515,148 @@ const [estoque, setEstoque] = useState<any[]>([]);
     throw new Error("Function not implemented.");
   }
 
+  const handleLiquidarReserva = async (id: number, total: number) => {
+  try {
+    const { error } = await supabase
+      .from('reservas')
+      .update({ 
+        pago: true, 
+        valor_pago_sinal: total,
+        data_pagamento: new Date().toISOString() 
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    toast({
+      title: "Pagamento Confirmado",
+      description: "A reserva foi movida para o histórico de concluídas.",
+      className: "bg-[#0c120f] border-[#22c55e] text-white"
+    });
+    
+    buscarDadosIniciais(); // Função que faz o fetch novamente
+  } catch (e: any) {
+    toast({ variant: "destructive", title: "Erro ao quitar", description: e.message });
+  }
+};
+
+const carregarDadosFinanceiros = async () => {
+  const { data, error } = await supabase
+    .from('reservas')
+    .select(`
+      *,
+      clientes ( nome )
+    `)
+    .order('data_reserva', { ascending: true });
+
+  if (data) {
+    // Forçamos o TypeScript a entender que o que veio do banco segue nossa interface
+    setListaReservas(data as unknown as ReservaCompleta[]);
+  }
+};
+
   return (
-    <div className="min-h-screen bg-[#060a08] text-white font-sans">
-      {/* HEADER ADM */}
-      <header className="border-b border-white/10 bg-black/60 p-4 sticky top-0 z-50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex flex-col items-center">
-            <img src="/media/logo-arena.png" alt="Logo" className="w-60 h-60 object-contain" />
-            <span className="text-[20px] font-black uppercase text-[#22c55e]">BEM VINDO ATENDENTE</span>
+  <div className="min-h-screen bg-[#060a08] text-white font-sans">
+    {/* HEADER ADM - COMPACTO E FUNCIONAL */}
+    <header className="w-full bg-[#0c120f] border-b border-white/5 px-6 py-3">
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        
+        {/* LADO ESQUERDO: LOGO E BOAS-VINDAS */}
+        <div className="flex items-center gap-6">
+          <img 
+            src="/media/logo-arena.png" 
+            alt="Logo" 
+            className="h-20 md:h-24 w-auto object-contain transition-transform hover:scale-105" 
+          />
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
+            <span className="text-xl font-black italic uppercase text-white">BEM VINDO ATENDENTE</span>
           </div>
-          </div>
-          <div className="flex gap-2">
-            {/* BOTÃO FECHAR CAIXA */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-black">
-                  <DollarSign size={16} className="mr-1"/> CAIXA
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-                <DialogHeader><DialogTitle className="italic uppercase">Resumo {diaSelecionado.toLocaleDateString()}</DialogTitle></DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                      <p className="text-[10px] text-gray-400 uppercase">PIX (Sinais)</p>
-                     <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.pix || 0).toFixed(2)}</p>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                      <p className="text-[10px] text-gray-400 uppercase">Dinheiro</p>
-                      <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.dinheiro || 0).toFixed(2)}</p>
-                    </div>
+        </div>
+
+        {/* LADO DIREITO: AÇÕES E LOGOUT */}
+        <div className="flex items-center gap-3">
+          
+          {/* BOTÃO CAIXA */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-black rounded-xl font-bold">
+                <DollarSign size={16} className="mr-1"/> CAIXA
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+              <DialogHeader>
+                <DialogTitle className="italic uppercase">Resumo {diaSelecionado.toLocaleDateString()}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <p className="text-[10px] text-gray-400 uppercase">PIX (Sinais)</p>
+                    <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.pix || 0).toFixed(2)}</p>
                   </div>
-                  <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between">
-                    <span className="text-xs uppercase font-bold">A receber no local:</span>
-                    <span className="font-black text-red-500">R$ {(resumoFinanceiro.restante || 0).toFixed(2)}</span>
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <p className="text-[10px] text-gray-400 uppercase">Dinheiro</p>
+                    <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.dinheiro || 0).toFixed(2)}</p>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          <Button onClick={() => setIsMaintenance(!isMaintenance)} variant={isMaintenance ? "destructive" : "outline"} size="sm">
+                <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between">
+                  <span className="text-xs uppercase font-bold">A receber no local:</span>
+                  <span className="font-black text-red-500">R$ {(resumoFinanceiro.restante || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* BOTÃO MANUTENÇÃO */}
+          <Button 
+            onClick={() => setIsMaintenance(!isMaintenance)} 
+            variant={isMaintenance ? "destructive" : "outline"} 
+            size="sm"
+            className="rounded-xl font-bold"
+          >
             {isMaintenance ? "MANUTENÇÃO OFFLINE" : "MANUTENÇÃO ONLINE"}
           </Button>
-        </div>
-      </header>
+
+          {/* SEPARADOR VIRTUAL */}
+          <div className="w-[1px] h-8 bg-white/10 mx-2" />
+
+      {/* BOTÃO LOGOUT COM CONFIRMAÇÃO */}
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+            title="Sair do Sistema"
+          >
+            <LogOut size={22} />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="uppercase italic font-black text-xl text-red-500">
+              Encerrar Sessão?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400 font-medium">
+              Você está prestes a sair do painel da Arena. Certifique-se de que todas as reservas pendentes foram salvas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-xl uppercase font-bold text-[10px]">
+              Continuar Trabalhando
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => supabase.auth.signOut()}
+              className="bg-red-500 hover:bg-red-600 text-black font-black rounded-xl uppercase text-[10px]"
+            >
+              Sim, Sair Agora
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  </div>
+</header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         <Tabs defaultValue="agenda" className="space-y-6">
@@ -352,9 +666,10 @@ const [estoque, setEstoque] = useState<any[]>([]);
             <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">VIPs/Fixos</TabsTrigger>
             <TabsTrigger value="produtos" className="font-black italic uppercase px-6 bg-[#22c55e]/10 text-[#22c55e]">Produtos/Estoque</TabsTrigger>
             <TabsTrigger value="alertas" className="font-black italic uppercase px-6">Alertas/Obs</TabsTrigger>
+             <TabsTrigger value="financeiro" className="font-black italic uppercase px-6">Financeiro</TabsTrigger>
           </TabsList>
 
-          {/* ABA AGENDA: ESTILO GRID PREMIUM (IGUAL À FOTO) */}
+          {/* AGENDA: ESTILO GRID PREMIUM */}
            <TabsContent value="agenda" className="space-y-8">
   
   {/* 1. SEÇÃO CALENDÁRIO (OCUPANDO O TOPO) */}
@@ -415,73 +730,89 @@ const [estoque, setEstoque] = useState<any[]>([]);
     </div>
   </div>
 
-  {/* 3. GRID DE HORÁRIOS (ESTILO CARDS) */}
-  <div className="space-y-6">
-    <div className="flex justify-between items-center border-b border-white/5 pb-4">
-      <h3 className="font-black italic uppercase text-[#22c55e] flex items-center gap-2">
-        <LucideCalendar size={18} /> Disponibilidade: {diaSelecionado.toLocaleDateString()}
-      </h3>
-      <Badge variant="outline" className="text-[10px] border-[#22c55e] text-[#22c55e] px-4 py-1">
-        {duracao} MINUTOS SELECIONADOS
-      </Badge>
-    </div>
+ {/* 3. GRID DE HORÁRIOS (ESTILO CARDS) */}
+<div className="space-y-6">
+  <div className="flex justify-between items-center border-b border-white/5 pb-4">
+    <h3 className="font-black italic uppercase text-[#22c55e] flex items-center gap-2">
+      <LucideCalendar size={18} /> Disponibilidade: {diaSelecionado.toLocaleDateString()}
+    </h3>
+    <Badge variant="outline" className="text-[10px] border-[#22c55e] text-[#22c55e] px-4 py-1">
+      {duracao} MINUTOS SELECIONADOS
+    </Badge>
+  </div>
 
-    <ScrollArea className="h-[600px] pr-4">
-  {/* Aumentei o número de colunas para 4 no mobile e 8 em telas grandes para compactar */}
-  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-    {listaHorarios.map((h) => {
-      const idAgendamento = `${diaSelecionado.toDateString()}-${h}`;
-      const reserva = agendaStatus[idAgendamento];
-      
-      const [hora, min] = h.split(":").map(Number);
-      const dataFim = new Date(0, 0, 0, hora, min + parseInt(duracao));
-      const fimFormatado = `${dataFim.getHours().toString().padStart(2, '0')}:${dataFim.getMinutes().toString().padStart(2, '0')}`;
+  <ScrollArea className="h-[600px] pr-4">
+    {/* Grid ultra compactado conforme seu pedido */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+      {listaSlotsAgendamento.map((slot) => {
+        // Agora usamos os dados que já vêm calculados do slot
+        const isOcupado = slot.status === "reservado";
+        
+        // Buscamos os detalhes da reserva no estado global para mostrar o nome do cliente
+        const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
+        const detalhesReserva = agendaStatus[idAgendamento];
 
-      return (
-        <Dialog key={h} onOpenChange={() => setItensTemp([])}>
-          <DialogTrigger asChild>
-            <button 
-              disabled={reserva}
-              className={cn(
-                "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24", // Altura reduzida de 36 para 24
-                reserva 
-                  ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
-                  : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
-              )}
-            >
-              {/* Turno ou Label Superior */}
-              <span className="text-[7px] font-black uppercase text-gray-600 mb-1">Horário</span>
-
-              {/* Horário unificado: 09:00 - 09:30 */}
-              <span className={cn(
-                "text-sm font-black italic tracking-tighter leading-none",
-                reserva ? "text-red-500/50" : "text-white"
-              )}>
-                {h} - {fimFormatado}
-              </span>
-              
-              <div className="mt-2">
-                {reserva ? (
-                  <div className="flex flex-col items-center">
-                     <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Ocupado</span>
-                     <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center">{reserva.cliente}</p>
-                  </div>
-                ) : (
-                  <span className="text-[7px] font-black uppercase text-[#22c55e] border border-[#22c55e]/20 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">
-                    Livre
-                  </span>
+        return (
+          <Dialog key={slot.inicio} onOpenChange={() => setItensTemp([])}>
+            <DialogTrigger asChild>
+              <button 
+                disabled={isOcupado}
+                className={cn(
+                  "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24 w-full",
+                  isOcupado 
+                    ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
+                    : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
                 )}
-              </div>
-            </button>
-          </DialogTrigger>
+              >
+                {/* Turno Label */}
+                <span className="text-[7px] font-black uppercase text-gray-600 mb-1">
+                  {slot.turno}
+                </span>
+
+                {/* Horário unificado usando slot.inicio e slot.fim (que já tratam as 22h) */}
+                <span className={cn(
+                  "text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap",
+                  isOcupado ? "text-red-500/50" : "text-white"
+                )}>
+                  {slot.inicio} - {slot.fim}
+                </span>
+                
+                <div className="mt-2">
+                  {isOcupado ? (
+                    <div className="flex flex-col items-center">
+                       <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">
+                         Ocupado
+                       </span>
+                       {/* Mostra o nome do cliente se existir na reserva */}
+                       <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">
+                         {detalhesReserva?.cliente || "Reservado"}
+                       </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[7px] font-black uppercase text-[#22c55e] border border-[#22c55e]/20 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">
+                        Livre
+                      </span>
+                      {/* Preço dinâmico opcional para o atendente ver no card */}
+                      <span className="text-[8px] font-bold text-gray-600 italic">
+                        R$ {slot.valor.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </button>
+            </DialogTrigger>
 
           {/* O Dialog permanece igual, pois é o formulário de preenchimento */}
           <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
   <DialogHeader>
-    <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
-      <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {h} ÀS {fimFormatado}
-    </DialogTitle>
-  </DialogHeader>
+  <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
+    <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {slot.inicio} ÀS {slot.fim}
+  </DialogTitle>
+  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+    Valor Base da Quadra: <span className="text-[#22c55e]">R$ {slot.valor.toFixed(2)}</span>
+  </p>
+</DialogHeader>
   
   <div className="space-y-6 pt-4">
     {/* NOME DO ATLETA */}
@@ -490,7 +821,7 @@ const [estoque, setEstoque] = useState<any[]>([]);
       <Input 
         placeholder="Quem vai pagar?" 
         className="bg-white/5 border-white/10 h-14 rounded-xl text-white focus-visible:ring-[#22c55e]" 
-        id={`atleta-${h}`} 
+        id={`atleta-${slot.inicio}`} 
       />
     </div>
 
@@ -517,34 +848,78 @@ const [estoque, setEstoque] = useState<any[]>([]);
       </div>
     </div>
 
-    {/* Dentro do seu DialogContent, acima do botão Confirmar */}
+    <div className="space-y-2">
+  <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Adicionar Consumo/Aluguel</label>
+  <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+  {produtos .filter((p) => p.estoque > 0) .map((p) => (
+      <button
+        key={p.id}
+        onClick={() => adicionarAoCarrinho(p)}
+        className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 hover:bg-[#22c55e]/5 transition-all group"
+      >
+        <div className="flex flex-col items-start text-left">
+          <span className="text-[10px] font-black uppercase text-white group-hover:text-[#22c55e] transition-colors">
+            {p.nome}
+          </span>
+          <span className="text-[9px] text-gray-500 font-bold">
+            {p.estoque} DISPONÍVEIS
+          </span>
+        </div>
+        <div className="text-[10px] font-black text-[#22c55e] bg-[#22c55e]/10 px-2 py-1 rounded-lg">
+          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}
+        </div>
+      </button>
+    ))}
+</div>
+</div>
+
+    {/* LISTA DE ITENS NO CARRINHO (RESUMO ANTES DE CONFIRMAR) */}
 {itensCarrinho.length > 0 && (
-  <div className="space-y-2 border-t border-white/5 pt-4">
-    <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Itens Adicionais</label>
-    <div className="max-h-24 overflow-y-auto space-y-2">
+  <div className="mt-4 p-4 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+    <div className="flex justify-between items-center mb-2">
+      <span className="text-[10px] font-black uppercase text-[#22c55e]">Carrinho Atual</span>
+      <span className="text-[9px] text-gray-500 font-bold">{itensCarrinho.length} item(s)</span>
+    </div>
+    
+    <div className="space-y-2 max-h-24 overflow-y-auto pr-2 custom-scrollbar">
       {itensCarrinho.map((item) => (
-        <div key={item.idUnico} className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
-          <span className="text-xs">{item.nome} - R$ {item.preco}</span>
-          <button 
-            onClick={() => removerDoCarrinho(item.idUnico)}
-            className="text-red-500 hover:text-red-400 p-1"
-          >
-            <Trash2 size={14} />
-          </button>
+        <div key={item.idUnico} className="flex justify-between items-center group">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
+            <span className="text-[11px] font-bold text-white/80 uppercase">{item.nome}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-white">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco)}
+            </span>
+            <button 
+              onClick={() => removerDoCarrinho(item.idUnico)}
+              className="text-red-500/50 hover:text-red-500 transition-colors"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
       ))}
     </div>
-    <div className="text-[#22c55e] font-black text-right text-sm">
-      TOTAL ITENS: R$ {itensCarrinho.reduce((acc, item) => acc + item.preco, 0)}
+
+    <div className="mt-3 pt-2 border-t border-[#22c55e]/20 flex justify-between items-center">
+      <span className="text-[10px] font-black text-[#22c55e] uppercase">Total em Produtos</span>
+      <span className="text-sm font-black text-[#22c55e]">
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+          itensCarrinho.reduce((acc, item) => acc + item.preco, 0)
+        )}
+      </span>
     </div>
   </div>
 )}
+
     { /* BOTÃO FINAL */}
     <Button 
       className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg shadow-[#22c55e]/10 transition-all active:scale-95"
       onClick={() => {
-        const input = document.getElementById(`atleta-${h}`) as HTMLInputElement;
-        handleAgendar(h, input?.value);
+        const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+        handleAgendar(slot.inicio, input?.value);
       }}
     >
       Confirmar reserva
@@ -559,30 +934,76 @@ const [estoque, setEstoque] = useState<any[]>([]);
   </div>
 </TabsContent>
 
-{/* PRODUTOS/ESTOQUE */}
+{/* PRODUTOS/ESTOQUE - VERSÃO OPERACIONAL */}
 <TabsContent value="produtos">
   <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
-    <h3 className="text-xl font-black italic uppercase mb-6 flex items-center gap-2">
-      <Package className="text-[#22c55e]" /> Controle de Estoque e Vendas
-    </h3>
+    <div className="flex justify-between items-center mb-6">
+      <h3 className="text-xl font-black italic uppercase flex items-center gap-2 text-white">
+        <Package className="text-[#22c55e]" /> Produto/Estoque
+      </h3>
+      <Badge variant="outline" className="border-white/10 text-gray-500 uppercase text-[10px]">
+        Modo Atendente
+      </Badge>
+    </div>
+
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {estoque.map(item => (
-        <div key={item.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col justify-between">
+      {produtos.map(item => (
+        <div 
+          key={item.id} 
+          className={cn(
+            "p-5 bg-white/5 border rounded-[2rem] flex flex-col justify-between transition-all",
+            item.estoque <= 5 ? "border-red-500/30 bg-red-500/5" : "border-white/10"
+          )}
+        >
           <div>
-            <Badge className={item.tipo === 'venda' ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}>
-              {item.tipo.toUpperCase()}
-            </Badge>
-            <p className="font-bold text-lg mt-2">{item.nome}</p>
-           <p className="text-[#22c55e] font-black">R$ {(item.preco || 0).toFixed(2)}</p>
+            <div className="flex justify-between items-start">
+              <Badge className={cn(
+                "text-[9px] font-black uppercase",
+                item.tipo === 'venda' ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"
+              )}>
+                {item.tipo}
+              </Badge>
+              {item.estoque <= 5 && item.estoque > 0 && (
+                <span className="text-[8px] font-black text-red-500 animate-pulse uppercase">
+                  Reposição Necessária
+                </span>
+              )}
+            </div>
+
+            <p className="font-black italic uppercase text-white text-lg mt-3 leading-tight">
+              {item.nome}
+            </p>
+            
+            <p className="text-[#22c55e] font-black text-xl mt-1 italic">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco)}
+            </p>
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
-            <span className="text-xs font-bold text-gray-500 uppercase">Estoque: {item.qtd}</span>
+
+          <div className="mt-6 flex flex-col gap-3">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                Disponível
+              </span>
+              <span className={cn(
+                "text-sm font-black",
+                item.estoque <= 5 ? "text-red-500" : "text-white"
+              )}>
+                {item.estoque} UN
+              </span>
+            </div>
+            
             <Button 
-  className="bg-white/10 hover:bg-[#22c55e] hover:text-black transition-all"
-  onClick={() => adicionarAoCarrinho(item)}
->
-  Vender/Alugar
-</Button>
+              disabled={item.estoque === 0}
+              className={cn(
+                "w-full h-12 rounded-xl font-black uppercase text-xs transition-all",
+                item.estoque === 0 
+                  ? "bg-white/5 text-gray-600 cursor-not-allowed" 
+                  : "bg-white/10 hover:bg-[#22c55e] hover:text-black hover:shadow-[0_0_20px_rgba(34,197,94,0.2)]"
+              )}
+              onClick={() => adicionarAoCarrinho(item)}
+            >
+              {item.estoque === 0 ? "Esgotado" : "Vender / Alugar"}
+            </Button>
           </div>
         </div>
       ))}
@@ -824,6 +1245,103 @@ const [estoque, setEstoque] = useState<any[]>([]);
   </Card>
 </TabsContent>
 
+  {/* FINANCEIRO */}
+  <TabsContent value="financeiro" className="space-y-8">
+  <Card className="bg-[#0c120f] border-orange-500/20 rounded-[2.5rem] overflow-hidden">
+    <div className="bg-[#facc15] p-4 flex items-center justify-between text-black font-black uppercase text-sm italic">
+      <div className="flex items-center gap-2">
+        <DollarSign size={18} />
+        <span>Pagamentos Pendentes</span>
+      </div>
+    </div>
+    
+    <Table>
+      <TableHeader className="bg-white/5">
+        <TableRow className="border-white/5 text-[10px] font-black uppercase text-gray-400">
+          <TableHead>Atleta</TableHead>
+          <TableHead>Data / Hora</TableHead>
+          <TableHead>Tipo</TableHead>
+          <TableHead>Total</TableHead>
+          <TableHead className="text-blue-400">Sinal/Pix</TableHead>
+          <TableHead className="text-red-500 italic">Restante</TableHead>
+          <TableHead className="text-right">Ação</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {listaReservas.filter(r => !r.pago).map((res) => {
+          const saldoRestante = Number(res.valor_total) - Number(res.valor_pago_sinal || 0);
+          
+          function handleLiquidar(id: number): void {
+            throw new Error("Function not implemented.");
+          }
+
+          return (
+            <TableRow key={res.id} className="border-white/5 hover:bg-white/[0.02]">
+              <TableCell className="font-black italic uppercase text-white">
+                {res.clientes?.nome || "Atleta"}
+              </TableCell>
+              <TableCell className="text-[11px] font-bold">
+                {new Date(res.data_reserva).toLocaleDateString('pt-BR')} <br/>
+                <span className="text-gray-500">{res.horario_inicio.slice(0,5)}</span>
+              </TableCell>
+              <TableCell>
+  <div className="flex flex-col gap-1">
+    <p className="font-black italic uppercase text-white truncate w-32">
+      {res.clientes?.nome || "Atleta"}
+    </p>
+    <Badge className={cn(
+      "text-[8px] font-black uppercase w-fit border-none",
+      res.reserva_fixa_id 
+        ? "bg-purple-500/20 text-purple-400" 
+        : "bg-blue-500/20 text-blue-400"
+    )}>
+      {res.reserva_fixa_id ? "FIXA / MENSAL" : "AVULSA"}
+    </Badge>
+  </div>
+</TableCell>
+              <TableCell className="text-xs font-bold font-mono">R$ {res.valor_total}</TableCell>
+              <TableCell className="text-xs font-bold text-blue-400">R$ {res.valor_pago_sinal}</TableCell>
+              <TableCell className="text-sm font-black text-red-500 italic">
+                R$ {saldoRestante.toFixed(2)}
+              </TableCell>
+              <TableCell className="text-right">
+                <Button 
+                  onClick={() => handleLiquidar(res.id)}
+                  className="bg-red-500 hover:bg-red-600 text-black font-black text-[10px] uppercase rounded-xl h-8"
+                >
+                  Dar Baixa
+                </Button>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  </Card>
+
+  {/* SEÇÃO: RESERVAS FEITAS (PAGAS) */}
+  <Card className="bg-[#0c120f] border-[#22c55e]/20 rounded-[2.5rem] overflow-hidden">
+    <div className="bg-[#22c55e] p-4 text-black font-black uppercase text-sm italic">
+      Reservas Concluídas / Pagas
+    </div>
+    <Table>
+      <TableBody>
+        {listaReservas.filter(r => r.pago).map((res) => (
+          <TableRow key={res.id} className="border-white/5 opacity-50">
+            <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome}</TableCell>
+            <TableCell className="text-gray-500 text-xs">
+              {new Date(res.data_reserva).toLocaleDateString('pt-BR')} | {res.horario_inicio.slice(0,5)}
+            </TableCell>
+            <TableCell className="text-right font-black text-[#22c55e]">
+              R$ {res.valor_total} (PAGO {res.forma_pagamento})
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </Card>
+</TabsContent>
+
           {/* ABA VIP/FIXO: PRÉ-RESERVA */}
 <TabsContent value="vip">
   <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
@@ -954,3 +1472,11 @@ const [estoque, setEstoque] = useState<any[]>([]);
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
 export default AtendenteDashboard;
+
+function setLoading(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}
+function gerarSlotsAgenda(duracao: string) {
+  throw new Error("Function not implemented.");
+}
+
