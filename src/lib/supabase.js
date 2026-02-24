@@ -1,6 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Essas chaves você pega no painel do Supabase (Settings > API)
-const supabaseUrl = 'https://rzukzukevgjfgfzyzrkw.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6dWt6dWtldmdqZmdmenl6cmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2MDIwNzIsImV4cCI6MjA4NzE3ODA3Mn0.ajRDXsrSV6h4FKD6KgZzIHoSSX1X62fqZ9EJDzdlpRU';
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// O Vite exige o prefixo VITE_ e o uso de import.meta.env
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("⚠️ Variáveis de ambiente do Supabase não encontradas! Verifique o arquivo .env");
+}
+
+export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
