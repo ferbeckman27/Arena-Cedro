@@ -45,87 +45,120 @@ const AdminLogin = () => {
 
   // --- FUNÇÃO DE LOGIN ---
   const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  if (!email.includes('@')) {
+    return toast({ variant: "destructive", title: "E-mail inválido", description: "Use um e-mail corporativo válido." });
+  }
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
+  setLoading(true);
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password,
+    });
 
-      if (error) throw new Error("Credenciais corporativas inválidas.");
+    if (error) throw error;
 
-      const userEmail = data.user?.email || "";
-      
-      toast({ title: "Bem-vindo!", description: "Acesso autorizado." });
-      
-      if (userEmail.endsWith('@admincedro.com')) {
-        navigate("/admindashboard");
-      } else {
-        navigate("/atendentedashboard");
-      }
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Falha no Login", description: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
+    const userEmail = data.user?.email || "";
+    
+    // Guardamos o papel no storage para verificações rápidas de UI
+    const isAdmin = userEmail.endsWith('@admincedro.com');
+    localStorage.setItem("userRole", isAdmin ? "admin" : "atendente");
+    localStorage.setItem("userId", data.user.id);
+
+    toast({ title: "Acesso Autorizado", description: `Bem-vindo, ${userEmail.split('@')[0]}!` });
+    
+    navigate(isAdmin ? "/admindashboard" : "/atendentedashboard");
+
+  } catch (error: any) {
+    console.error("Erro login:", error);
+    const msg = error.message === "Invalid login credentials" 
+      ? "E-mail ou senha corporativos incorretos." 
+      : "Erro de conexão com o servidor.";
+    
+    toast({ variant: "destructive", title: "Falha no Login", description: msg });
+  } finally {
+    setLoading(false);
+  }
+};
 
   // --- FUNÇÃO DE CADASTRO (Cria no Auth e na Tabela Funcionarios) ---
   const handleCreateEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const erroSenha = validarSenha(novaSenha);
-    if (erroSenha) {
-      toast({ variant: "destructive", title: "Senha Inválida", description: erroSenha });
-      return;
-    }
+  e.preventDefault();
+  
+  // Validações Iniciais
+  if (!role) {
+    return toast({ variant: "destructive", title: "Campo Faltando", description: "Selecione o tipo de acesso (Atendente/Admin)." });
+  }
 
-    setLoading(true);
-    try {
-      // 1. Gera o e-mail automático
-      const sufixo = role === "administrador" ? "@admincedro.com" : "@atendcedro.com";
-      const emailGerado = `${nome.toLowerCase()}${sobrenome.toLowerCase()}${sufixo}`;
+  const erroSenha = validarSenha(novaSenha);
+  if (erroSenha) {
+    return toast({ variant: "destructive", title: "Senha Inválida", description: erroSenha });
+  }
 
-      // 2. Cria o usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: emailGerado,
-        password: novaSenha,
-      });
+  setLoading(true);
+  try {
+    // 1. Gera o e-mail automático com sanitização simples (remove espaços)
+    const nomeLimpo = nome.trim().toLowerCase().replace(/\s+/g, '');
+    const sobrenomeLimpo = sobrenome.trim().toLowerCase().replace(/\s+/g, '');
+    const sufixo = role === "administrador" ? "@admincedro.com" : "@atendcedro.com";
+    const emailGerado = `${nomeLimpo}.${sobrenomeLimpo}${sufixo}`;
 
-      if (authError) throw authError;
-
-      // 3. Salva os dados na sua tabela 'funcionarios' usando o UUID gerado
-      if (authData.user) {
-        const { error: dbError } = await supabase
-          .from('funcionarios')
-          .insert([{
-            id: authData.user.id, // Liga o perfil ao Auth
-            nome,
-            sobrenome,
-            email_corporativo: emailGerado,
-            telefone,
-            tipo: role
-          }]);
-
-        if (dbError) throw dbError;
+    // 2. Cria o usuário no Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: emailGerado,
+      password: novaSenha,
+      options: {
+        // Isso evita que o Supabase peça confirmação de e-mail se você desativou no painel
+        data: {
+          display_name: `${nome} ${sobrenome}`,
+          role: role
+        }
       }
+    });
 
-      toast({
-        title: "Sucesso!",
-        description: `Funcionário ${nome} cadastrado como ${role}.`,
-      });
-      
-      // Limpeza
-      setNome(""); setSobrenome(""); setNovaSenha(""); setTelefone("");
-      setActiveTab("login");
+    if (authError) throw authError;
 
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro no Cadastro", description: error.message });
-    } finally {
-      setLoading(false);
+    // 3. Salva na tabela 'funcionarios'
+    if (authData.user) {
+      const { error: dbError } = await supabase
+        .from('funcionarios')
+        .insert([{
+          id: authData.user.id, 
+          nome: nome.trim(),
+          sobrenome: sobrenome.trim(),
+          email_corporativo: emailGerado,
+          telefone: telefone,
+          tipo: role,
+          ativo: true // Definindo como ativo por padrão
+        }]);
+
+      if (dbError) {
+        // Se falhar no banco, idealmente você teria que deletar o user no Auth (Cleanup)
+        throw new Error("Usuário criado no Auth, mas erro ao salvar perfil no banco.");
+      }
     }
-  };
+
+    toast({
+      title: "Funcionário Cadastrado!",
+      description: `E-mail gerado: ${emailGerado}`,
+    });
+    
+    // Limpeza de campos
+    setNome(""); setSobrenome(""); setNovaSenha(""); setTelefone("");
+    setActiveTab("login");
+
+  } catch (error: any) {
+    console.error("Erro no processo:", error);
+    toast({ 
+      variant: "destructive", 
+      title: "Falha no Cadastro", 
+      description: error.message || "Erro inesperado ao criar funcionário." 
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
