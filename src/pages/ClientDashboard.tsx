@@ -178,7 +178,7 @@ const ClienteDashboard = () => {
   const valorApenasReserva = useMemo(() => {
     if (!horarioSelecionado) return 0;
     const horaInicio = parseInt(horarioSelecionado.split(":")[0]);
-    const valorBase = horaInicio >= 18 ? 120 : 80;
+    const valorBase = horaInicio >= 18 ? 140 : 100;
     return valorBase * (selectedDuration / 60);
   }, [horarioSelecionado, selectedDuration]);
 
