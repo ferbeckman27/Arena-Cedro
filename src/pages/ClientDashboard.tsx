@@ -90,7 +90,35 @@ const ClienteDashboard = () => {
 
   const [listaReservas, setListaReservas] = useState<Reserva[]>([]);
 
-  const pixCode = "00020126580014BR.GOV.BCB.PIX0136arena-cedro-pix-991234567-88520400005303986";
+  const [pixCopiaECola, setPixCopiaECola] = useState('');
+  const [pixBase64, setPixBase64] = useState('');
+  const [isCarregandoPix, setIsCarregandoPix] = useState(false);
+  const gerarPagamentoPix = async () => { 
+  setIsCarregandoPix(true);
+  try {
+    // 2. Usamos o 'totalGeral' que você já tem no componente
+    const response = await fetch('/api/pagamento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valor: totalGeral, // Ele pega o valor atualizado do carrinho + quadra
+        email: userData?.email || 'cliente@arena.com',
+        descricao: `Reserva Arena Cedro - ${horarioSelecionado}`
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.copiaECola) {
+      setPixCopiaECola(data.copiaECola);
+      setPixBase64(data.qrCodeBase64);
+    }
+  } catch (err) {
+    console.error("Erro ao gerar PIX:", err);
+  } finally {
+    setIsCarregandoPix(false);
+  }
+};
   
   const [reservasFixas, setReservasFixas] = useState<{
   dia?: string; 
@@ -224,10 +252,10 @@ const ClienteDashboard = () => {
   return slots;
 };
 
-  const handleFinalizePedido = async () => {
+ const handleFinalizePedido = async () => {
   if (!horarioSelecionado) return;
 
-  // 1. Mapas de IDs (Confirme se esses IDs batem com seu banco!)
+  // 1. Mapas de IDs
   const mapaBlocos: Record<number, number> = { 30: 1, 60: 2, 90: 3 };
   const hora = parseInt(horarioSelecionado.split(":")[0]);
   let turno_id = 1; // Manhã
@@ -235,12 +263,12 @@ const ClienteDashboard = () => {
   if (hora >= 18) turno_id = 3; // Noite
 
   try {
-    let resError;
-    let reservaId;
+    let resError = null;
+    let reservaId = null;
 
     if (tipoReserva === 'fixa') {
       // --- LOGICA PARA RESERVA FIXA ---
-      const diaSemanaId = diaSelecionado.getDay() + 1; // SQL costuma usar 1 para Domingo ou Segunda
+      const diaSemanaId = diaSelecionado.getDay() + 1;
 
       const { data: fixa, error } = await supabase.from('reservas_fixas').insert([{
         cliente_id: Number(userData.id),
@@ -264,7 +292,7 @@ const ClienteDashboard = () => {
         bloco_id: mapaBlocos[selectedDuration],
         turno_id: turno_id,
         tipo: 'avulsa',
-        status: 'pendente',
+        status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada', 
         valor_total: totalGeral,
         forma_pagamento: metodoPagamento
       }]).select().single();
@@ -273,39 +301,62 @@ const ClienteDashboard = () => {
       reservaId = avulsa?.id;
     }
 
+    // Verifica se houve erro em qualquer uma das inserções acima
     if (resError) throw resError;
 
-    // 2. Inserir Itens na Loja (Apenas se for reserva avulsa ou se sua lógica permitir)
+    // 2. Inserir Itens na Loja (Apenas se houver itens e for reserva avulsa)
     if (cart.length > 0 && reservaId && tipoReserva === 'avulsa') {
       const itensParaInserir = cart.map(item => ({
         reserva_id: reservaId,
         produto_id: item.id,
         quantidade: 1,
         preco_unitario: item.preco_venda || item.preco,
-        subtotal: item.preco_venda || item.preco,
+        subtotal: (item.preco_venda || item.preco) * 1,
         tipo: item.tipo === 'aluguel' ? 'aluguel' : 'venda'
       }));
-      await supabase.from('itens_reserva').insert(itensParaInserir);
+      
+      const { error: itemError } = await supabase.from('itens_reserva').insert(itensParaInserir);
+      if (itemError) console.error("Erro ao inserir itens:", itemError);
     }
 
-    // 3. Feedback e Limpeza
+    // 3. Feedback e Ações de Saída
     if (metodoPagamento === "pix") {
-      navigator.clipboard.writeText(pixCode);
-      toast({ title: "PIX Copiado!", description: "Pague para confirmar." });
+      if (pixCopiaECola) {
+        navigator.clipboard.writeText(pixCopiaECola);
+        toast({ 
+          title: "PIX GERADO COM SUCESSO!", 
+          description: "Código copiado. Pague no seu banco para garantir o horário.",
+        });
+      } else {
+        toast({ 
+          title: "Atenção", 
+          description: "Reserva salva, mas gere o PIX na tela de checkout.",
+          variant: "destructive" 
+        });
+      }
     } else {
-      toast({ title: "Sucesso!", description: "Sua reserva foi registrada." });
+      toast({ 
+        title: "Reserva Confirmada!", 
+        description: "Seu horário foi garantido. Pagamento no local." 
+      });
     }
     
-    setIsCheckoutOpen(false);
-    setCart([]);
-    setHorarioSelecionado(null);
+    // 4. Limpeza de Estados
+    if (metodoPagamento !== "pix") {
+      setIsCheckoutOpen(false);
+      setHorarioSelecionado(null);
+      setCart([]);
+    } else {
+      // Se for PIX, limpamos o carrinho mas deixamos o modal aberto para ver o QR Code
+      setCart([]);
+    }
 
   } catch (error: any) {
     console.error("Erro ao salvar:", error);
     toast({ 
       variant: "destructive", 
       title: "Erro no Banco de Dados", 
-      description: error.message || "Verifique se o horário já está ocupado." 
+      description: error.message || "Verifique sua conexão ou se o horário já está ocupado." 
     });
   }
 };
@@ -682,91 +733,123 @@ const handleTipoReserva = (tipo: string) => {
 </Tabs>
       </main>
 
-      {/* MODAL DE CHECKOUT UNIFICADO */}
-      <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[420px] rounded-[3rem] p-8 outline-none backdrop-blur-xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black italic uppercase text-[#22c55e] flex items-center gap-3">
-              <ShoppingCart size={24} /> Checkout
-            </DialogTitle>
-          </DialogHeader>
+      {/* MODAL DE CHECKOUT UNIFICADO COM PIX REAL */}
+<Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
+  <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[420px] rounded-[3rem] p-8 outline-none backdrop-blur-xl">
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-black italic uppercase text-[#22c55e] flex items-center gap-3">
+        <ShoppingCart size={24} /> Checkout
+      </DialogTitle>
+    </DialogHeader>
 
-          <div className="space-y-6">
-            <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-4">
-              <p className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest">Itens do Pedido</p>
-              
-              {horarioSelecionado && (
-                <div className="flex justify-between items-center text-sm font-bold bg-[#22c55e]/5 p-3 rounded-xl border border-[#22c55e]/20">
-                  <div className="flex items-center gap-2 text-[#22c55e]">
-                    <CalendarCheck size={16}/>
-                    <span>Quadra ({horarioSelecionado})</span>
-                  </div>
-                  <span className="text-white">R$ {valorApenasReserva.toFixed(2)}</span>
-                </div>
-              )}
-
-              {cart.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm font-bold px-1">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Package size={14} />
-                    <span>{item.nome}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span>R$ {item.preco.toFixed(2)}</span>
-                    <button onClick={() => removeFromCart(idx)} className="text-red-500 hover:scale-125 transition-all">
-                      <CheckCircle2 className="rotate-45" size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              <Separator className="bg-white/10" />
-              <div className="flex justify-between items-center font-black text-2xl text-[#22c55e] italic pt-2">
-                <span>TOTAL:</span>
-                <span>R$ {totalGeral.toFixed(2)}</span>
-              </div>
+    <div className="space-y-6">
+      <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-4">
+        <p className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest">Itens do Pedido</p>
+        
+        {horarioSelecionado && (
+          <div className="flex justify-between items-center text-sm font-bold bg-[#22c55e]/5 p-3 rounded-xl border border-[#22c55e]/20">
+            <div className="flex items-center gap-2 text-[#22c55e]">
+              <CalendarCheck size={16}/>
+              <span>Quadra ({horarioSelecionado})</span>
             </div>
-
-            <RadioGroup defaultValue="pix" onValueChange={(v) => setMetodoPagamento(v as any)} className="grid grid-cols-2 gap-4">
-              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPagamento === "pix" ? "border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-white/5")}>
-                <RadioGroupItem value="pix" id="pix" className="sr-only" />
-                <Label htmlFor="pix" className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
-                  <CreditCard size={20} className={metodoPagamento === "pix" ? "text-[#22c55e]" : "text-gray-600"}/> PIX ONLINE
-                </Label>
-              </div>
-              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPagamento === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
-                <RadioGroupItem value="dinheiro" id="dinheiro" className="sr-only" />
-                <Label htmlFor="dinheiro" className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
-                  <Banknote size={20} className={metodoPagamento === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"}/> PAGAR NO LOCAL
-                </Label>
-              </div>
-            </RadioGroup>
-
-            <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center">
-               {metodoPagamento === "pix" ? (
-                 <div className="flex flex-col items-center gap-4">
-                   <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
-                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${pixCode}`} className="w-32 h-32" alt="QR Code" />
-                   </div>
-                   <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] animate-pulse">Aguardando confirmação do PIX...</p>
-                 </div>
-               ) : (
-                 <div className="py-2">
-                   <p className="text-xs font-black uppercase italic leading-relaxed text-gray-300">Reserva pré-confirmada!</p>
-                   <p className="text-[10px] text-[#22c55e] font-bold uppercase mt-1">Apresente seu nome na recepção.</p>
-                 </div>
-               )}
-            </div>
-
-            <Button 
-              onClick={handleFinalizePedido} 
-              className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl shadow-[#22c55e]/10 hover:scale-[1.02] active:scale-95 transition-all"
-            >
-               {metodoPagamento === "pix" ? "Copiar Código e Confirmar" : "Finalizar Agendamento"}
-            </Button>
+            <span className="text-white">R$ {valorApenasReserva.toFixed(2)}</span>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+
+        {cart.map((item: any, idx: number) => (
+          <div key={idx} className="flex justify-between items-center text-sm font-bold px-1">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Package size={14} />
+              <span>{item.nome}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span>R$ {item.preco.toFixed(2)}</span>
+              <button onClick={() => removeFromCart(idx)} className="text-red-500 hover:scale-125 transition-all">
+                <CheckCircle2 className="rotate-45" size={14} />
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <Separator className="bg-white/10" />
+        <div className="flex justify-between items-center font-black text-2xl text-[#22c55e] italic pt-2">
+          <span>TOTAL:</span>
+          <span>R$ {totalGeral.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <RadioGroup 
+      defaultValue="pix" 
+      onValueChange={(v) => {
+        setMetodoPagamento(v as any);
+        if (v === 'pix' && !pixCopiaECola) {
+          gerarPagamentoPix(); // <--- Agora ele vai achar!
+        }
+      }}
+        className="grid grid-cols-2 gap-4"
+      >
+        <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPagamento === "pix" ? "border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-white/5")}>
+          <RadioGroupItem value="pix" id="pix" className="sr-only" />
+          <Label htmlFor="pix" className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
+            <CreditCard size={20} className={metodoPagamento === "pix" ? "text-[#22c55e]" : "text-gray-600"}/> PIX ONLINE
+          </Label>
+        </div>
+        <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPagamento === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+          <RadioGroupItem value="dinheiro" id="dinheiro" className="sr-only" />
+          <Label htmlFor="dinheiro" className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
+            <Banknote size={20} className={metodoPagamento === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"}/> PAGAR NO LOCAL
+          </Label>
+        </div>
+      </RadioGroup>
+
+      <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center min-h-[180px] flex items-center justify-center">
+         {metodoPagamento === "pix" ? (
+           <div className="flex flex-col items-center gap-4">
+             {isCarregandoPix ? (
+               <div className="flex flex-col items-center gap-2">
+                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#22c55e]"></div>
+                 <p className="text-[10px] font-black uppercase text-gray-500">Gerando PIX...</p>
+               </div>
+             ) : (
+               <>
+                 <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
+                   {/* QR CODE VINDO DO MERCADO PAGO */}
+                   <img 
+                    src={`data:image/png;base64,${pixBase64}`} 
+                    className="w-32 h-32" 
+                    alt="QR Code Mercado Pago" 
+                   />
+                 </div>
+                 <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] animate-pulse">
+                   Aguardando confirmação do PIX...
+                 </p>
+               </>
+             )}
+           </div>
+         ) : (
+           <div className="py-2">
+             <p className="text-xs font-black uppercase italic leading-relaxed text-gray-300">Reserva pré-confirmada!</p>
+             <p className="text-[10px] text-[#22c55e] font-bold uppercase mt-1">Apresente seu nome na recepção.</p>
+           </div>
+         )}
+      </div>
+
+      <Button 
+        disabled={isCarregandoPix}
+        onClick={() => {
+          if (metodoPagamento === "pix" && pixCopiaECola) {
+            navigator.clipboard.writeText(pixCopiaECola);
+            // Opcional: mostrar um aviso que copiou
+          }
+          handleFinalizePedido();
+        }} 
+        className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl shadow-[#22c55e]/10 hover:scale-[1.02] active:scale-95 transition-all"
+      >
+         {metodoPagamento === "pix" ? "Copiar Código e Confirmar" : "Finalizar Agendamento"}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 };
