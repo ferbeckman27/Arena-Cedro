@@ -209,7 +209,7 @@ const ClienteDashboard = () => {
       const fimMinutos = totalMinutosFim % 60;
       const fimFormatado = `${String(fimHoras).padStart(2, '0')}:${String(fimMinutos).padStart(2, '0')}`;
 
-      const precoBase = horas >= 18 ? 120 : 80;
+      const precoBase = horas >= 18 ? 140 : 100;
       const valorFinal = (precoBase * duracaoMinutos) / 60;
 
       slots.push({

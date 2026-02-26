@@ -209,12 +209,12 @@ const [estoque, setEstoque] = useState<any[]>([]);
   const gerarSlotsAgenda = (duracaoMinutos: number): SlotAgenda[] => {
   const slots: SlotAgenda[] = [];
   let atual = new Date();
-  atual.setHours(8, 0, 0); // Começa às 08:00
+  atual.setHours(9, 0, 0); // Começa às 09:00
   const fimDia = 22; // Termina às 22:00
 
   while (atual.getHours() < fimDia) {
     const inicio = atual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const valorBase = atual.getHours() >= 18 ? 120 : 80;
+    const valorBase = atual.getHours() >= 18 ? 140 : 100;
     
     atual.setMinutes(atual.getMinutes() + duracaoMinutos);
     const fim = atual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });

@@ -53,7 +53,7 @@ const gerarSlotsAgenda = (duracaoSelecionada: number) => {
     const isNoturno = hora >= 18;
     
     const fim = duracaoSelecionada === 30 ? slot.fim30 : duracaoSelecionada === 60 ? slot.fim60 : slot.fim90;
-    const precoBase = isNoturno ? 120 : 80;
+    const precoBase = isNoturno ? 140 : 100;
     const valorCalculado = (precoBase / 60) * duracaoSelecionada;
 
     return {
@@ -292,7 +292,7 @@ const censurarTexto = (texto: string) => {
   <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
     <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">☀️ Diurno</p>
     <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-      R$ 80
+      R$ 100
       <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
     </p>
   </div>
@@ -301,7 +301,7 @@ const censurarTexto = (texto: string) => {
   <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
     <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">🌙 Noturno</p>
     <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-      R$ 120
+      R$ 140
       <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
     </p>
   </div>
@@ -345,7 +345,7 @@ const censurarTexto = (texto: string) => {
       </div>
       <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
       <p className="text-gray-500 text-sm mb-8 text-center">
-        Funcionamos todos os dias, das 08h às 22h, para o seu racha nunca parar.
+        Funcionamos todos os dias, das 09h às 22h, para o seu racha nunca parar.
       </p>
 
       {/* BOTÃO CLICÁVEL IGUAL À HERO */}
