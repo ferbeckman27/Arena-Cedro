@@ -102,7 +102,7 @@ const ClienteDashboard = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         valor: totalGeral, // Ele pega o valor atualizado do carrinho + quadra
-        email: userData?.email || 'cliente@arena.com',
+        email: 'TESTUSER4053985039427048792@testuser.com',
         descricao: `Reserva Arena Cedro - ${horarioSelecionado}`
       })
     });
