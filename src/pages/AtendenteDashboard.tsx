@@ -663,7 +663,7 @@ const handleUsarCortesia = async (vipId: string) => {
           <img 
             src="/media/logo-arena.png" 
             alt="Logo" 
-            className="h-24 md:h-32 w-auto object-contain transition-transform hover:scale-105" 
+            className="h-40 md:h-48 w-auto object-contain transition-transform hover:scale-105" 
           />
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
@@ -1229,11 +1229,6 @@ const handleUsarCortesia = async (vipId: string) => {
   </Card>
 </TabsContent>
 
-          Entendido! Vamos fazer uma limpeza total para transformar essa aba em um painel de consulta rápida, removendo as funções de edição e os botões, e focando na visualização clara dos dados (Nome, Telefone, Fidelidade e Notas).
-
-Aqui está o código atualizado:
-
-TypeScript
 {/* ABA CLIENTES: CONSULTA DE ATLETAS E FIDELIDADE */}
 <TabsContent value="clientes">
   <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">

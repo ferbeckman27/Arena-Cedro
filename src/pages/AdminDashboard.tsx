@@ -301,13 +301,79 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
   // --- RELATÓRIOS (SINTÉTICO E ANALÍTICO) ---
 
   const baixarPdfSintetico = async () => {
-    const { data } = await supabase.from('reservas').select('valor_total').eq('status', 'confirmada');
-    const total = data?.reduce((acc, cur) => acc + (cur.valor_total || 0), 0) || 0;
+  try {
+    // 1. Busca os valores de Reservas e Produtos no Banco
+    const { data: reservas } = await supabase
+      .from('reservas')
+      .select('valor_total, tipo')
+      .eq('status', 'confirmado');
+
+    const { data: produtos } = await supabase
+      .from('pagamentos')
+      .select('valor')
+      .eq('tipo', 'produto')
+      .eq('status', 'pago');
+
+    // 2. Cálculos Rápidos (Sintéticos)
+    const totalAvulsas = reservas?.filter(r => r.tipo === 'avulsa')
+      .reduce((acc, cur) => acc + Number(cur.valor_total), 0) || 0;
+
+    const totalVIP = reservas?.filter(r => r.tipo === 'VIP')
+      .reduce((acc, cur) => acc + Number(cur.valor_total), 0) || 0;
+
+    const totalProdutos = produtos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
+
+    const faturamentoTotal = totalAvulsas + totalVIP + totalProdutos;
+
+    // 3. Gerar o PDF (Layout Limpo)
     const doc = new jsPDF();
-    doc.text("Relatorio Sintetico - Arena Cedro", 20, 20);
-    doc.text(`Faturamento Total: R$ ${total.toFixed(2)}`, 20, 30);
-    doc.save("sintetico.pdf");
-  };
+    
+    // Título
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.text("RELATÓRIO SINTÉTICO - ARENA CEDRO", 20, 25);
+    
+    // Data de emissão
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100);
+    doc.text(`Data de emissão: ${new Date().toLocaleDateString('pt-BR')}`, 20, 32);
+    
+    // Linha divisória
+    doc.setDrawColor(200);
+    doc.line(20, 36, 190, 36);
+
+    // Corpo do Relatório
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    
+    doc.text(`Faturamento Horas Avulsas:`, 20, 50);
+    doc.text(`R$ ${totalAvulsas.toFixed(2).replace('.', ',')}`, 140, 50);
+
+    doc.text(`Faturamento Contratos VIP:`, 20, 60);
+    doc.text(`R$ ${totalVIP.toFixed(2).replace('.', ',')}`, 140, 60);
+
+    doc.text(`Venda de Produtos (Cantina/Loja):`, 20, 70);
+    doc.text(`R$ ${totalProdutos.toFixed(2).replace('.', ',')}`, 140, 70);
+
+    // Linha do Total
+    doc.setLineWidth(0.5);
+    doc.line(20, 80, 190, 80);
+
+    // TOTAL FINAL
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`FATURAMENTO TOTAL:`, 20, 95);
+    doc.text(`R$ ${faturamentoTotal.toFixed(2).replace('.', ',')}`, 120, 95);
+
+    // Salvar
+    doc.save(`Sintetico_Arena_Cedro_${new Date().toLocaleDateString('pt-BR')}.pdf`);
+
+  } catch (error) {
+    console.error("Erro ao gerar PDF:", error);
+    alert("Erro ao carregar dados do banco.");
+  }
+};
 
   const baixarPdfAnalitico = async () => {
     // Busca dados detalhados para o relatório analítico
@@ -454,12 +520,15 @@ const calcularFidelidade = (totalReservas: number) => {
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
       {/* HEADER */}
-      <header className="w-full bg-[#0c120f] border-b border-white/5 px-6 py-4">
+      <header className="w-full bg-[#0c120f] border-b border-white/5 px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <div className="flex flex-col items-center">
-              <img src="/media/logo-arena.png" alt="Logo" className="h-24 md:h-32 w-auto object-contain transition-transform hover:scale-105" />
-              <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO ADMINISTRADOR </span>
+              <img src="/media/logo-arena.png" alt="Logo" className="h-40 md:h-48 w-auto object-contain transition-transform hover:scale-105" />
+              <div className="flex flex-col">
+                 <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
+                 <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">Bem Vindo Administrador </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -551,123 +620,196 @@ const calcularFidelidade = (totalReservas: number) => {
   </Card>
 
   {/* COLUNA DIREITA: LISTA DE HORÁRIOS */}
-  <div className="lg:col-span-8 space-y-4">
-    <div className="flex flex-col md:flex-row justify-between items-center bg-black/40 p-5 rounded-[2rem] border border-white/10 gap-4">
-      <div>
-        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Dia Selecionado</p>
-        <p className="font-black italic uppercase text-lg text-white">
-          {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
-        </p>
-      </div>
-      
-      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
-        {[30, 60, 90].map(m => (
+<div className="lg:col-span-8 space-y-4">
+  <div className="flex flex-col md:flex-row justify-between items-center bg-black/40 p-5 rounded-[2rem] border border-white/10 gap-4">
+    <div>
+      <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Dia Selecionado</p>
+      <p className="font-black italic uppercase text-lg text-white">
+        {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+      </p>
+    </div>
+    
+    <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+      {[30, 60, 90].map(m => (
+        <button 
+          key={m} 
+          onClick={() => setDuracaoFiltro(m)} 
+          className={cn(
+            "px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all", 
+            duracaoFiltro === m ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white"
+          )}
+        >
+          {m} Min
+        </button>
+      ))}
+    </div>
+  </div>
+
+  {/* GRID DE SLOTS */}
+  <ScrollArea className="h-[500px] pr-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {slotsCalculados.map((slot, i) => {
+        const isReservado = slot.status === 'reservado' || slot.status === 'ocupado';
+        
+        // Cálculo de Preço: Diurno 100, Noturno 140 (proporcional aos minutos)
+        const horaInt = parseInt(slot.inicio.split(":")[0]);
+        const isNoturno = horaInt >= 18;
+        const precoBase = isNoturno ? 140 : 100;
+        const valorExibir = (precoBase / 60) * duracaoFiltro;
+        
+        // Label do Turno
+        const labelTurno = horaInt < 12 ? "Manhã" : horaInt < 18 ? "Tarde" : "Noite";
+
+        return (
           <button 
-            key={m} 
-            onClick={() => setDuracaoFiltro(m)} 
+            key={i} 
+            onClick={() => abrirDetalheSlot(slot)} 
             className={cn(
-              "px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all", 
-              duracaoFiltro === m ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white"
+              "p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1",
+              isReservado 
+                ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50" 
+                : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl"
             )}
           >
-            {m} Min
-          </button>
-        ))}
-      </div>
-    </div>
+            {/* Turno */}
+            <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">
+              {labelTurno}
+            </span>
 
-    <ScrollArea className="h-[500px] pr-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {slotsCalculados.map((slot, i) => {
-          const isReservado = slot.status === 'reservado';
-          return (
-            <button 
-              key={i} 
-              onClick={() => abrirDetalheSlot(slot)} 
-              className={cn(
-                "p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1",
-                isReservado 
-                  ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50" 
-                  : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50"
-              )}
-            >
-              <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">{slot.turno}</span>
-              <p className="text-2xl font-black italic text-white group-hover:scale-110 transition-transform">
-                {slot.inicio}
+            {/* Horário de Início */}
+            <p className="text-2xl font-black italic text-white group-hover:scale-110 transition-transform">
+              {slot.inicio}
+            </p>
+
+            {/* Horário de Término (Calculado) */}
+            <span className="text-[10px] text-gray-500 font-bold -mt-1">
+              até {slot.fim}
+            </span>
+            
+            {/* Badge de Status */}
+            <div className={cn(
+              "mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border",
+              isReservado 
+                ? "bg-red-500/10 text-red-500 border-red-500/20" 
+                : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20"
+            )}>
+              {isReservado ? "OCUPADO" : "LIVRE"}
+            </div>
+
+            {/* Rodapé: Cliente ou Valor */}
+            {isReservado ? (
+              <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">
+                👤 {slot.reserva?.cliente || "Agendado"}
               </p>
-              
-              <div className={cn(
-                "mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase",
-                isReservado ? "bg-red-500 text-white" : "bg-[#22c55e]/20 text-[#22c55e]"
-              )}>
-                {isReservado ? "OCUPADO" : "LIVRE"}
-              </div>
+            ) : (
+              <p className="text-[10px] font-bold text-gray-400 italic mt-2 tracking-tight">
+                R$ {valorExibir.toFixed(2).replace('.', ',')}
+              </p>
+            )}
 
-              {isReservado ? (
-                <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">
-                  👤 {slot.reserva?.cliente || "Agendado"}
-                </p>
-              ) : (
-                <p className="text-[10px] font-bold text-gray-500 italic mt-2">
-                  R$ {Number(slot.valor).toFixed(2)}
-                </p>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </ScrollArea>
+            {/* Efeito de brilho no hover para os livres */}
+            {!isReservado && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-[#22c55e]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  </ScrollArea>
 
     {/* MODAL DE DETALHES DA RESERVA */}
-    <Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
-      <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8 max-w-md">
-        <DialogHeader>
-          <DialogTitle className="italic uppercase font-black text-2xl flex items-center gap-3 text-[#22c55e]">
-            <div className="w-2 h-8 bg-[#22c55e] rounded-full" />
-            Detalhes do Horário
-          </DialogTitle>
-        </DialogHeader>
-        
-        {slotDetalhe && (
-          <div className="space-y-6 pt-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Horário</p>
-                <p className="font-black text-xl text-white">{slotDetalhe.inicio}</p>
-              </div>
-              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Status</p>
-                <p className={cn("font-black text-xl uppercase", slotDetalhe.status === 'reservado' ? "text-red-500" : "text-[#22c55e]")}>
-                  {slotDetalhe.status}
-                </p>
+<Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
+  <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8 max-w-md">
+    <DialogHeader>
+      <DialogTitle className="italic uppercase font-black text-2xl flex items-center gap-3 text-[#22c55e]">
+        <div className="w-2 h-8 bg-[#22c55e] rounded-full" />
+        Detalhes do Horário
+      </DialogTitle>
+    </DialogHeader>
+    
+    {slotDetalhe && (
+      <div className="space-y-6 pt-6">
+        {/* GRID DE HORÁRIO E STATUS */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+            <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Horário</p>
+            <p className="font-black text-xl text-white">{slotDetalhe.inicio} - {slotDetalhe.fim}</p>
+          </div>
+          <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+            <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Status</p>
+            <p className={cn("font-black text-xl uppercase", slotDetalhe.status === 'reservado' || slotDetalhe.status === 'ocupado' ? "text-red-500" : "text-[#22c55e]")}>
+              {slotDetalhe.status}
+            </p>
+          </div>
+        </div>
+
+        {/* INFORMAÇÕES DO CLIENTE E ORIGEM */}
+        <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-4">
+          <div>
+            <p className="text-[10px] text-gray-500 font-black uppercase mb-2">Informações da Reserva</p>
+            <div className="space-y-2">
+              <p className="font-bold text-lg text-white">👤 {slotDetalhe.cliente || "Disponível"}</p>
+              
+              <div className="flex flex-wrap gap-2">
+                {/* TIPO DE RESERVA: VIP OU AVULSA */}
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[9px] font-black uppercase border",
+                  slotDetalhe.tipo === 'VIP' ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                )}>
+                  {slotDetalhe.tipo || "Avulsa"}
+                </span>
+                
+                {/* ORIGEM: QUEM FEZ A RESERVA */}
+                <span className="bg-white/10 text-gray-300 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-white/10">
+                  Origem: {slotDetalhe.criado_por === 'admin' ? "Atendente" : "Próprio Cliente"}
+                </span>
               </div>
             </div>
+          </div>
 
-            <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
-              <p className="text-[10px] text-gray-500 font-black uppercase mb-2">Informações do Cliente</p>
-              <div className="space-y-1">
-                <p className="font-bold text-lg text-white">👤 {slotDetalhe.cliente || "Disponível"}</p>
-                <p className="text-sm text-gray-400 font-medium tracking-tight">💰 Pagamento: <span className="text-white uppercase font-black">{slotDetalhe.pagamento || "Pendente"}</span></p>
-              </div>
+          <div className="pt-3 border-t border-white/5">
+            <p className="text-sm text-gray-400 font-medium tracking-tight">💰 Pagamento: <span className="text-white uppercase font-black">{slotDetalhe.pagamento || "Pendente"}</span></p>
+          </div>
+        </div>
+
+        {/* SISTEMA DE FIDELIDADE (Ex: 10 reservas ganha 1) */}
+        {slotDetalhe.status !== 'livre' && (
+          <div className="bg-[#22c55e]/5 border border-[#22c55e]/20 p-5 rounded-2xl">
+            <div className="flex justify-between items-end mb-2">
+              <p className="text-[10px] text-[#22c55e] font-black uppercase">Progresso Fidelidade</p>
+              <p className="text-xs font-black text-white">{slotDetalhe.fidelidade_total || 0}/10</p>
             </div>
-
-            <div className="bg-yellow-500/5 border border-yellow-500/20 p-5 rounded-2xl">
-              <p className="text-[10px] text-yellow-500 font-black uppercase mb-2">Observações da Reserva</p>
-              <p className="text-sm italic text-gray-300 leading-relaxed">
-                {slotDetalhe.obs || "Nenhuma observação registrada para este horário."}
-              </p>
+            {/* Barra de Progresso */}
+            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#22c55e] shadow-[0_0_10px_rgba(34,197,94,0.5)] transition-all" 
+                style={{ width: `${(slotDetalhe.fidelidade_total || 0) * 10}%` }}
+              />
             </div>
-
-            <Button 
-              className="w-full h-14 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-black uppercase"
-              onClick={() => setIsModalDetalheAberto(false)}
-            >
-              Fechar Detalhes
-            </Button>
+            <p className="text-[9px] text-gray-500 mt-2 italic font-medium">
+              O cliente recebe uma reserva grátis ao completar 10 reservas.
+            </p>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+
+        {/* OBSERVAÇÕES */}
+        <div className="bg-yellow-500/5 border border-yellow-500/20 p-5 rounded-2xl">
+          <p className="text-[10px] text-yellow-500 font-black uppercase mb-2">Observações Internas</p>
+          <p className="text-sm italic text-gray-300 leading-relaxed">
+            {slotDetalhe.obs || "Nenhuma observação registrada."}
+          </p>
+        </div>
+
+        <Button 
+          className="w-full h-14 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-black uppercase transition-all active:scale-95"
+          onClick={() => setIsModalDetalheAberto(false)}
+        >
+          Fechar Detalhes
+        </Button>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
   </div>
 </TabsContent>
 
@@ -707,37 +849,62 @@ const calcularFidelidade = (totalReservas: number) => {
               </Card>
 
               {/* CARD RELATÓRIO ANALÍTICO (DETALHADO) */}
-              <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem] border-t-4 border-t-blue-500">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h3 className="text-2xl font-black italic uppercase">Analítico</h3>
-                    <p className="text-gray-500 text-xs italic">Detalhamento por categoria e setor</p>
-                  </div>
-                  <FileText className="text-blue-500" size={32} />
-                </div>
+<Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem] border-t-4 border-t-blue-500 shadow-2xl">
+  <div className="flex justify-between items-start mb-6">
+    <div>
+      <h3 className="text-2xl font-black italic uppercase text-white">Analítico</h3>
+      <p className="text-gray-500 text-xs italic">Detalhamento por categoria e setor</p>
+    </div>
+    <FileText className="text-blue-500" size={32} />
+  </div>
 
-                <div className="space-y-3 mb-8">
-                  <div className="flex justify-between text-sm border-b border-white/5 pb-2">
-                    <span className="text-gray-400">Venda de Produtos:</span>
-                    <span className="font-bold">R$ 3.840,00</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-b border-white/5 pb-2">
-                    <span className="text-gray-400">Contratos VIP (Fixos):</span>
-                    <span className="font-bold">R$ 8.200,00</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-b border-white/5 pb-2">
-                    <span className="text-gray-400">Horas Avulsas:</span>
-                    <span className="font-bold">R$ 6.410,00</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-blue-400 pt-2 font-black">
-                    <span>Taxa de Ocupação:</span>
-                    <span>87.4%</span>
-                  </div>
-                </div>
-                <Button onClick={baixarPdfAnalitico} className="w-full bg-blue-600 text-white font-black uppercase italic h-14 rounded-2xl">
-                  Baixar PDF Analítico
-                </Button>
-              </Card>
+  <div className="space-y-3 mb-6">
+    {/* ENTRADAS */}
+    <div className="flex justify-between text-sm border-b border-white/5 pb-2">
+      <span className="text-gray-400">Venda de Produtos:</span>
+      <span className="font-bold text-white">R$ 3.840,00</span>
+    </div>
+    <div className="flex justify-between text-sm border-b border-white/5 pb-2">
+      <span className="text-gray-400">Contratos VIP (Fixos):</span>
+      <span className="font-bold text-white">R$ 8.200,00</span>
+    </div>
+    <div className="flex justify-between text-sm border-b border-white/5 pb-2">
+      <span className="text-gray-400">Horas Avulsas:</span>
+      <span className="font-bold text-white">R$ 6.410,00</span>
+    </div>
+
+    {/* SEÇÃO DE COMISSÕES (ADICIONADA) */}
+    <div className="mt-6 bg-red-500/5 border border-red-500/10 p-4 rounded-2xl space-y-2">
+      <p className="text-[10px] font-black uppercase text-red-500 mb-1 tracking-widest">Repasses e Comissões</p>
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-400 font-medium">Comissão Atendentes (5%):</span>
+        <span className="font-bold text-red-400">- R$ 511,50</span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-gray-400 font-medium">Aulas / Professores:</span>
+        <span className="font-bold text-red-400">- R$ 1.240,00</span>
+      </div>
+    </div>
+
+    {/* PERFORMANCE */}
+    <div className="flex justify-between text-sm text-blue-400 pt-4 font-black uppercase tracking-tighter">
+      <span>Taxa de Ocupação:</span>
+      <span>87.4%</span>
+    </div>
+    <div className="flex justify-between text-sm text-[#22c55e] pb-2 font-black uppercase tracking-tighter border-b border-white/5">
+      <span>Saldo Líquido Estimado:</span>
+      <span>R$ 16.698,50</span>
+    </div>
+  </div>
+
+  <Button 
+    onClick={baixarPdfAnalitico} 
+    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic h-14 rounded-2xl transition-all active:scale-95 flex gap-2"
+  >
+    <FileText size={18} />
+    Baixar PDF Analítico
+  </Button>
+</Card>
             </div>
           </TabsContent>
 
