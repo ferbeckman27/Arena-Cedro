@@ -540,6 +540,50 @@ const totalCarrinho = useMemo(() => {
   }
 };
 
+const handleReserva = async (dadosDaReserva) => {
+  // Pega o ID do funcionário logado
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from('reservas')
+    .insert([{
+      ...dadosDaReserva,
+      atendente_id: user.id, // Vincula a comissão a ele
+      valor_total: 100, // Exemplo: R$ 100,00
+      // O gatilho do banco vai calcular os R$ 5,00 sozinho
+    }]);
+
+  if (error) console.error("Erro ao salvar comissão");
+};
+
+const [totalComissao, setTotalComissao] = useState(0);
+
+useEffect(() => {
+  const buscarComissao = async () => {
+    // 1. Pega o usuário logado
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // 2. Só busca se o user existir (evita erro de 'id of undefined')
+    if (user) {
+      const { data, error } = await supabase
+        .from('reservas')
+        .select('comissao_valor')
+        .eq('atendente_id', user.id);
+
+      if (error) {
+        console.error("Erro ao buscar comissões:", error);
+        return;
+      }
+
+      // 3. Soma os valores (garantindo que trate números nulos)
+      const total = data?.reduce((acc, curr) => acc + (Number(curr.comissao_valor) || 0), 0) || 0;
+      setTotalComissao(total);
+    }
+  };
+  
+  buscarComissao();
+}, []);
+
 const carregarDadosFinanceiros = async () => {
   const { data, error } = await supabase
     .from('reservas')
@@ -555,6 +599,59 @@ const carregarDadosFinanceiros = async () => {
   }
 };
 
+const calcularFidelidade = (totalReservas: number) => {
+  const progresso = totalReservas % 10;
+  const completou = totalReservas > 0 && totalReservas % 10 === 0;
+  return { progresso, completou };
+};
+
+const handleUsarCortesia = async (vipId: string) => {
+  const confirmar = window.confirm("Deseja resgatar o prêmio? Isso resetará o contador de jogos deste cliente (subtraindo 10 jogos).");
+  
+  if (confirmar) {
+    try {
+      // 1. Pega o valor atual do cliente primeiro para garantir o cálculo
+      const { data: vipAtual } = await supabase
+        .from('vips')
+        .select('total_reservas')
+        .eq('id', vipId)
+        .single();
+
+      const novoTotal = Math.max(0, (vipAtual?.total_reservas || 0) - 10);
+
+      // 2. Faz o update no banco de dados
+      const { error } = await supabase
+        .from('vips')
+        .update({ total_reservas: novoTotal })
+        .eq('id', vipId);
+
+      if (error) throw error;
+
+      // 3. Atualiza a tela na hora (Estado Local)
+      // Isso faz o "vermelho" sumir e a barra de progresso esvaziar imediatamente
+      setVipsReais(prev => prev.map(v => 
+        v.id === vipId ? { ...v, total_reservas: novoTotal } : v
+      ));
+
+      alert("★ Cortesia aplicada! Foram deduzidos 10 jogos do saldo.");
+
+    } catch (error) {
+      console.error("Erro ao resetar fidelidade:", error);
+      alert("Erro ao conectar com o banco de dados.");
+    }
+  }
+};
+
+  const handleLogout = async () => {
+  try {
+    await supabase.auth.signOut();
+    // Isso força o navegador a voltar para o login e limpar a memória
+    window.location.href = '/'; 
+  } catch (error) {
+    console.error('Erro ao sair:', error);
+  }
+};
+
   return (
   <div className="min-h-screen bg-[#060a08] text-white font-sans">
     {/* HEADER ADM - COMPACTO E FUNCIONAL */}
@@ -566,7 +663,7 @@ const carregarDadosFinanceiros = async () => {
           <img 
             src="/media/logo-arena.png" 
             alt="Logo" 
-            className="h-20 md:h-24 w-auto object-contain transition-transform hover:scale-105" 
+            className="h-24 md:h-32 w-auto object-contain transition-transform hover:scale-105" 
           />
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
@@ -576,6 +673,19 @@ const carregarDadosFinanceiros = async () => {
 
         {/* LADO DIREITO: AÇÕES E LOGOUT */}
         <div className="flex items-center gap-3">
+
+        {/* CARD DE COMISSÃO COMPACTO */}
+  <div className="hidden sm:flex flex-col items-end bg-[#22c55e]/10 px-4 py-1.5 rounded-2xl border border-[#22c55e]/20">
+    <span className="text-[9px] font-black uppercase text-[#22c55e] tracking-widest leading-none mb-1">
+      Comissão (5%)
+    </span>
+    <div className="flex items-baseline gap-1 leading-none">
+      <span className="text-[#22c55e] font-bold text-[10px] italic">R$</span>
+      <span className="text-xl font-black italic text-white">
+        {totalComissao.toFixed(2)}
+      </span>
+    </div>
+  </div>
           
           {/* BOTÃO CAIXA */}
           <Dialog>
@@ -646,7 +756,7 @@ const carregarDadosFinanceiros = async () => {
               Continuar Trabalhando
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => supabase.auth.signOut()}
+             onClick={handleLogout}
               className="bg-red-500 hover:bg-red-600 text-black font-black rounded-xl uppercase text-[10px]"
             >
               Sim, Sair Agora
@@ -1119,124 +1229,90 @@ const carregarDadosFinanceiros = async () => {
   </Card>
 </TabsContent>
 
-          {/* ABA CLIENTES: BLACKLIST E COMENTÁRIOS */}
-          <TabsContent value="clientes">
+          Entendido! Vamos fazer uma limpeza total para transformar essa aba em um painel de consulta rápida, removendo as funções de edição e os botões, e focando na visualização clara dos dados (Nome, Telefone, Fidelidade e Notas).
+
+Aqui está o código atualizado:
+
+TypeScript
+{/* ABA CLIENTES: CONSULTA DE ATLETAS E FIDELIDADE */}
+<TabsContent value="clientes">
   <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
       <div>
-        <h3 className="text-2xl font-black italic uppercase">Gestão de Atletas</h3>
-        <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter">Total de {clientes.length} cadastrados</p>
+        <h3 className="text-2xl font-black italic uppercase text-white">Gestão de Atletas</h3>
+        <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter">
+          Total de {clientes.length} cadastrados
+        </p>
       </div>
       <div className="relative w-full md:w-64">
         <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
-        <Input 
+        <input 
           placeholder="Buscar por nome ou fone..." 
-          className="pl-10 bg-white/5 border-white/10 rounded-xl" 
+          className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-[#22c55e]/50 transition-colors" 
           onChange={(e) => setFiltroNome(e.target.value)} 
         />
       </div>
     </div>
 
-    <div className="grid md:grid-cols-2 gap-4">
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
       {clientes
         .filter(c => c.nome.toLowerCase().includes(filtroNome.toLowerCase()) || c.telefone.includes(filtroNome))
-        .map(c => {
-          // Verificamos se este card específico está em modo de edição
-          const isEditando = editandoId === c.id;
-
-          function handleToggleAlerta(id: number): void {
-            throw new Error("Function not implemented.");
-          }
-
-          function handleSalvarObs(id: number, novaObs: string) {
-            throw new Error("Function not implemented.");
-          }
+        .map((c: any) => { // <--- Adicione esse ": any" aqui
+    
+          // Agora o erro some, pois o TS aceita qualquer propriedade dentro de 'c'
+         const total = Number(c.total_reservas || 0);
+         const progresso = total % 10;
+         const temPremio = total > 0 && total % 10 === 0;
 
           return (
-            <div key={c.id} className={cn(
-              "p-6 rounded-[2.5rem] border transition-all duration-300",
-              c.status === "ruim" 
-                ? "bg-red-500/5 border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.05)]" 
-                : "bg-white/5 border-white/10"
-            )}>
-              <div className="flex justify-between items-start mb-4">
+            <div key={c.id} className="p-6 rounded-[2rem] border bg-white/5 border-white/10 hover:border-white/20 transition-all">
+              {/* CABEÇALHO DO CARD */}
+              <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-3 rounded-full border",
-                    c.status === "ruim" ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-white/5 border-white/10 text-gray-400"
-                  )}>
+                  <div className="p-3 rounded-full bg-white/5 border border-white/10 text-[#22c55e]">
                     <Users size={20} />
                   </div>
                   <div>
-                    <p className="font-black uppercase italic leading-none">{c.nome}</p>
-                    <p className="text-[10px] text-gray-500 font-bold mt-1">{c.telefone}</p>
+                    <p className="font-black uppercase italic leading-none text-white">{c.nome}</p>
+                    <p className="text-[10px] text-gray-500 font-bold mt-1 tracking-widest">{c.telefone}</p>
                   </div>
                 </div>
                 {c.isVip && (
-                  <Badge className="bg-[#22c55e] text-black font-black text-[9px] px-3 py-0.5 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.3)]">
+                  <Badge className="bg-[#22c55e] text-black font-black text-[9px] px-2 py-0.5 rounded-full">
                     VIP
                   </Badge>
                 )}
               </div>
 
-              {/* ÁREA DE OBSERVAÇÃO DINÂMICA */}
-              <div className={cn(
-                "p-4 rounded-2xl border transition-all",
-                isEditando ? "bg-black/60 border-[#22c55e]/50" : "bg-black/40 border-white/5"
-              )}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[9px] font-black text-gray-500 uppercase flex items-center gap-1">
-                    <MessageSquare size={10} /> Nota do Atendente
+              {/* BARRA DE FIDELIDADE */}
+              <div className="mb-6 space-y-2">
+                <div className="flex justify-between items-end">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Sistema de Fidelidade</p>
+                  <p className={`text-xs font-black ${temPremio ? 'text-yellow-500 animate-pulse' : 'text-white'}`}>
+                    {temPremio ? '★ 10/10' : `${progresso}/10`}
                   </p>
                 </div>
-                
-                {isEditando ? (
-                  <textarea
-                    className="w-full bg-transparent text-sm italic text-[#22c55e] outline-none resize-none h-20"
-                    defaultValue={c.obs}
-                    id={`obs-${c.id}`}
-                    autoFocus
+                <div className="w-full bg-black/40 h-2 rounded-full border border-white/5 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-700 ${temPremio ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-[#22c55e]'}`}
+                    style={{ width: `${temPremio ? 100 : progresso * 10}%` }}
                   />
-                ) : (
-                  <p className="text-xs italic text-gray-400 leading-relaxed">"{c.obs}"</p>
+                </div>
+                {temPremio && (
+                  <p className="text-[8px] text-yellow-500 font-black uppercase text-center mt-1">
+                    Próximo jogo é cortesia!
+                  </p>
                 )}
               </div>
 
-              {/* BOTÕES DE AÇÃO */}
-              <div className="flex gap-2 mt-4">
-                <Button 
-                  onClick={() => {
-                    if (isEditando) {
-                      const novaObs = (document.getElementById(`obs-${c.id}`) as HTMLTextAreaElement).value;
-                      handleSalvarObs(c.id, novaObs);
-                    } else {
-                      setEditandoId(c.id)
-                    }
-                  }}
-                  variant="outline" 
-                  size="sm" 
-                  className={cn(
-                    "w-full border-white/10 text-[10px] font-black uppercase h-10 rounded-xl",
-                    isEditando && "bg-[#22c55e] text-black border-[#22c55e] hover:bg-[#1da850]"
-                  )}
-                >
-                  {isEditando ? "Salvar" : "Editar Nota"}
-                </Button>
-
-                <Button 
-                  onClick={() => handleToggleAlerta(c.id)}
-                  variant="outline" 
-                  size="sm" 
-                  className={cn(
-                    "w-full text-[10px] font-black uppercase h-10 rounded-xl transition-all",
-                    c.status === "ruim" 
-                      ? "bg-red-500 text-white border-red-500 hover:bg-red-600" 
-                      : "text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/10"
-                  )}
-                >
-                  <AlertTriangle size={12} className="mr-1" />
-                  {c.status === "ruim" ? "Remover Alerta" : "Marcar Alerta"}
-                </Button>
+              {/* NOTA DO ATENDENTE (ESTÁTICA) */}
+              <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+                <p className="text-[9px] font-black text-gray-600 uppercase flex items-center gap-1 mb-2 tracking-widest">
+                  <MessageSquare size={10} /> Notas e Histórico
+                </p>
+                <p className="text-xs italic text-gray-400 leading-relaxed">
+                  {c.obs ? `"${c.obs}"` : "Nenhuma observação registrada."}
+                </p>
               </div>
             </div>
           );
@@ -1477,6 +1553,10 @@ function setLoading(arg0: boolean) {
   throw new Error("Function not implemented.");
 }
 function gerarSlotsAgenda(duracao: string) {
+  throw new Error("Function not implemented.");
+}
+
+function setVipsReais(arg0: (prev: any) => any) {
   throw new Error("Function not implemented.");
 }
 

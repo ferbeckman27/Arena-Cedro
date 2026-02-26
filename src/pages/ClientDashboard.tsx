@@ -338,7 +338,7 @@ const handleTipoReserva = (tipo: string) => {
       <header className="w-full bg-[#0c120f] border-b border-white/5 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex flex-col items-center">
-            <img src="/media/logo-arena.png" alt="Logo" className="h-16 md:h-20 w-auto object-contain transition-transform hover:scale-105" />
+            <img src="/media/logo-arena.png" alt="Logo" className="h-24 md:h-32 w-auto object-contain transition-transform hover:scale-105" />
           <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO AO PAINEL DO CLIENTE</span>
         </div>
         </div>

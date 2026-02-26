@@ -392,9 +392,15 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
   }
 };
 
-  function handlePagarVip(id: any): void {
-    throw new Error("Function not implemented.");
-  }
+  const handlePagarVip = async (id: number) => {
+    const { error } = await supabase.from('clientes').update({ status_pagamento: 'em_dia' }).eq('id', id);
+    if (!error) {
+      setVipsReais(prev => prev.map((v: any) => v.id === id ? { ...v, status_pagamento: 'em_dia' } : v));
+      toast({ title: "Mensalidade confirmada." });
+    } else {
+      toast({ variant: "destructive", title: "Erro ao confirmar mensalidade." });
+    }
+  };
 
   const salvarPromocao = () => {
   localStorage.setItem("arena_promo_ativa", String(promoAtiva));
@@ -407,6 +413,44 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
   });
 };
 
+const [relatorioComissoes, setRelatorioComissoes] = useState<any[]>([]);
+
+useEffect(() => {
+  const buscarRelatorioComissoes = async () => {
+    // Busca as reservas trazendo também o nome do atendente (se houver relação no banco)
+    const { data, error } = await supabase
+      .from('reservas')
+      .select(`
+        comissao_valor,
+        atendente_id,
+        perfil:atendente_id ( nome )
+      `)
+      .gt('comissao_valor', 0); // Só quem tem comissão
+
+    if (data) {
+      // Agrupa os valores por atendente
+      const agrupado = data.reduce((acc: any, curr: any) => {
+        const nome = curr.perfil?.nome || 'Atendente Antigo';
+        if (!acc[nome]) acc[nome] = 0;
+        acc[nome] += Number(curr.comissao_valor);
+        return acc;
+      }, {});
+
+      // Transforma em array para listar no HTML
+      const lista = Object.entries(agrupado).map(([nome, total]) => ({ nome, total }));
+      setRelatorioComissoes(lista);
+    }
+  };
+
+  buscarRelatorioComissoes();
+}, []);
+
+const calcularFidelidade = (totalReservas: number) => {
+  const progresso = totalReservas % 10;
+  const completou = totalReservas > 0 && totalReservas % 10 === 0;
+  return { progresso, completou };
+};
+
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
       {/* HEADER */}
@@ -414,7 +458,7 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-center">
-              <img src="/media/logo-arena.png" alt="Logo" className="h-16 md:h-20 w-auto object-contain transition-transform hover:scale-105" />
+              <img src="/media/logo-arena.png" alt="Logo" className="h-24 md:h-32 w-auto object-contain transition-transform hover:scale-105" />
               <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO ADMINISTRADOR </span>
             </div>
           </div>
@@ -428,7 +472,7 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
                 <Switch checked={emManutencao} onCheckedChange={handleToggleManutencao} />
               </div>
             </div>
-            <Button variant="ghost" className="text-red-500" onClick={() => navigate("/")}><LogOut size={20} /></Button>
+            <Button variant="ghost" className="text-red-500" onClick={() => navigate("/adminlogin")}><LogOut size={20} /></Button>
           </div>
         </div>
       </header>
@@ -461,115 +505,171 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
             <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic">Relatórios</TabsTrigger>
             <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic">Equipe</TabsTrigger>
             <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic">Depoimentos</TabsTrigger>
+            <TabsTrigger value="financeiro" className="px-6 font-bold uppercase italic">Financeiro</TabsTrigger>
           </TabsList>
 
-          {/* CONTEÚDO AGENDA */}
-          <TabsContent value="agenda" className="grid lg:grid-cols-12 gap-6">
-            <Card className="lg:col-span-4 bg-[#0c120f] border-white/5 rounded-[2.5rem] p-6">
-              <div className="flex justify-between items-center mb-6">
-                <Button variant="ghost" onClick={() => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}><ChevronLeft /></Button>
-                <h2 className="font-black uppercase italic">{new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}</h2>
-                <Button variant="ghost" onClick={() => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}><ChevronRight /></Button>
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {diasMes.map((date, i) => (
-                  <button
-                    key={i}
-                    disabled={!date}
-                    onClick={() => date && setDiaSelecionado(date)}
-                    className={cn(
-                      "h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all",
-                      !date ? "opacity-0" : "hover:bg-[#22c55e]/20",
-                      date?.toDateString() === diaSelecionado.toDateString() ? "bg-[#22c55e] text-black" : "text-white"
-                    )}
-                  >
-                    {date?.getDate()}
-                  </button>
-                ))}
-              </div>
-            </Card>
+          {/* CONTEÚDO AGENDA: CALENDÁRIO E SLOTS */}
+<TabsContent value="agenda" className="grid lg:grid-cols-12 gap-6 outline-none">
+  {/* COLUNA ESQUERDA: CALENDÁRIO */}
+  <Card className="lg:col-span-4 bg-[#0c120f] border-white/5 rounded-[2.5rem] p-6 h-fit">
+    <div className="flex justify-between items-center mb-6">
+      <Button variant="ghost" size="icon" className="hover:bg-white/5 text-white" onClick={() => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
+        <ChevronLeft size={20} />
+      </Button>
+      <h2 className="font-black uppercase italic text-sm tracking-tighter text-[#22c55e]">
+        {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(mesAtual)}
+      </h2>
+      <Button variant="ghost" size="icon" className="hover:bg-white/5 text-white" onClick={() => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
+        <ChevronRight size={20} />
+      </Button>
+    </div>
+    
+    <div className="grid grid-cols-7 gap-1 text-center mb-2">
+      {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => (
+        <span key={d} className="text-[10px] font-black text-gray-600">{d}</span>
+      ))}
+    </div>
 
-            <div className="lg:col-span-8 space-y-4">
-              <div className="flex justify-between items-center bg-black/40 p-4 rounded-3xl border border-white/10">
-                <p className="font-black italic uppercase">Horários: {diaSelecionado.toLocaleDateString()}</p>
-                <div className="flex bg-white/5 p-1 rounded-xl">
-                  {[30, 60, 90].map(m => (
-                    <button key={m} onClick={() => setDuracaoFiltro(m)} className={cn("px-4 py-2 rounded-lg text-[10px] font-black uppercase", duracaoFiltro === m ? "bg-[#22c55e] text-black" : "text-gray-500")}>
-                      {m} Min
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <ScrollArea className="h-[400px] pr-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {slotsCalculados.map((slot, i) => (
-                    <button 
-  key={i} 
-  onClick={() => abrirDetalheSlot(slot)} 
-  className={cn(
-    "p-4 rounded-2xl border text-left transition-all relative overflow-hidden",
-    slot.status === 'reservado' 
-      ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/20" 
-      : "bg-white/5 border-white/5 hover:border-[#22c55e]/50"
-  )}
->
-  <div className="flex justify-between items-start">
-    <span className="text-[8px] font-black uppercase text-[#22c55e]">{slot.turno}</span>
-    {slot.status === 'reservado' && (
-      <span className="text-[8px] bg-red-500 text-white px-1 rounded font-bold">OCUPADO</span>
-    )}
-  </div>
-  
-  <p className="text-xl font-black italic text-white">{slot.inicio}</p>
-  
-  {/* Mostra o nome do cliente resumido se estiver ocupado */}
-  {slot.status === 'reservado' ? (
-    <p className="text-[10px] font-bold text-red-400 truncate mt-1">
-      👤 {slot.reserva?.cliente}
-    </p>
-  ) : (
-    <p className="text-[10px] font-bold text-gray-500 italic mt-1">
-      R$ {Number(slot.valor).toFixed(2)}
-    </p>
-  )}
-</button>
-                  ))}
-                </div>
-              </ScrollArea>
-              <Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
-                <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-  <DialogHeader>
-    <DialogTitle className="italic uppercase font-black flex items-center gap-2">
-      <div className="w-2 h-6 bg-[#22c55e]" />
-      Detalhes da Reserva ({slotDetalhe?.inicio})
-    </DialogTitle>
-  </DialogHeader>
-  
-  {slotDetalhe && (
-    <div className="space-y-6 pt-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-[10px] text-gray-500 font-black uppercase">Cliente</p>
-          <p className="font-bold text-lg text-[#22c55e]">{slotDetalhe.cliente}</p>
-        </div>
-        <div>
-          <p className="text-[10px] text-gray-500 font-black uppercase">Pagamento</p>
-          <p className="font-bold uppercase">{slotDetalhe.pagamento}</p>
-        </div>
-      </div>
+    <div className="grid grid-cols-7 gap-1">
+      {diasMes.map((date, i) => (
+        <button
+          key={i}
+          disabled={!date}
+          onClick={() => date && setDiaSelecionado(date)}
+          className={cn(
+            "h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all",
+            !date ? "opacity-0" : "hover:bg-[#22c55e]/20",
+            date?.toDateString() === diaSelecionado.toDateString() 
+              ? "bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]" 
+              : "text-white bg-white/5"
+          )}
+        >
+          {date?.getDate()}
+        </button>
+      ))}
+    </div>
+  </Card>
 
-      <div className="border-t border-white/5 pt-4">
-        <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Observações</p>
-        <div className="bg-white/5 p-3 rounded-xl min-h-[60px]">
-          <p className="text-sm italic text-gray-300">{slotDetalhe.obs || "Nenhuma observação registrada."}</p>
-        </div>
+  {/* COLUNA DIREITA: LISTA DE HORÁRIOS */}
+  <div className="lg:col-span-8 space-y-4">
+    <div className="flex flex-col md:flex-row justify-between items-center bg-black/40 p-5 rounded-[2rem] border border-white/10 gap-4">
+      <div>
+        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Dia Selecionado</p>
+        <p className="font-black italic uppercase text-lg text-white">
+          {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+        </p>
       </div>
+      
+      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+        {[30, 60, 90].map(m => (
+          <button 
+            key={m} 
+            onClick={() => setDuracaoFiltro(m)} 
+            className={cn(
+              "px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all", 
+              duracaoFiltro === m ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white"
+            )}
+          >
+            {m} Min
+          </button>
+        ))}
       </div>
-  )}
-</DialogContent>
-              </Dialog>
+    </div>
+
+    <ScrollArea className="h-[500px] pr-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {slotsCalculados.map((slot, i) => {
+          const isReservado = slot.status === 'reservado';
+          return (
+            <button 
+              key={i} 
+              onClick={() => abrirDetalheSlot(slot)} 
+              className={cn(
+                "p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1",
+                isReservado 
+                  ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50" 
+                  : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50"
+              )}
+            >
+              <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">{slot.turno}</span>
+              <p className="text-2xl font-black italic text-white group-hover:scale-110 transition-transform">
+                {slot.inicio}
+              </p>
+              
+              <div className={cn(
+                "mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase",
+                isReservado ? "bg-red-500 text-white" : "bg-[#22c55e]/20 text-[#22c55e]"
+              )}>
+                {isReservado ? "OCUPADO" : "LIVRE"}
+              </div>
+
+              {isReservado ? (
+                <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">
+                  👤 {slot.reserva?.cliente || "Agendado"}
+                </p>
+              ) : (
+                <p className="text-[10px] font-bold text-gray-500 italic mt-2">
+                  R$ {Number(slot.valor).toFixed(2)}
+                </p>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </ScrollArea>
+
+    {/* MODAL DE DETALHES DA RESERVA */}
+    <Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
+      <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8 max-w-md">
+        <DialogHeader>
+          <DialogTitle className="italic uppercase font-black text-2xl flex items-center gap-3 text-[#22c55e]">
+            <div className="w-2 h-8 bg-[#22c55e] rounded-full" />
+            Detalhes do Horário
+          </DialogTitle>
+        </DialogHeader>
+        
+        {slotDetalhe && (
+          <div className="space-y-6 pt-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Horário</p>
+                <p className="font-black text-xl text-white">{slotDetalhe.inicio}</p>
+              </div>
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Status</p>
+                <p className={cn("font-black text-xl uppercase", slotDetalhe.status === 'reservado' ? "text-red-500" : "text-[#22c55e]")}>
+                  {slotDetalhe.status}
+                </p>
+              </div>
             </div>
-          </TabsContent>
+
+            <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
+              <p className="text-[10px] text-gray-500 font-black uppercase mb-2">Informações do Cliente</p>
+              <div className="space-y-1">
+                <p className="font-bold text-lg text-white">👤 {slotDetalhe.cliente || "Disponível"}</p>
+                <p className="text-sm text-gray-400 font-medium tracking-tight">💰 Pagamento: <span className="text-white uppercase font-black">{slotDetalhe.pagamento || "Pendente"}</span></p>
+              </div>
+            </div>
+
+            <div className="bg-yellow-500/5 border border-yellow-500/20 p-5 rounded-2xl">
+              <p className="text-[10px] text-yellow-500 font-black uppercase mb-2">Observações da Reserva</p>
+              <p className="text-sm italic text-gray-300 leading-relaxed">
+                {slotDetalhe.obs || "Nenhuma observação registrada para este horário."}
+              </p>
+            </div>
+
+            <Button 
+              className="w-full h-14 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-black uppercase"
+              onClick={() => setIsModalDetalheAberto(false)}
+            >
+              Fechar Detalhes
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  </div>
+</TabsContent>
 
           {/* ABA RELATÓRIOS (SINTÉTICO E ANALÍTICO) */}
           <TabsContent value="relatorios" className="space-y-8">
@@ -802,8 +902,8 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
   </div>
 </TabsContent>
 
-          {/* ABA VIP COM BOTÃO DE ENGRENAGEM */}
-          <TabsContent value="vip">
+          {/* ABA VIP COM SISTEMA DE FIDELIDADE */}
+<TabsContent value="vip">
   <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
     <Table>
       <TableHeader>
@@ -811,96 +911,162 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
           <TableHead>Grupo</TableHead>
           <TableHead>Dia/Hora</TableHead>
           <TableHead>Status</TableHead>
+          <TableHead>Fidelidade (Progresso)</TableHead> {/* Nova Coluna */}
           <TableHead className="text-right">Ações</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-  {vipsReais.length > 0 ? (
-    vipsReais.map((vip, i) => (
-      <TableRow key={i} className="border-white/5 hover:bg-white/[0.02] transition-colors">
-        <TableCell className="font-black italic uppercase text-[#22c55e]">
-          {vip.nome}
-        </TableCell>
-        <TableCell className="text-gray-300 font-medium">
-          {vip.dia_semana} às {vip.horario ? vip.horario.substring(0, 5) : "--:--"}
-        </TableCell>
-        <TableCell>
-          <Badge className={vip.status_pagamento === "em_atraso" 
-            ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1" 
-            : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"}>
-            {vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}
-          </Badge>
-        </TableCell>
-        <TableCell className="text-right">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="hover:bg-white/10 rounded-full h-10 w-10 p-0">
-                <Settings size={18} className="text-[#22c55e]" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8">
-              <DialogHeader>
-                <DialogTitle className="italic uppercase font-black text-[#22c55e] text-2xl">
-                  Dados do Cliente VIP
-                </DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-6 pt-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Responsável</p>
-                    <p className="font-bold text-lg text-white">
-                      {/* Aqui exibe o atendente real que fez o cadastro */}
-                      {vip.responsavel_cadastro || vip.responsavel || "Sistema"}
-                    </p>
-                  </div>
-                  <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Pagamento</p>
-                    <p className="font-bold text-lg text-white">
-                      {vip.metodo_pagamento || "Não informado"}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-[1.5rem]">
-                  <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2 mb-3">
-                    <Info size={14} /> Alerta / Observação do Atendente
-                  </p>
-                  <p className="text-sm italic text-gray-300 leading-relaxed">
-                    "{vip.observacao || "Nenhuma observação registrada para este grupo."}"
-                  </p>
-                </div>
+        {vipsReais.length > 0 ? (
+          vipsReais.map((vip, i) => {
+            // Lógica de cálculo: progresso de 0 a 10
+            const progressoFidelidade = (vip.total_reservas || 0) % 10;
+            const ganhouGratuidade = vip.total_reservas > 0 && vip.total_reservas % 10 === 0;
 
-                <div className="grid grid-cols-2 gap-3">
-                   <Button 
-                    className="bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-14 rounded-2xl shadow-lg"
-                    onClick={() => handlePagarVip(vip.id)}
-                  >
-                    Confirmar Mensalidade
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    className="bg-transparent hover:bg-white/5 text-white border-white/10 font-black uppercase h-14 rounded-2xl"
-                  >
-                    Editar Grupo
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </TableCell>
-      </TableRow>
-    ))
-  ) : (
-    <TableRow>
-      <TableCell colSpan={4} className="text-center py-24 text-gray-500 italic text-lg">
-        Buscando dados reais no banco...
-      </TableCell>
-    </TableRow>
-  )}
-</TableBody>
+            return (
+              <TableRow key={i} className="border-white/5 hover:bg-white/[0.02] transition-colors">
+                <TableCell className="font-black italic uppercase text-[#22c55e]">
+                  {vip.nome}
+                </TableCell>
+                <TableCell className="text-gray-300 font-medium">
+                  {vip.dia_semana} às {vip.horario ? vip.horario.substring(0, 5) : "--:--"}
+                </TableCell>
+                <TableCell>
+                  <Badge className={vip.status_pagamento === "em_atraso" 
+                    ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1" 
+                    : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"}>
+                    {vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}
+                  </Badge>
+                </TableCell>
+
+                {/* COLUNA DE FIDELIDADE */}
+                <TableCell>
+                  <div className="flex flex-col gap-1.5 min-w-[120px]">
+                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-tighter">
+                      <span className={ganhouGratuidade ? "text-yellow-500 animate-pulse" : "text-gray-500"}>
+                        {ganhouGratuidade ? "★ Próximo Grátis" : "Progresso"}
+                      </span>
+                      <span className="text-white">{progressoFidelidade}/10</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-2 rounded-full border border-white/5 overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${ganhouGratuidade ? "bg-yellow-500" : "bg-[#22c55e]"}`}
+                        style={{ width: `${ganhouGratuidade ? 100 : progressoFidelidade * 10}%` }}
+                      />
+                    </div>
+                  </div>
+                </TableCell>
+
+                <TableCell className="text-right">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="hover:bg-white/10 rounded-full h-10 w-10 p-0">
+                        <Settings size={18} className="text-[#22c55e]" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8">
+                      <DialogHeader>
+                        <DialogTitle className="italic uppercase font-black text-[#22c55e] text-2xl">
+                          Dados do Cliente VIP
+                        </DialogTitle>
+                      </DialogHeader>
+                      
+                      <div className="space-y-6 pt-6">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Responsável</p>
+                            <p className="font-bold text-lg text-white">
+                              {vip.responsavel_cadastro || vip.responsavel || "Sistema"}
+                            </p>
+                          </div>
+                          <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Pagamento</p>
+                            <p className="font-bold text-lg text-white">
+                              {vip.metodo_pagamento || "Não informado"}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* AVISO DE FIDELIDADE NO MODAL */}
+                        {ganhouGratuidade && (
+                          <div className="p-4 bg-yellow-500 text-black rounded-2xl flex items-center gap-3 animate-bounce">
+                            <Star size={24} fill="black" />
+                            <p className="font-black uppercase text-xs leading-none">Este grupo completou 10 jogos! Próximo horário é cortesia.</p>
+                          </div>
+                        )}
+
+                        <div className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-[1.5rem]">
+                          <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2 mb-3">
+                            <Info size={14} /> Alerta / Observação do Atendente
+                          </p>
+                          <p className="text-sm italic text-gray-300 leading-relaxed">
+                            "{vip.observacao || "Nenhuma observação registrada para este grupo."}"
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button 
+                            className="bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-14 rounded-2xl shadow-lg"
+                            onClick={() => handlePagarVip(vip.id)}
+                          >
+                            Confirmar Mensalidade
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            className="bg-transparent hover:bg-white/5 text-white border-white/10 font-black uppercase h-14 rounded-2xl"
+                          >
+                            Editar Grupo
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </TableCell>
+              </TableRow>
+            );
+          })
+        ) : (
+          <TableRow>
+            <TableCell colSpan={5} className="text-center py-24 text-gray-500 italic text-lg">
+              Buscando dados reais no banco...
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
     </Table>
   </Card>
+</TabsContent>
+
+      {/* FINANCEIRO */}
+      <TabsContent value="financeiro">
+      <div className="space-y-4">
+  <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
+    <DollarSign className="text-[#22c55e]" /> Relatório de Comissões
+  </h2>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {relatorioComissoes.map((item, index) => (
+      <div 
+        key={index}
+        className="bg-white/5 border border-white/10 p-5 rounded-[2rem] flex justify-between items-center hover:bg-white/10 transition-all"
+      >
+        <div>
+          <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Funcionário</p>
+          <p className="text-lg font-black italic text-white uppercase">{item.nome}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-black uppercase text-[#22c55e] tracking-widest">Total a Pagar</p>
+          <p className="text-2xl font-black text-[#22c55e]">
+            R$ {Number(item.total).toFixed(2)}
+          </p>
+        </div>
+      </div>
+    ))}
+    
+    {relatorioComissoes.length === 0 && (
+      <p className="text-gray-500 italic">Nenhuma comissão registrada ainda.</p>
+    )}
+  </div>
+</div>
 </TabsContent>
 
           {/* ABA MARKETING */}
