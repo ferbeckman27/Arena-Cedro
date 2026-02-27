@@ -17,7 +17,9 @@ import {
   BellRing,
   Trash2,
   Clock,
-  Table
+  Table,
+  Copy, 
+  Lock
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,11 @@ const AtendenteDashboard = () => {
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
   const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
+  const [pixBase64, setPixBase64] = useState<string>("");
+  const [pixCopiaECola, setPixCopiaECola] = useState<string>("");
+  const [isCarregandoPix, setIsCarregandoPix] = useState<boolean>(false);
+
+
 
   const [novoVip, setNovoVip] = useState({
    nome: "",
@@ -105,7 +112,7 @@ const AtendenteDashboard = () => {
   { id: 2, nome: "Maria Oliveira", dia: "QUA", horario: "18:30", metodoPgto: "PIX" }
  ]);
 
-const [estoque, setEstoque] = useState<any[]>([]);
+  const [estoque, setEstoque] = useState<any[]>([]);
   const [clientes, setClientes] = useState<{ id: number; nome: string; sobrenome?: string; status?: string; telefone: string; obs?: string; isVip?: boolean }[]>([]);
   const [alertas, setAlertas] = useState<{ id: number; cliente: string; cliente_id?: number; obs: string; tipo: string; alerta?: boolean }[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -223,7 +230,7 @@ const [estoque, setEstoque] = useState<any[]>([]);
       slots.push({
         inicio,
         fim,
-        turno: atual.getHours() < 12 ? 'Manhã' : atual.getHours() < 18 ? 'Tarde' : 'Noite',
+        turno: atual.getHours() >= 18 ? 'Diurno' : 'Noturno',
         valor: (valorBase * duracaoMinutos) / 60,
         status: 'livre'
       });
@@ -418,7 +425,7 @@ const totalCarrinho = useMemo(() => {
   };
 
   // --- LÓGICA DE AGENDAMENTO COMPLETA ---
-  async function handleAgendar(slot: any, clienteNome: string) {
+  async function handleAgendar(slot: any, clienteNome: string, turno_id: number) {
   if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
   
   const duracaoMin = parseInt(duracao, 10);
@@ -426,17 +433,16 @@ const totalCarrinho = useMemo(() => {
 
   try {
     // 1. Verificação de Conflito (Frontend)
-   if (!verificarDisponibilidade(slot.inicio, duracaoMin)) {
+    if (!verificarDisponibilidade(slot.inicio, duracaoMin)) {
       throw new Error("Conflito de Horário! Outro jogador já reservou este slot.");
     }
 
-    // 2. Cálculo de Valores (Sua lógica original mantida)
+    // 2. Cálculo de Valores
     const horaH = parseInt(slot.inicio.split(":")[0]);
     const valorBase = horaH >= 18 ? 120 : 80;
     const valorReserva = valorBase * (duracaoMin / 60);
     const totalProdutos = itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
     const totalGeral = valorReserva + totalProdutos;
-    const valorSinal = metodoPgto === "pix" ? totalGeral * 0.5 : totalGeral;
 
     // 3. Pegar ID do funcionário logado
     const { data: { user } } = await supabase.auth.getUser();
@@ -453,7 +459,8 @@ const totalCarrinho = useMemo(() => {
         valor_total: totalGeral,
         forma_pagamento: metodoPgto,
         funcionario_id: user?.id,
-        pago: metodoPgto !== 'pix'
+        pago: metodoPgto !== 'pix',
+        turno_id: turno_id 
       }])
       .select()
       .single();
@@ -462,7 +469,7 @@ const totalCarrinho = useMemo(() => {
 
     // 5. Salvar Itens do Carrinho
     if (itensCarrinho.length > 0) {
-      await supabase.from('itens_reserva').insert(
+      const { error: itemError } = await supabase.from('itens_reserva').insert(
         itensCarrinho.map(item => ({
           reserva_id: reserva.id,
           produto_id: item.id,
@@ -472,6 +479,7 @@ const totalCarrinho = useMemo(() => {
           subtotal: item.preco
         }))
       );
+      if (itemError) console.error("Erro nos itens:", itemError);
     }
 
     metodoPgto === 'pix' ? playApito() : playTorcida();
@@ -479,9 +487,10 @@ const totalCarrinho = useMemo(() => {
 
     setItensCarrinho([]);
     buscarDadosIniciais(); 
-    carregarReservasFinancas(); // Atualiza a lista de reservas
+    carregarReservasFinancas(); 
     
   } catch (error: any) {
+    console.error("Erro detalhado:", error);
     toast({ variant: "destructive", title: "Erro", description: error.message });
   } finally {
     setLoading(false);
@@ -652,6 +661,28 @@ const handleUsarCortesia = async (vipId: string) => {
   }
 };
 
+async function handleFecharCaixa() {
+  try {
+    
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase
+      .from('fechamentos_caixa')
+      .insert([{
+        data: diaSelecionado.toLocaleDateString('sv-SE'),
+        valor_pix: resumoFinanceiro.pix || 0,
+        valor_dinheiro: resumoFinanceiro.dinheiro || 0,
+        fechado_por: user.id
+      }]);
+
+    if (error) throw error;
+    
+    toast({ title: "Caixa Fechado!", description: "Os valores foram registrados com sucesso." });
+  } catch (err: any) {
+    toast({ variant: "destructive", title: "Erro ao fechar", description: err.message });
+  }
+}
+
   return (
   <div className="min-h-screen bg-[#060a08] text-white font-sans">
     {/* HEADER ADM - COMPACTO E FUNCIONAL */}
@@ -713,6 +744,22 @@ const handleUsarCortesia = async (vipId: string) => {
                   <span className="text-xs uppercase font-bold">A receber no local:</span>
                   <span className="font-black text-red-500">R$ {(resumoFinanceiro.restante || 0).toFixed(2)}</span>
                 </div>
+                <Separator className="bg-white/10 my-4" />
+
+                <Button
+                  onClick={() => {
+                    if(confirm("Deseja realmente fechar o caixa deste dia?")) {
+                      handleFecharCaixa();
+                    }
+                  }}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-black uppercase h-14 rounded-2xl shadow-lg shadow-red-500/10 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <Lock size={18} /> Fechar Caixa do Dia
+                </Button>
+
+                <p className="text-[9px] text-gray-500 text-center uppercase font-bold">
+                  Ao fechar, o relatório será enviado para o administrador.
+                </p>
               </div>
             </DialogContent>
           </Dialog>
@@ -782,7 +829,7 @@ const handleUsarCortesia = async (vipId: string) => {
           {/* AGENDA: ESTILO GRID PREMIUM */}
            <TabsContent value="agenda" className="space-y-8">
   
-  {/* 1. SEÇÃO CALENDÁRIO (OCUPANDO O TOPO) */}
+  {/* 1. SEÇÃO CALENDÁRIO */}
   <Card className="bg-[#0c120f] border-white/5 overflow-hidden rounded-[2.5rem]">
     <div className="bg-[#22c55e] p-4 flex justify-between items-center text-black font-black uppercase text-sm">
       <button onClick={() => setMesAtual(new Date(mesAtual.setMonth(mesAtual.getMonth() - 1)))} className="hover:scale-110 transition-transform">
@@ -819,7 +866,7 @@ const handleUsarCortesia = async (vipId: string) => {
     </div>
   </Card>
 
-  {/* 2. SELETOR DE DURAÇÃO (CENTRALIZADO) */}
+  {/* 2. SELETOR DE DURAÇÃO */}
   <div className="flex flex-col items-center gap-4 py-4">
     <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Selecione a Duração do Jogo</p>
     <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10 shadow-inner">
@@ -840,207 +887,166 @@ const handleUsarCortesia = async (vipId: string) => {
     </div>
   </div>
 
- {/* 3. GRID DE HORÁRIOS (ESTILO CARDS) */}
-<div className="space-y-6">
-  <div className="flex justify-between items-center border-b border-white/5 pb-4">
-    <h3 className="font-black italic uppercase text-[#22c55e] flex items-center gap-2">
-      <LucideCalendar size={18} /> Disponibilidade: {diaSelecionado.toLocaleDateString()}
-    </h3>
-    <Badge variant="outline" className="text-[10px] border-[#22c55e] text-[#22c55e] px-4 py-1">
-      {duracao} MINUTOS SELECIONADOS
-    </Badge>
-  </div>
+  {/* 3. GRID DE HORÁRIOS */}
+  <div className="space-y-6">
+    <div className="flex justify-between items-center border-b border-white/5 pb-4">
+      <h3 className="font-black italic uppercase text-[#22c55e] flex items-center gap-2">
+        <LucideCalendar size={18} /> Disponibilidade: {diaSelecionado.toLocaleDateString()}
+      </h3>
+      <Badge variant="outline" className="text-[10px] border-[#22c55e] text-[#22c55e] px-4 py-1">
+        {duracao} MINUTOS SELECIONADOS
+      </Badge>
+    </div>
 
-  <ScrollArea className="h-[600px] pr-4">
-    {/* Grid ultra compactado conforme seu pedido */}
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-      {listaSlotsAgendamento.map((slot) => {
-        // Agora usamos os dados que já vêm calculados do slot
-        const isOcupado = slot.status === "reservado";
-        
-        // Buscamos os detalhes da reserva no estado global para mostrar o nome do cliente
-        const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
-        const detalhesReserva = agendaStatus[idAgendamento];
+    <ScrollArea className="h-[600px] pr-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+        {listaSlotsAgendamento.map((slot) => {
+          const isOcupado = slot.status === "reservado";
+          const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
+          const detalhesReserva = agendaStatus[idAgendamento];
 
-        return (
-          <Dialog key={slot.inicio} onOpenChange={() => setItensTemp([])}>
-            <DialogTrigger asChild>
-              <button 
-                disabled={isOcupado}
-                className={cn(
-                  "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24 w-full",
-                  isOcupado 
-                    ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
-                    : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
-                )}
-              >
-                {/* Turno Label */}
-                <span className="text-[7px] font-black uppercase text-gray-600 mb-1">
-                  {slot.turno}
-                </span>
+          function setPixCopiaECola(arg0: string) {
+            throw new Error("Function not implemented.");
+          }
 
-                {/* Horário unificado usando slot.inicio e slot.fim (que já tratam as 22h) */}
-                <span className={cn(
-                  "text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap",
-                  isOcupado ? "text-red-500/50" : "text-white"
-                )}>
-                  {slot.inicio} - {slot.fim}
-                </span>
+          function setPixBase64(arg0: string) {
+            throw new Error("Function not implemented.");
+          }
+
+          function gerarPagamentoPix() {
+            throw new Error("Function not implemented.");
+          }
+
+          return (
+            <Dialog key={slot.inicio} onOpenChange={(open) => {
+              if (!open) {
+                setItensTemp([]);
+                setPixCopiaECola(""); // Limpa o PIX ao fechar
+                setPixBase64("");
+              }
+            }}>
+              <DialogTrigger asChild>
+                <button 
+                  disabled={isOcupado}
+                  className={cn(
+                    "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24 w-full",
+                    isOcupado 
+                      ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
+                      : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
+                  )}
+                >
+                  <span className="text-[7px] font-black uppercase text-gray-600 mb-1">{slot.turno}</span>
+                  <span className={cn("text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap", isOcupado ? "text-red-500/50" : "text-white")}>
+                    {slot.inicio} - {slot.fim}
+                  </span>
+                  <div className="mt-2">
+                    {isOcupado ? (
+                      <div className="flex flex-col items-center">
+                         <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Ocupado</span>
+                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente || "Reservado"}</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[7px] font-black uppercase text-[#22c55e] border border-[#22c55e]/20 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">Livre</span>
+                        <span className="text-[8px] font-bold text-gray-600 italic">R$ {slot.valor.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              </DialogTrigger>
+
+              <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
+                <DialogHeader>
+                  <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
+                    <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {slot.inicio} ÀS {slot.fim}
+                  </DialogTitle>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                    Valor Base da Quadra: <span className="text-[#22c55e]">R$ {slot.valor.toFixed(2)}</span>
+                  </p>
+                </DialogHeader>
                 
-                <div className="mt-2">
-                  {isOcupado ? (
-                    <div className="flex flex-col items-center">
-                       <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">
-                         Ocupado
-                       </span>
-                       {/* Mostra o nome do cliente se existir na reserva */}
-                       <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">
-                         {detalhesReserva?.cliente || "Reservado"}
-                       </p>
+                <div className="space-y-6 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Nome do Atleta Responsável</label>
+                    <Input placeholder="Quem vai pagar?" className="bg-white/5 border-white/10 h-14 rounded-xl text-white focus-visible:ring-[#22c55e]" id={`atleta-${slot.inicio}`} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Pagamento</label>
+                      <select 
+                        value={metodoPgto} 
+                        onChange={(e) => {
+                          setMetodoPgto(e.target.value);
+                          if(e.target.value === 'pix') gerarPagamentoPix(); 
+                        }}
+                        className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white outline-none focus:border-[#22c55e] cursor-pointer"
+                      >
+                        <option value="pix" className="bg-[#0c120f]">PIX (Sinal 50%)</option>
+                        <option value="dinheiro" className="bg-[#0c120f]">Dinheiro (Local)</option>
+                      </select>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-[7px] font-black uppercase text-[#22c55e] border border-[#22c55e]/20 px-3 py-1 rounded-full group-hover:bg-[#22c55e] group-hover:text-black transition-colors">
-                        Livre
-                      </span>
-                      {/* Preço dinâmico opcional para o atendente ver no card */}
-                      <span className="text-[8px] font-bold text-gray-600 italic">
-                        R$ {slot.valor.toFixed(2)}
-                      </span>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Duração</label>
+                      <div className="h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-sm font-black text-[#22c55e]">{duracao} MIN</div>
+                    </div>
+                  </div>
+
+                  {/* ÁREA DO PIX (QR CODE E COPIA E COLA) */}
+                  {metodoPgto === "pix" && (
+                    <div className="mt-2 p-5 bg-black/60 rounded-[1.5rem] border border-[#22c55e]/20 flex flex-col items-center gap-4">
+                      {isCarregandoPix ? (
+                        <div className="flex flex-col items-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#22c55e]"></div></div>
+                      ) : pixBase64 ? (
+                        <>
+                          <div className="bg-white p-2 rounded-xl"><img src={`data:image/png;base64,${pixBase64}`} className="w-28 h-28" alt="QR Code" /></div>
+                          <div className="w-full space-y-1">
+                            <div onClick={() => { navigator.clipboard.writeText(pixCopiaECola); toast({ title: "Copiado!" }); }} className="bg-white/5 border border-white/10 p-2.5 rounded-lg cursor-pointer hover:bg-white/10 flex justify-between items-center group">
+                              <p className="text-[9px] text-[#22c55e] font-mono truncate w-[80%]">{pixCopiaECola}</p>
+                              <Copy size={12} className="text-gray-500 group-hover:text-[#22c55e]" />
+                            </div>
+                          </div>
+                        </>
+                      ) : <p className="text-[10px] text-gray-600">Aguardando dados...</p>}
                     </div>
                   )}
+
+                  {/* PRODUTOS E CARRINHO (RESUMO) */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Consumo</label>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
+                      {produtos.filter(p => p.estoque > 0).map(p => (
+                        <button key={p.id} onClick={() => adicionarAoCarrinho(p)} className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 text-[9px] font-black uppercase">
+                          <span>{p.nome}</span>
+                          <span className="text-[#22c55e]">R$ {p.preco.toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* BOTÃO FINALIZAR */}
+                  <Button 
+                    disabled={isCarregandoPix}
+                    className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg"
+                    onClick={() => {
+                      const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+                      
+                      // LOGICA DE TURNO INTEGRADA
+                      const hora = parseInt(slot.inicio.split(":")[0]);
+                      const turno_id = hora >= 18 ? 2 : 1; 
+
+                      handleAgendar(slot.inicio, input?.value, turno_id);
+                    }}
+                  >
+                    {metodoPgto === "pix" ? "Confirmar e Copiar PIX" : "Confirmar Reserva"}
+                  </Button>
                 </div>
-              </button>
-            </DialogTrigger>
-
-          {/* O Dialog permanece igual, pois é o formulário de preenchimento */}
-          <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
-  <DialogHeader>
-  <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
-    <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {slot.inicio} ÀS {slot.fim}
-  </DialogTitle>
-  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-    Valor Base da Quadra: <span className="text-[#22c55e]">R$ {slot.valor.toFixed(2)}</span>
-  </p>
-</DialogHeader>
-  
-  <div className="space-y-6 pt-4">
-    {/* NOME DO ATLETA */}
-    <div className="space-y-2">
-      <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Nome do Atleta Responsável</label>
-      <Input 
-        placeholder="Quem vai pagar?" 
-        className="bg-white/5 border-white/10 h-14 rounded-xl text-white focus-visible:ring-[#22c55e]" 
-        id={`atleta-${slot.inicio}`} 
-      />
-    </div>
-
-    <div className="grid grid-cols-2 gap-4">
-      {/* SELEÇÃO DE PAGAMENTO */}
-      <div className="space-y-2">
-        <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Pagamento</label>
-        <select 
-          value={metodoPgto} 
-          onChange={(e) => setMetodoPgto(e.target.value)}
-          className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white outline-none focus:border-[#22c55e] cursor-pointer"
-        >
-          <option value="pix" className="bg-[#0c120f]">PIX (Sinal 50%)</option>
-    <option value="dinheiro" className="bg-[#0c120f]">Dinheiro (Local)</option>
-        </select>
+              </DialogContent>
+            </Dialog>
+          );
+        })}
       </div>
-
-      {/* DURAÇÃO (FIXA OU EDITÁVEL) */}
-      <div className="space-y-2">
-        <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Duração</label>
-        <div className="h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-sm font-black text-[#22c55e]">
-          {duracao} MIN
-        </div>
-      </div>
-    </div>
-
-    <div className="space-y-2">
-  <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Adicionar Consumo/Aluguel</label>
-  <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
-  {produtos .filter((p) => p.estoque > 0) .map((p) => (
-      <button
-        key={p.id}
-        onClick={() => adicionarAoCarrinho(p)}
-        className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 hover:bg-[#22c55e]/5 transition-all group"
-      >
-        <div className="flex flex-col items-start text-left">
-          <span className="text-[10px] font-black uppercase text-white group-hover:text-[#22c55e] transition-colors">
-            {p.nome}
-          </span>
-          <span className="text-[9px] text-gray-500 font-bold">
-            {p.estoque} DISPONÍVEIS
-          </span>
-        </div>
-        <div className="text-[10px] font-black text-[#22c55e] bg-[#22c55e]/10 px-2 py-1 rounded-lg">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}
-        </div>
-      </button>
-    ))}
-</div>
-</div>
-
-    {/* LISTA DE ITENS NO CARRINHO (RESUMO ANTES DE CONFIRMAR) */}
-{itensCarrinho.length > 0 && (
-  <div className="mt-4 p-4 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
-    <div className="flex justify-between items-center mb-2">
-      <span className="text-[10px] font-black uppercase text-[#22c55e]">Carrinho Atual</span>
-      <span className="text-[9px] text-gray-500 font-bold">{itensCarrinho.length} item(s)</span>
-    </div>
-    
-    <div className="space-y-2 max-h-24 overflow-y-auto pr-2 custom-scrollbar">
-      {itensCarrinho.map((item) => (
-        <div key={item.idUnico} className="flex justify-between items-center group">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
-            <span className="text-[11px] font-bold text-white/80 uppercase">{item.nome}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-white">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco)}
-            </span>
-            <button 
-              onClick={() => removerDoCarrinho(item.idUnico)}
-              className="text-red-500/50 hover:text-red-500 transition-colors"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div className="mt-3 pt-2 border-t border-[#22c55e]/20 flex justify-between items-center">
-      <span className="text-[10px] font-black text-[#22c55e] uppercase">Total em Produtos</span>
-      <span className="text-sm font-black text-[#22c55e]">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-          itensCarrinho.reduce((acc, item) => acc + item.preco, 0)
-        )}
-      </span>
-    </div>
-  </div>
-)}
-
-    { /* BOTÃO FINAL */}
-    <Button 
-      className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg shadow-[#22c55e]/10 transition-all active:scale-95"
-      onClick={() => {
-        const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
-        handleAgendar(slot.inicio, input?.value);
-      }}
-    >
-      Confirmar reserva
-    </Button>
-  </div>
-</DialogContent>
-        </Dialog>
-      );
-    })}
-  </div>
-</ScrollArea>
+    </ScrollArea>
   </div>
 </TabsContent>
 

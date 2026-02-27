@@ -258,9 +258,7 @@ const ClienteDashboard = () => {
   // 1. Mapas de IDs
   const mapaBlocos: Record<number, number> = { 30: 1, 60: 2, 90: 3 };
   const hora = parseInt(horarioSelecionado.split(":")[0]);
-  let turno_id = 1; // Manhã
-  if (hora >= 12 && hora < 18) turno_id = 2; // Tarde
-  if (hora >= 18) turno_id = 3; // Noite
+ const turno_id = hora >= 18 ? 2 : 1;
 
   try {
     let resError = null;
@@ -815,14 +813,26 @@ const handleTipoReserva = (tipo: string) => {
                  <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
                    {/* QR CODE VINDO DO MERCADO PAGO */}
                    <img 
-                    src={`data:image/png;base64,${pixBase64}`} 
+                    src={pixBase64.startsWith('data:') ? pixBase64 : `data:image/png;base64,${pixBase64}`}
                     className="w-32 h-32" 
                     alt="QR Code Mercado Pago" 
                    />
                  </div>
-                 <p className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] animate-pulse">
-                   Aguardando confirmação do PIX...
-                 </p>
+                 <div className="w-full space-y-2">
+                  <p className="text-[10px] text-gray-400 font-black uppercase italic">Código Copia e Cola:</p>
+                  <div
+                    onClick={() => {
+                      navigator.clipboard.writeText(pixCopiaECola);
+                      alert("Código copiado para a área de transferência!");
+                    }}
+                    className="bg-white/10 border border-white/20 rounded-lg p-3 cursor-pointer text-xs font-mono text-[#22c55e] break-all"
+                  >
+                    <p className="text-[10px] text-[#22c55e] font-mono truncate max-w-[200px] mx-auto">
+                    {pixCopiaECola}
+                    </p>
+                    <p className="text-[8px] text-gray-500 font-bold uppercase mt-1">Clique para copiar</p>
+                  </div>
+                 </div>
                </>
              )}
            </div>
