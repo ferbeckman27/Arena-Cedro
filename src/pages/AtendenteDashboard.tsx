@@ -443,6 +443,9 @@ const totalCarrinho = useMemo(() => {
     const valorReserva = valorBase * (duracaoMin / 60);
     const totalProdutos = itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
     const totalGeral = valorReserva + totalProdutos;
+    const valorSinal = totalGeral * 0.5;
+
+    await gerarPagamentoPix(valorSinal, clienteNome);
 
     // 3. Pegar ID do funcionário logado
     const { data: { user } } = await supabase.auth.getUser();
@@ -546,6 +549,25 @@ const totalCarrinho = useMemo(() => {
     buscarDadosIniciais(); // Função que faz o fetch novamente
   } catch (e: any) {
     toast({ variant: "destructive", title: "Erro ao quitar", description: e.message });
+  }
+};
+
+const gerarPagamentoPix = async (valorCobrar: number, nomeCliente: string) => {
+  setIsCarregandoPix(true);
+  try {
+    const response = await fetch('/api/pagar-pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        valor: valorCobrar, // Agora ele usa o que recebeu
+        descricao: `Reserva Arena Cedro - ${nomeCliente}` 
+      })
+    });
+    // ... restante da lógica
+  } catch (error) {
+     console.error(error);
+  } finally {
+     setIsCarregandoPix(false);
   }
 };
 
@@ -663,7 +685,7 @@ const handleUsarCortesia = async (vipId: string) => {
 
 async function handleFecharCaixa() {
   try {
-    
+     
     const { data: { user } } = await supabase.auth.getUser();
 
     const { error } = await supabase
@@ -719,50 +741,60 @@ async function handleFecharCaixa() {
   </div>
           
           {/* BOTÃO CAIXA */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-black rounded-xl font-bold">
-                <DollarSign size={16} className="mr-1"/> CAIXA
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-              <DialogHeader>
-                <DialogTitle className="italic uppercase">Resumo {diaSelecionado.toLocaleDateString()}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[10px] text-gray-400 uppercase">PIX (Sinais)</p>
-                    <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.pix || 0).toFixed(2)}</p>
-                  </div>
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[10px] text-gray-400 uppercase">Dinheiro</p>
-                    <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.dinheiro || 0).toFixed(2)}</p>
-                  </div>
-                </div>
-                <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between">
-                  <span className="text-xs uppercase font-bold">A receber no local:</span>
-                  <span className="font-black text-red-500">R$ {(resumoFinanceiro.restante || 0).toFixed(2)}</span>
-                </div>
-                <Separator className="bg-white/10 my-4" />
+<Dialog>
+  <DialogTrigger asChild>
+    <Button variant="outline" size="sm" className="border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-black rounded-xl font-bold">
+      <DollarSign size={16} className="mr-1"/> CAIXA
+    </Button>
+  </DialogTrigger>
+  <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] outline-none">
+    <DialogHeader>
+      <DialogTitle className="italic uppercase flex items-center gap-2">
+        <DollarSign className="text-[#22c55e]" size={20} />
+        Resumo {diaSelecionado.toLocaleDateString()}
+      </DialogTitle>
+    </DialogHeader>
 
-                <Button
-                  onClick={() => {
-                    if(confirm("Deseja realmente fechar o caixa deste dia?")) {
-                      handleFecharCaixa();
-                    }
-                  }}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-black uppercase h-14 rounded-2xl shadow-lg shadow-red-500/10 transition-all active:scale-95 flex items-center gap-2"
-                >
-                  <Lock size={18} /> Fechar Caixa do Dia
-                </Button>
+    <div className="space-y-4 pt-4">
+      {/* GRID DE VALORES */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+          <p className="text-[10px] text-gray-400 uppercase font-black">PIX (Sinais)</p>
+          <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.pix || 0).toFixed(2)}</p>
+        </div>
+        <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+          <p className="text-[10px] text-gray-400 uppercase font-black">Dinheiro</p>
+          <p className="text-xl font-black text-[#22c55e]">R$ {(resumoFinanceiro.dinheiro || 0).toFixed(2)}</p>
+        </div>
+      </div>
 
-                <p className="text-[9px] text-gray-500 text-center uppercase font-bold">
-                  Ao fechar, o relatório será enviado para o administrador.
-                </p>
-              </div>
-            </DialogContent>
-          </Dialog>
+      {/* TOTAL A RECEBER */}
+      <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between items-center">
+        <span className="text-xs uppercase font-black italic">A receber no local:</span>
+        <span className="font-black text-red-500">R$ {(resumoFinanceiro.restante || 0).toFixed(2)}</span>
+      </div>
+
+      <Separator className="bg-white/10 my-4" />
+
+      {/* BOTÃO DE FECHAMENTO */}
+      <Button 
+        onClick={() => {
+          if(confirm("Deseja realmente fechar o caixa deste dia?")) {
+            // Aqui você chama sua função de fechar caixa
+            handleFecharCaixa();
+          }
+        }}
+        className="w-full bg-red-600 hover:bg-red-700 text-white font-black uppercase h-14 rounded-2xl shadow-lg shadow-red-500/10 transition-all active:scale-95 flex items-center gap-2"
+      >
+        <Lock size={18} /> Fechar Caixa do Dia
+      </Button>
+      
+      <p className="text-[9px] text-gray-500 text-center uppercase font-bold">
+        Ao fechar, o relatório será enviado para o administrador.
+      </p>
+    </div>
+  </DialogContent>
+</Dialog>
 
           {/* BOTÃO MANUTENÇÃO */}
           <Button 
@@ -904,14 +936,6 @@ async function handleFecharCaixa() {
           const isOcupado = slot.status === "reservado";
           const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
           const detalhesReserva = agendaStatus[idAgendamento];
-
-          function setPixCopiaECola(arg0: string) {
-            throw new Error("Function not implemented.");
-          }
-
-          function setPixBase64(arg0: string) {
-            throw new Error("Function not implemented.");
-          }
 
           function gerarPagamentoPix() {
             throw new Error("Function not implemented.");

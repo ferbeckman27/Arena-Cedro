@@ -2,7 +2,7 @@ const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 // Configure com seu ACCESS TOKEN DE TESTE (o que começa com TEST-)
 const client = new MercadoPagoConfig({ 
-  accessToken: 'APP_USR-5198926a-e4d9-4d1c-b285-eb10daa8a0d4' 
+  accessToken: 'TEST-3766173670619186-022522-3ac6129538ec09403302c80c4de281ff-510915299' 
 });
 
 module.exports = async (req, res) => {
