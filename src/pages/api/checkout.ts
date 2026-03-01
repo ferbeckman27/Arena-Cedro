@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         transaction_amount: Number(valor),
         description: `Arena - Reserva Horário`,
         payment_method_id: 'pix',
-        payer: { email: 'TESTUSER4053985039427048792@testuser.com', first_name: clienteNome },
+        payer: { email: 'joao@email.com', first_name: clienteNome },
         // IMPORTANTE: URL que o Mercado Pago vai avisar quando o PIX for pago
         notification_url: "https://arena-cedro.vercel.app/api/webhook" 
       }

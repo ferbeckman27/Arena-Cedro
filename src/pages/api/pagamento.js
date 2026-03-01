@@ -2,7 +2,7 @@ const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 // Configure com seu ACCESS TOKEN DE TESTE (o que começa com TEST-)
 const client = new MercadoPagoConfig({ 
-  accessToken: 'TEST-3766173670619186-022522-3ac6129538ec09403302c80c4de281ff-510915299' 
+  accessToken: 'TEST-8608772816287105-030117-eb7d2d719813f665080d20ab68d3c8fa-543569279' 
 });
 
 module.exports = async (req, res) => {
@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
       description: descricao || 'Reserva Arena Cedro',
       payment_method_id: 'pix',
       payer: {
-        email: email || 'test_user_123@testuser.com', // Email do comprador de teste
+        email: email || 'joao@email.com', // Email do comprador de teste
       },
     };
 

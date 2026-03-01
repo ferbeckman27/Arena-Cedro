@@ -51,7 +51,7 @@ const AtendenteDashboard = () => {
   const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
   const [pixBase64, setPixBase64] = useState<string>("");
   const [pixCopiaECola, setPixCopiaECola] = useState<string>("");
-  const [isCarregandoPix, setIsCarregandoPix] = useState<boolean>(false);
+  const [isCarregandoPix, setIsCarregandoPix] = useState(false);
 
 
 
@@ -424,7 +424,6 @@ const totalCarrinho = useMemo(() => {
     }
   };
 
-  // --- LÓGICA DE AGENDAMENTO COMPLETA ---
   async function handleAgendar(slot: any, clienteNome: string, turno_id: number) {
   if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
   
@@ -432,12 +431,10 @@ const totalCarrinho = useMemo(() => {
   setLoading(true);
 
   try {
-    // 1. Verificação de Conflito (Frontend)
     if (!verificarDisponibilidade(slot.inicio, duracaoMin)) {
       throw new Error("Conflito de Horário! Outro jogador já reservou este slot.");
     }
 
-    // 2. Cálculo de Valores
     const horaH = parseInt(slot.inicio.split(":")[0]);
     const valorBase = horaH >= 18 ? 120 : 80;
     const valorReserva = valorBase * (duracaoMin / 60);
@@ -445,12 +442,8 @@ const totalCarrinho = useMemo(() => {
     const totalGeral = valorReserva + totalProdutos;
     const valorSinal = totalGeral * 0.5;
 
-    await gerarPagamentoPix(valorSinal, clienteNome);
-
-    // 3. Pegar ID do funcionário logado
     const { data: { user } } = await supabase.auth.getUser();
 
-    // 4. Salvar Reserva Principal no Supabase
     const { data: reserva, error: resError } = await supabase
       .from('reservas')
       .insert([{
@@ -465,14 +458,36 @@ const totalCarrinho = useMemo(() => {
         pago: metodoPgto !== 'pix',
         turno_id: turno_id 
       }])
-      .select()
-      .single();
+      .select().single();
 
     if (resError) throw resError;
 
-    // 5. Salvar Itens do Carrinho
+    if (metodoPgto === 'pix') {
+      const data = (await gerarPagamentoPix(valorSinal, clienteNome)) as any;
+
+      if (data && data.id) {
+
+         setPixBase64(data.qrCodeBase64);
+         setPixCopiaECola(data.copiaECola);
+
+        const { error: pagError } = await supabase
+          .from('pagamentos')
+          .insert([{
+            reserva_id: reserva.id,
+            valor: valorSinal,
+            status: 'pendente',
+            tipo: 'sinal',
+            forma_pagamento: 'pix',
+            id_mercado_pago: String(data.id), 
+            codigo_pix: data.copiaECola
+          }]);
+
+        if (pagError) console.error("Erro na tabela pagamentos:", pagError);
+      }
+    }
+
     if (itensCarrinho.length > 0) {
-      const { error: itemError } = await supabase.from('itens_reserva').insert(
+      await supabase.from('itens_reserva').insert(
         itensCarrinho.map(item => ({
           reserva_id: reserva.id,
           produto_id: item.id,
@@ -482,7 +497,6 @@ const totalCarrinho = useMemo(() => {
           subtotal: item.preco
         }))
       );
-      if (itemError) console.error("Erro nos itens:", itemError);
     }
 
     metodoPgto === 'pix' ? playApito() : playTorcida();
@@ -555,19 +569,25 @@ const totalCarrinho = useMemo(() => {
 const gerarPagamentoPix = async (valorCobrar: number, nomeCliente: string) => {
   setIsCarregandoPix(true);
   try {
-    const response = await fetch('/api/pagar-pix', {
+    const response = await fetch('/api/pagamento', { // Verifique se o nome do arquivo é pagamentos.js
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        valor: valorCobrar, // Agora ele usa o que recebeu
+        valor: valorCobrar, 
         descricao: `Reserva Arena Cedro - ${nomeCliente}` 
       })
     });
-    // ... restante da lógica
+
+    if (!response.ok) throw new Error("Falha na comunicação com Mercado Pago");
+
+    // ESTA LINHA É A CHAVE:
+    return await response.json(); 
+
   } catch (error) {
-     console.error(error);
+    console.error("Erro no fetch do PIX:", error);
+    throw error; // Repassa o erro para o handleAgendar tratar
   } finally {
-     setIsCarregandoPix(false);
+    setIsCarregandoPix(false);
   }
 };
 
@@ -1062,7 +1082,7 @@ async function handleFecharCaixa() {
                       handleAgendar(slot.inicio, input?.value, turno_id);
                     }}
                   >
-                    {metodoPgto === "pix" ? "Confirmar e Copiar PIX" : "Confirmar Reserva"}
+                    {metodoPgto === "pix" ? "Copiar PIX" : "Fazer Reserva"}
                   </Button>
                 </div>
               </DialogContent>
