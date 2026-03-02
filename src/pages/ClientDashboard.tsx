@@ -93,11 +93,13 @@ const ClienteDashboard = () => {
   const [pixCopiaECola, setPixCopiaECola] = useState('');
   const [pixBase64, setPixBase64] = useState('');
   const [isCarregandoPix, setIsCarregandoPix] = useState(false);
+  const [pixTicketUrl, setPixTicketUrl] = useState("");
 
   const gerarPagamentoPix = async (valor: number, clienteNome: string) => { 
   setIsCarregandoPix(true);
   setPixBase64(""); 
   setPixCopiaECola(""); 
+  setPixTicketUrl("");
 
   try {
     const response = await fetch('/api/pagamentos', { 
@@ -115,6 +117,11 @@ const ClienteDashboard = () => {
     if (data.id) {
       setPixCopiaECola(data.copiaECola);
       setPixBase64(data.qrCodeBase64);
+      
+      if (data.ticketUrl) {
+         setPixTicketUrl(data.ticketUrl);
+      }
+
       return data; 
     }
   } catch (err) {
@@ -202,7 +209,7 @@ const ClienteDashboard = () => {
   const handleLogout = () => {
     localStorage.clear();
     sessionStorage.clear();
-    navigate("/"); 
+    navigate("/login"); 
   };
 
   const handleSubmitReview = async () => {
@@ -746,6 +753,7 @@ const handleTipoReserva = (tipo: string) => {
     </DialogHeader>
 
     <div className="space-y-6">
+      {/* Resumo do Pedido */}
       <div className="bg-white/5 rounded-3xl p-6 border border-white/5 space-y-4">
         <p className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest">Itens do Pedido</p>
         
@@ -781,14 +789,16 @@ const handleTipoReserva = (tipo: string) => {
         </div>
       </div>
 
+      {/* Seleção de Pagamento */}
       <RadioGroup 
-      defaultValue="pix" 
-      onValueChange={async (v) => {
-        setMetodoPagamento(v as any);
-        if (v === 'pix' && !pixCopiaECola) {
-          await gerarPagamentoPix(totalGeral, "");
-        }
-      }}
+        defaultValue="pix" 
+        onValueChange={async (v) => {
+          setMetodoPagamento(v as any);
+          if (v === 'pix' && !pixCopiaECola) {
+            // Passando total e string vazia para clienteNome para evitar erro vermelho
+            await gerarPagamentoPix(totalGeral, "");
+          }
+        }}
         className="grid grid-cols-2 gap-4"
       >
         <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPagamento === "pix" ? "border-[#22c55e] bg-[#22c55e]/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-white/5")}>
@@ -805,66 +815,71 @@ const handleTipoReserva = (tipo: string) => {
         </div>
       </RadioGroup>
 
+      {/* Área do PIX ou Confirmação Local */}
       <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center min-h-[180px] flex items-center justify-center">
-         {metodoPagamento === "pix" ? (
-           <div className="flex flex-col items-center gap-4">
-             {isCarregandoPix ? (
-               <div className="flex flex-col items-center gap-2">
-                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#22c55e]"></div>
-                 <p className="text-[10px] font-black uppercase text-gray-500">Gerando PIX...</p>
-               </div>
-             ) : (
-               <>
-                 <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
-                   {/* QR CODE VINDO DO MERCADO PAGO */}
-                   <img 
+        {metodoPagamento === "pix" ? (
+          <div className="flex flex-col items-center gap-4 w-full">
+            {isCarregandoPix ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#22c55e]"></div>
+                <p className="text-[10px] font-black uppercase text-gray-500">Gerando PIX...</p>
+              </div>
+            ) : (
+              <>
+                {/* QR CODE */}
+                <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
+                  <img 
                     src={pixBase64.startsWith('data:image') ? pixBase64 : `data:image/png;base64,${pixBase64}`}
                     className="w-32 h-32" 
                     alt="QR Code Mercado Pago" 
-                   />
-                 </div>
-                 <div className="w-full space-y-2">
-                  <p className="text-[10px] text-gray-400 font-black uppercase italic">Código Copia e Cola</p>
-                  <div
-                    onClick={() => {
+                  />
+                </div>
+
+                {/* Link para o Ticket do Mercado Pago */}
+                <a 
+                  href={pixTicketUrl || "#"} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-[#22c55e] text-[10px] font-bold underline uppercase hover:text-white transition-colors"
+                >
+                  Pagar com Pix (Abrir no Mercado Pago)
+                </a>
+
+                {/* Input de Copiar Hash */}
+                <div className="w-full space-y-2 text-left">
+                  <label htmlFor="copiar" className="text-[10px] text-gray-400 font-black uppercase italic">
+                    Copiar Hash:
+                  </label>
+                  <input 
+                    type="text" 
+                    id="copiar" 
+                    value={pixCopiaECola} 
+                    readOnly 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] font-mono text-[#22c55e] outline-none cursor-default"
+                    onClick={(e) => {
+                      (e.target as HTMLInputElement).select();
                       navigator.clipboard.writeText(pixCopiaECola);
-                      toast({
-                        title: "Copiado!",
-                        description: "Cole o código no app do seu banco.",
-                        variant: "default"
-                      });
+                      toast({ title: "Código Copiado!" });
                     }}
-                    className="bg-white/10 border border-white/20 rounded-lg p-3 cursor-pointer text-xs font-mono text-[#22c55e] break-all"
-                  >
-                    <p className="text-[10px] text-[#22c55e] font-mono truncate max-w-[200px] mx-auto">
-                    {pixCopiaECola}
-                    </p>
-                    <p className="text-[8px] text-gray-500 font-bold uppercase mt-1">Clique para copiar</p>
-                  </div>
-                 </div>
-               </>
-             )}
-           </div>
-         ) : (
-           <div className="py-2">
-             <p className="text-xs font-black uppercase italic leading-relaxed text-gray-300">Reserva pré-confirmada!</p>
-             <p className="text-[10px] text-[#22c55e] font-bold uppercase mt-1">Apresente seu nome na recepção.</p>
-           </div>
-         )}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="py-2">
+            <p className="text-xs font-black uppercase italic leading-relaxed text-gray-300">Reserva pré-confirmada!</p>
+            <p className="text-[10px] text-[#22c55e] font-bold uppercase mt-1">Apresente seu nome na recepção.</p>
+          </div>
+        )}
       </div>
 
       <Button 
         disabled={isCarregandoPix}
-        onClick={() => {
-          if (metodoPagamento === "pix" && pixCopiaECola) {
-            navigator.clipboard.writeText(pixCopiaECola);
-            // Opcional: mostrar um aviso que copiou
-          }
-          handleFinalizePedido();
-        }} 
+        onClick={handleFinalizePedido} 
         className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl shadow-[#22c55e]/10 hover:scale-[1.02] active:scale-95 transition-all"
       >
-         {metodoPagamento === "pix" ? "Fazer Reserva" : "Finalizar Agendamento"}
+        {metodoPagamento === "pix" ? "Fazer Reserva" : "Finalizar Agendamento"}
       </Button>
     </div>
   </DialogContent>
@@ -874,3 +889,7 @@ const handleTipoReserva = (tipo: string) => {
 };
 
 export default ClienteDashboard;
+function setPixTicketUrl(ticketUrl: any) {
+  throw new Error("Function not implemented.");
+}
+

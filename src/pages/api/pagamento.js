@@ -17,30 +17,41 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     const { valor, email, descricao } = req.body;
-
     const payment = new Payment(client);
 
     const body = {
       transaction_amount: Number(valor),
       description: descricao || 'Reserva Arena Cedro',
       payment_method_id: 'pix',
+      installments: 1,
       payer: {
         email: email || 'joao@email.com', // Email do comprador de teste
       },
+
+      date_of_expiration: new Date(Date.now() + 30 * 60000).toISOString(),
+
+      external_reference: `arena-${Date.now()}`,
+
     };
 
     try {
-      const response = await payment.create({ body });
+
+      const requestOptions = {
+        idempotencyKey: `key-${Date.now()}`
+      };
       
-      // Retorna os dados necessários para o frontend mostrar o QR Code
+      const response = await payment.create({ body, requestOptions });
+      
       return res.status(200).json({
+        id: response.id,
         copiaECola: response.point_of_interaction.transaction_data.qr_code,
         qrCodeBase64: response.point_of_interaction.transaction_data.qr_code_base64,
+        ticketUrl: response.point_of_interaction.transaction_data.ticket_url,
         idPagamento: response.id
       });
     } catch (error) {
-      console.error("Erro MP:", error);
-      return res.status(500).json({ error: 'Erro ao gerar PIX' });
+      console.error("Erro MP Detalhado:", error.message);
+      return res.status(500).json({ error: 'Erro ao gerar PIX', details: error.message });
     }
   } else {
     return res.status(405).json({ message: 'Método não permitido' });

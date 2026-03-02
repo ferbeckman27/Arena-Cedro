@@ -1037,53 +1037,86 @@ async function handleFecharCaixa() {
                   </div>
 
                   {/* ÁREA DO PIX (QR CODE E COPIA E COLA) */}
-                  {metodoPgto === "pix" && (
-                    <div className="mt-2 p-5 bg-black/60 rounded-[1.5rem] border border-[#22c55e]/20 flex flex-col items-center gap-4">
-                      {isCarregandoPix ? (
-                        <div className="flex flex-col items-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#22c55e]"></div></div>
-                      ) : pixBase64 ? (
-                        <>
-                          <div className="bg-white p-2 rounded-xl"><img src={`data:image/png;base64,${pixBase64}`} className="w-28 h-28" alt="QR Code" /></div>
-                          <div className="w-full space-y-1">
-                            <div onClick={() => { navigator.clipboard.writeText(pixCopiaECola); toast({ title: "Copiado!" }); }} className="bg-white/5 border border-white/10 p-2.5 rounded-lg cursor-pointer hover:bg-white/10 flex justify-between items-center group">
-                              <p className="text-[9px] text-[#22c55e] font-mono truncate w-[80%]">{pixCopiaECola}</p>
-                              <Copy size={12} className="text-gray-500 group-hover:text-[#22c55e]" />
-                            </div>
-                          </div>
-                        </>
-                      ) : <p className="text-[10px] text-gray-600">Aguardando dados...</p>}
-                    </div>
-                  )}
+{metodoPgto === "pix" && (
+  <div className="mt-2 p-5 bg-black/60 rounded-[1.5rem] border border-[#22c55e]/20 flex flex-col items-center gap-4">
+    {isCarregandoPix ? (
+      <div className="flex flex-col items-center py-4">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#22c55e]"></div>
+      </div>
+    ) : pixBase64 ? (
+      <>
+        {/* IMAGEM DO QR CODE */}
+        <div className="bg-white p-2 rounded-xl">
+          <img 
+            src={`data:image/png;base64,${pixBase64}`} 
+            className="w-28 h-28" 
+            alt="QR Code" 
+          />
+        </div>
 
-                  {/* PRODUTOS E CARRINHO (RESUMO) */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Consumo</label>
-                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
-                      {produtos.filter(p => p.estoque > 0).map(p => (
-                        <button key={p.id} onClick={() => adicionarAoCarrinho(p)} className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 text-[9px] font-black uppercase">
-                          <span>{p.nome}</span>
-                          <span className="text-[#22c55e]">R$ {p.preco.toFixed(2)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+        {/* ESTRUTURA DE INPUT QUE VOCÊ PEDIU */}
+        <div className="w-full space-y-2">
+          <label htmlFor="copiar" className="text-[10px] font-bold uppercase text-gray-400 italic">
+            Copiar Hash:
+          </label>
+          <input 
+            type="text" 
+            id="copiar" 
+            value={pixCopiaECola} 
+            readOnly 
+            onClick={(e) => {
+              (e.target as HTMLInputElement).select();
+              navigator.clipboard.writeText(pixCopiaECola);
+              toast({ title: "Copiado!" });
+            }}
+            className="w-full bg-white/5 border border-white/10 p-2.5 rounded-lg text-[10px] font-mono text-[#22c55e] outline-none cursor-pointer"
+          />
+          <p className="text-[8px] text-gray-500 uppercase text-center italic">Clique no código para copiar</p>
+        </div>
+      </>
+    ) : (
+      <p className="text-[10px] text-gray-600 italic uppercase font-black">Aguardando geração do PIX...</p>
+    )}
+  </div>
+)}
 
-                  {/* BOTÃO FINALIZAR */}
-                  <Button 
-                    disabled={isCarregandoPix}
-                    className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg"
-                    onClick={() => {
-                      const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
-                      
-                      // LOGICA DE TURNO INTEGRADA
-                      const hora = parseInt(slot.inicio.split(":")[0]);
-                      const turno_id = hora >= 18 ? 2 : 1; 
+{/* PRODUTOS E CARRINHO (RESUMO) */}
+<div className="space-y-2">
+  <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Consumo</label>
+  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
+    {produtos.filter(p => p.estoque > 0).map(p => (
+      <button 
+        key={p.id} 
+        onClick={() => adicionarAoCarrinho(p)} 
+        className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 text-[9px] font-black uppercase transition-all"
+      >
+        <span>{p.nome}</span>
+        <span className="text-[#22c55e]">R$ {p.preco.toFixed(2)}</span>
+      </button>
+    ))}
+  </div>
+</div>
 
-                      handleAgendar(slot.inicio, input?.value, turno_id);
-                    }}
-                  >
-                    {metodoPgto === "pix" ? "Copiar PIX" : "Fazer Reserva"}
-                  </Button>
+{/* BOTÃO FINALIZAR */}
+<Button 
+  disabled={isCarregandoPix}
+  className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg shadow-[#22c55e]/10 active:scale-95 transition-all"
+  onClick={() => {
+    // Se for PIX e já tiver o código, apenas copia. Se não, finaliza o agendamento.
+    if (metodoPgto === "pix" && pixCopiaECola) {
+      navigator.clipboard.writeText(pixCopiaECola);
+      toast({ title: "PIX Copiado!" });
+    }
+    
+    const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+    const hora = parseInt(slot.inicio.split(":")[0]);
+    const turno_id = hora >= 18 ? 2 : 1; 
+
+    handleAgendar(slot.inicio, input?.value, turno_id);
+  }}
+>
+  {metodoPgto === "pix" ? (pixCopiaECola ? "Copiar PIX & Finalizar" : "Gerando PIX...") : "Fazer Reserva"}
+</Button>
                 </div>
               </DialogContent>
             </Dialog>
