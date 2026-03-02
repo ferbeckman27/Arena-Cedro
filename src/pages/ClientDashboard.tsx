@@ -93,28 +93,33 @@ const ClienteDashboard = () => {
   const [pixCopiaECola, setPixCopiaECola] = useState('');
   const [pixBase64, setPixBase64] = useState('');
   const [isCarregandoPix, setIsCarregandoPix] = useState(false);
-  const gerarPagamentoPix = async () => { 
+
+  const gerarPagamentoPix = async (valor: number, clienteNome: string) => { 
   setIsCarregandoPix(true);
+  setPixBase64(""); 
+  setPixCopiaECola(""); 
+
   try {
-    // 2. Usamos o 'totalGeral' que você já tem no componente
-    const response = await fetch('/api/pagamento', {
+    const response = await fetch('/api/pagamentos', { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        valor: totalGeral, // Ele pega o valor atualizado do carrinho + quadra
-        email: 'TESTUSER4053985039427048792@testuser.com',
-        descricao: `Reserva Arena Cedro - ${horarioSelecionado}`
+        valor: valor,
+        email: 'cliente@arena.com',
+        descricao: `Reserva Arena Cedro - ${clienteNome}`
       })
     });
 
     const data = await response.json();
 
-    if (data.copiaECola) {
+    if (data.id) {
       setPixCopiaECola(data.copiaECola);
       setPixBase64(data.qrCodeBase64);
+      return data; 
     }
   } catch (err) {
     console.error("Erro ao gerar PIX:", err);
+    toast({ variant: "destructive", title: "Erro ao gerar PIX" });
   } finally {
     setIsCarregandoPix(false);
   }
@@ -363,7 +368,7 @@ const ClienteDashboard = () => {
     <div className="min-h-screen bg-[#060a08] flex flex-col items-center justify-center p-6 text-center">
       <AlertTriangle size={60} className="text-red-500 animate-pulse mb-4" />
       <h1 className="text-4xl font-black text-white italic uppercase">Arena em Pausa</h1>
-      <p className="text-gray-400 mt-2">Estamos realizando uma manutenção rápida. Voltamos logo!</p>
+      <p className="text-gray-400 mt-2">Estamos realizando uma manutenção rápida. Mas Voltamos logo!</p>
     </div>
   );
 
@@ -575,7 +580,7 @@ const handleTipoReserva = (tipo: string) => {
         onClick={() => setIsCheckoutOpen(true)}
         className="w-full bg-[#22c55e] hover:bg-[#1eb054] text-black font-black uppercase italic h-14 rounded-2xl mt-4 transition-all shadow-[0_10px_20px_rgba(34,197,94,0.2)]"
       >
-        Reservar Agora
+        Fazer Reserva
       </Button>
     </Card>
   </div>
@@ -778,10 +783,10 @@ const handleTipoReserva = (tipo: string) => {
 
       <RadioGroup 
       defaultValue="pix" 
-      onValueChange={(v) => {
+      onValueChange={async (v) => {
         setMetodoPagamento(v as any);
         if (v === 'pix' && !pixCopiaECola) {
-          gerarPagamentoPix(); // <--- Agora ele vai achar!
+          await gerarPagamentoPix(totalGeral, "");
         }
       }}
         className="grid grid-cols-2 gap-4"
@@ -813,17 +818,21 @@ const handleTipoReserva = (tipo: string) => {
                  <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
                    {/* QR CODE VINDO DO MERCADO PAGO */}
                    <img 
-                    src={pixBase64.startsWith('data:') ? pixBase64 : `data:image/png;base64,${pixBase64}`}
+                    src={pixBase64.startsWith('data:image') ? pixBase64 : `data:image/png;base64,${pixBase64}`}
                     className="w-32 h-32" 
                     alt="QR Code Mercado Pago" 
                    />
                  </div>
                  <div className="w-full space-y-2">
-                  <p className="text-[10px] text-gray-400 font-black uppercase italic">Código Copia e Cola:</p>
+                  <p className="text-[10px] text-gray-400 font-black uppercase italic">Código Copia e Cola</p>
                   <div
                     onClick={() => {
                       navigator.clipboard.writeText(pixCopiaECola);
-                      alert("Código copiado para a área de transferência!");
+                      toast({
+                        title: "Copiado!",
+                        description: "Cole o código no app do seu banco.",
+                        variant: "default"
+                      });
                     }}
                     className="bg-white/10 border border-white/20 rounded-lg p-3 cursor-pointer text-xs font-mono text-[#22c55e] break-all"
                   >
@@ -855,7 +864,7 @@ const handleTipoReserva = (tipo: string) => {
         }} 
         className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl shadow-[#22c55e]/10 hover:scale-[1.02] active:scale-95 transition-all"
       >
-         {metodoPagamento === "pix" ? "Copiar Código e Confirmar" : "Finalizar Agendamento"}
+         {metodoPagamento === "pix" ? "Fazer Reserva" : "Finalizar Agendamento"}
       </Button>
     </div>
   </DialogContent>
