@@ -61,24 +61,35 @@ export type Database = {
       }
       blocos: {
         Row: {
+          ativo: boolean | null
+          descricao: string | null
           duracao_minutos: number
           id: number
           label: string | null
+          multiplicador: number | null
         }
         Insert: {
+          ativo?: boolean | null
+          descricao?: string | null
           duracao_minutos: number
           id?: number
           label?: string | null
+          multiplicador?: number | null
         }
         Update: {
+          ativo?: boolean | null
+          descricao?: string | null
           duracao_minutos?: number
           id?: number
           label?: string | null
+          multiplicador?: number | null
         }
         Relationships: []
       }
       clientes: {
         Row: {
+          aceitou_termos: boolean | null
+          ativo: boolean | null
           cadastrado_por: string | null
           created_at: string | null
           dia_fixo: string | null
@@ -88,7 +99,9 @@ export type Database = {
           id: number
           nome: string
           observacoes: string | null
+          pontos_fidelidade: number | null
           reservas_concluidas: number | null
+          salvar_senha: boolean | null
           senha: string | null
           sobrenome: string | null
           status_pagamento: string | null
@@ -97,6 +110,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          aceitou_termos?: boolean | null
+          ativo?: boolean | null
           cadastrado_por?: string | null
           created_at?: string | null
           dia_fixo?: string | null
@@ -106,7 +121,9 @@ export type Database = {
           id?: number
           nome: string
           observacoes?: string | null
+          pontos_fidelidade?: number | null
           reservas_concluidas?: number | null
+          salvar_senha?: boolean | null
           senha?: string | null
           sobrenome?: string | null
           status_pagamento?: string | null
@@ -115,6 +132,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          aceitou_termos?: boolean | null
+          ativo?: boolean | null
           cadastrado_por?: string | null
           created_at?: string | null
           dia_fixo?: string | null
@@ -124,7 +143,9 @@ export type Database = {
           id?: number
           nome?: string
           observacoes?: string | null
+          pontos_fidelidade?: number | null
           reservas_concluidas?: number | null
+          salvar_senha?: boolean | null
           senha?: string | null
           sobrenome?: string | null
           status_pagamento?: string | null
@@ -136,19 +157,25 @@ export type Database = {
       }
       configuracoes: {
         Row: {
+          categoria: string | null
           chave: string
+          descricao: string | null
           id: number
           updated_at: string | null
           valor: string | null
         }
         Insert: {
+          categoria?: string | null
           chave: string
+          descricao?: string | null
           id?: number
           updated_at?: string | null
           valor?: string | null
         }
         Update: {
+          categoria?: string | null
           chave?: string
+          descricao?: string | null
           id?: number
           updated_at?: string | null
           valor?: string | null
@@ -159,32 +186,83 @@ export type Database = {
         Row: {
           aprovado: boolean | null
           autor: string | null
+          censurado: boolean | null
           cliente_id: number | null
           comentario: string | null
           data_publicacao: string | null
           estrelas: number | null
           id: number
           nome: string | null
+          nome_exibicao: string | null
         }
         Insert: {
           aprovado?: boolean | null
           autor?: string | null
+          censurado?: boolean | null
           cliente_id?: number | null
           comentario?: string | null
           data_publicacao?: string | null
           estrelas?: number | null
           id?: number
           nome?: string | null
+          nome_exibicao?: string | null
         }
         Update: {
           aprovado?: boolean | null
           autor?: string | null
+          censurado?: boolean | null
           cliente_id?: number | null
           comentario?: string | null
           data_publicacao?: string | null
           estrelas?: number | null
           id?: number
           nome?: string | null
+          nome_exibicao?: string | null
+        }
+        Relationships: []
+      }
+      dias_semana: {
+        Row: {
+          codigo: number
+          id: number
+          nome: string
+        }
+        Insert: {
+          codigo: number
+          id?: number
+          nome: string
+        }
+        Update: {
+          codigo?: number
+          id?: number
+          nome?: string
+        }
+        Relationships: []
+      }
+      fechamentos_caixa: {
+        Row: {
+          created_at: string
+          data: string
+          fechado_por: string | null
+          id: string
+          valor_dinheiro: number | null
+          valor_pix: number | null
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          fechado_por?: string | null
+          id?: string
+          valor_dinheiro?: number | null
+          valor_pix?: number | null
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          fechado_por?: string | null
+          id?: string
+          valor_dinheiro?: number | null
+          valor_pix?: number | null
         }
         Relationships: []
       }
@@ -193,9 +271,11 @@ export type Database = {
           ativo: boolean | null
           created_at: string | null
           email: string | null
+          email_corporativo: string | null
           id: string
           nome: string
           senha: string | null
+          sobrenome: string | null
           telefone: string | null
           tipo: string | null
           turno: string | null
@@ -204,9 +284,11 @@ export type Database = {
           ativo?: boolean | null
           created_at?: string | null
           email?: string | null
+          email_corporativo?: string | null
           id?: string
           nome: string
           senha?: string | null
+          sobrenome?: string | null
           telefone?: string | null
           tipo?: string | null
           turno?: string | null
@@ -215,9 +297,11 @@ export type Database = {
           ativo?: boolean | null
           created_at?: string | null
           email?: string | null
+          email_corporativo?: string | null
           id?: string
           nome?: string
           senha?: string | null
+          sobrenome?: string | null
           telefone?: string | null
           tipo?: string | null
           turno?: string | null
@@ -282,6 +366,63 @@ export type Database = {
           },
         ]
       }
+      manutencao: {
+        Row: {
+          ativo: number | null
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: number
+        }
+        Insert: {
+          ativo?: number | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: number
+        }
+        Update: {
+          ativo?: number | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: number
+        }
+        Relationships: []
+      }
+      mensalistas: {
+        Row: {
+          dia_semana: string | null
+          horario: string | null
+          id: number
+          metodo_pgto: string | null
+          nome: string | null
+          observacao: string | null
+          responsavel: string | null
+          status_pagamento: string | null
+        }
+        Insert: {
+          dia_semana?: string | null
+          horario?: string | null
+          id?: number
+          metodo_pgto?: string | null
+          nome?: string | null
+          observacao?: string | null
+          responsavel?: string | null
+          status_pagamento?: string | null
+        }
+        Update: {
+          dia_semana?: string | null
+          horario?: string | null
+          id?: number
+          metodo_pgto?: string | null
+          nome?: string | null
+          observacao?: string | null
+          responsavel?: string | null
+          status_pagamento?: string | null
+        }
+        Relationships: []
+      }
       observacoes_clientes: {
         Row: {
           alerta: boolean | null
@@ -323,8 +464,10 @@ export type Database = {
       pagamentos: {
         Row: {
           codigo_pix: string | null
+          comprovante_path: string | null
           created_at: string | null
           data_confirmacao: string | null
+          data_expiracao: string | null
           forma_pagamento: string | null
           id: number
           id_mercado_pago: string | null
@@ -336,8 +479,10 @@ export type Database = {
         }
         Insert: {
           codigo_pix?: string | null
+          comprovante_path?: string | null
           created_at?: string | null
           data_confirmacao?: string | null
+          data_expiracao?: string | null
           forma_pagamento?: string | null
           id?: number
           id_mercado_pago?: string | null
@@ -349,8 +494,10 @@ export type Database = {
         }
         Update: {
           codigo_pix?: string | null
+          comprovante_path?: string | null
           created_at?: string | null
           data_confirmacao?: string | null
+          data_expiracao?: string | null
           forma_pagamento?: string | null
           id?: number
           id_mercado_pago?: string | null
@@ -377,10 +524,27 @@ export type Database = {
           },
         ]
       }
+      palavras_bloqueadas: {
+        Row: {
+          id: number
+          palavra: string
+        }
+        Insert: {
+          id?: number
+          palavra: string
+        }
+        Update: {
+          id?: number
+          palavra?: string
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           ativo: boolean | null
           created_at: string | null
+          descricao: string | null
+          estoque_minimo: number | null
           id: number
           nome: string
           preco_aluguel: number | null
@@ -391,6 +555,8 @@ export type Database = {
         Insert: {
           ativo?: boolean | null
           created_at?: string | null
+          descricao?: string | null
+          estoque_minimo?: number | null
           id?: number
           nome: string
           preco_aluguel?: number | null
@@ -401,6 +567,8 @@ export type Database = {
         Update: {
           ativo?: boolean | null
           created_at?: string | null
+          descricao?: string | null
+          estoque_minimo?: number | null
           id?: number
           nome?: string
           preco_aluguel?: number | null
@@ -426,8 +594,10 @@ export type Database = {
           horario_fim: string | null
           horario_inicio: string
           id: number
+          id_mercado_pago: string | null
           observacoes: string | null
           pago: boolean | null
+          pix_copia_e_cola: string | null
           reserva_fixa_id: number | null
           status: string | null
           tipo: string | null
@@ -452,8 +622,10 @@ export type Database = {
           horario_fim?: string | null
           horario_inicio: string
           id?: number
+          id_mercado_pago?: string | null
           observacoes?: string | null
           pago?: boolean | null
+          pix_copia_e_cola?: string | null
           reserva_fixa_id?: number | null
           status?: string | null
           tipo?: string | null
@@ -478,8 +650,10 @@ export type Database = {
           horario_fim?: string | null
           horario_inicio?: string
           id?: number
+          id_mercado_pago?: string | null
           observacoes?: string | null
           pago?: boolean | null
+          pix_copia_e_cola?: string | null
           reserva_fixa_id?: number | null
           status?: string | null
           tipo?: string | null
@@ -533,6 +707,7 @@ export type Database = {
           bloco_id: number | null
           cliente_id: number | null
           created_at: string | null
+          data_fim: string | null
           data_inicio: string | null
           dia_semana_id: number | null
           horario_inicio: string | null
@@ -544,6 +719,7 @@ export type Database = {
           bloco_id?: number | null
           cliente_id?: number | null
           created_at?: string | null
+          data_fim?: string | null
           data_inicio?: string | null
           dia_semana_id?: number | null
           horario_inicio?: string | null
@@ -555,6 +731,7 @@ export type Database = {
           bloco_id?: number | null
           cliente_id?: number | null
           created_at?: string | null
+          data_fim?: string | null
           data_inicio?: string | null
           dia_semana_id?: number | null
           horario_inicio?: string | null
@@ -587,25 +764,31 @@ export type Database = {
       }
       turnos: {
         Row: {
+          ativo: boolean | null
           hora_fim: string | null
           hora_inicio: string | null
           id: number
           nome: string
           preco_hora: number | null
+          valor_hora: number | null
         }
         Insert: {
+          ativo?: boolean | null
           hora_fim?: string | null
           hora_inicio?: string | null
           id?: number
           nome: string
           preco_hora?: number | null
+          valor_hora?: number | null
         }
         Update: {
+          ativo?: boolean | null
           hora_fim?: string | null
           hora_inicio?: string | null
           id?: number
           nome?: string
           preco_hora?: number | null
+          valor_hora?: number | null
         }
         Relationships: []
       }
@@ -632,7 +815,31 @@ export type Database = {
       }
     }
     Functions: {
+      fn_censurar_texto: { Args: { p_texto: string }; Returns: string }
       incrementar_fidelidade: { Args: { cli_id: number }; Returns: undefined }
+      login_cliente: {
+        Args: { p_email: string; p_senha: string }
+        Returns: {
+          email: string
+          id: number
+          nome: string
+          tipo: string
+        }[]
+      }
+      login_funcionario: {
+        Args: { p_email: string; p_senha: string }
+        Returns: {
+          id: string
+          nome: string
+          tipo: string
+        }[]
+      }
+      sp_verificar_disponibilidade: {
+        Args: { p_data: string; p_duracao_min: number; p_horario: string }
+        Returns: {
+          disponivel: boolean
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
