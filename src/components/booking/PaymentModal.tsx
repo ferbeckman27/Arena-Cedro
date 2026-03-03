@@ -2,6 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { QrCode, Banknote, Copy, Check, AlertCircle } from "lucide-react";
+import { calcularPrecoReserva } from "@/hooks/usePixPayment";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -33,8 +34,7 @@ export const PaymentModal = ({ isOpen, onClose, slot, date, duration = 60, onCon
   if (!slot || !date) return null;
 
   const hour = parseInt(slot.time.split(":")[0]);
-  const pricePerHour = hour >= 18 ? 120 : 80;
-  const totalPrice = (pricePerHour * duration) / 60;
+  const totalPrice = calcularPrecoReserva(duration, hour);
 
   const handleConfirm = () => {
     setIsProcessing(true);

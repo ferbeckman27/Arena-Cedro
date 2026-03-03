@@ -1,1 +1,7 @@
 project_id = "ovmsumaiacqekrvunrsl"
+
+[functions.criar-pix]
+verify_jwt = false
+
+[functions.webhook-mercadopago]
+verify_jwt = false

@@ -32,6 +32,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { supabase } from '@/lib/supabase';
+import { usePixPayment, calcularPrecoReserva } from '@/hooks/usePixPayment';
 
 // Importação do seu componente novo
 import { FidelityCard } from "@/components/dashboard/FidelityCard";
@@ -90,47 +91,12 @@ const ClienteDashboard = () => {
 
   const [listaReservas, setListaReservas] = useState<Reserva[]>([]);
 
-  const [pixCopiaECola, setPixCopiaECola] = useState('');
-  const [pixBase64, setPixBase64] = useState('');
-  const [isCarregandoPix, setIsCarregandoPix] = useState(false);
-  const [pixTicketUrl, setPixTicketUrl] = useState("");
+  const { isCarregandoPix, pixData, gerarPagamentoPix, limparPix } = usePixPayment();
 
-  const gerarPagamentoPix = async (valor: number, clienteNome: string) => { 
-  setIsCarregandoPix(true);
-  setPixBase64(""); 
-  setPixCopiaECola(""); 
-  setPixTicketUrl("");
-
-  try {
-    const response = await fetch('/api/pagamentos', { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        valor: valor,
-        email: 'cliente@arena.com',
-        descricao: `Reserva Arena Cedro - ${clienteNome}`
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.id) {
-      setPixCopiaECola(data.copiaECola);
-      setPixBase64(data.qrCodeBase64);
-      
-      if (data.ticketUrl) {
-         setPixTicketUrl(data.ticketUrl);
-      }
-
-      return data; 
-    }
-  } catch (err) {
-    console.error("Erro ao gerar PIX:", err);
-    toast({ variant: "destructive", title: "Erro ao gerar PIX" });
-  } finally {
-    setIsCarregandoPix(false);
-  }
-};
+  // Compat aliases
+  const pixCopiaECola = pixData?.copiaECola || '';
+  const pixBase64 = pixData?.qrCodeBase64 || '';
+  const pixTicketUrl = pixData?.ticketUrl || '';
   
   const [reservasFixas, setReservasFixas] = useState<{
   dia?: string; 
@@ -190,8 +156,7 @@ const ClienteDashboard = () => {
   const valorApenasReserva = useMemo(() => {
     if (!horarioSelecionado) return 0;
     const horaInicio = parseInt(horarioSelecionado.split(":")[0]);
-    const valorBase = horaInicio >= 18 ? 140 : 100;
-    return valorBase * (selectedDuration / 60);
+    return calcularPrecoReserva(selectedDuration, horaInicio);
   }, [horarioSelecionado, selectedDuration]);
 
   const totalGeral = useMemo(() => {
@@ -249,8 +214,7 @@ const ClienteDashboard = () => {
       const fimMinutos = totalMinutosFim % 60;
       const fimFormatado = `${String(fimHoras).padStart(2, '0')}:${String(fimMinutos).padStart(2, '0')}`;
 
-      const precoBase = horas >= 18 ? 140 : 100;
-      const valorFinal = (precoBase * duracaoMinutos) / 60;
+      const valorFinal = calcularPrecoReserva(duracaoMinutos, horas);
 
       slots.push({
         inicio: inicioFormatado,
@@ -267,19 +231,18 @@ const ClienteDashboard = () => {
  const handleFinalizePedido = async () => {
   if (!horarioSelecionado) return;
 
-  // 1. Mapas de IDs
   const mapaBlocos: Record<number, number> = { 30: 1, 60: 2, 90: 3 };
   const hora = parseInt(horarioSelecionado.split(":")[0]);
- const turno_id = hora >= 18 ? 2 : 1;
+  const turno_id = hora >= 18 ? 2 : 1;
+  const valorSinal = totalGeral * 0.5;
+  const valorRestante = totalGeral - valorSinal;
 
   try {
     let resError = null;
     let reservaId = null;
 
     if (tipoReserva === 'fixa') {
-      // --- LOGICA PARA RESERVA FIXA ---
       const diaSemanaId = diaSelecionado.getDay() + 1;
-
       const { data: fixa, error } = await supabase.from('reservas_fixas').insert([{
         cliente_id: Number(userData.id),
         dia_semana_id: diaSemanaId,
@@ -289,12 +252,9 @@ const ClienteDashboard = () => {
         data_inicio: diaSelecionado.toISOString().split('T')[0],
         ativo: true
       }]).select().single();
-      
       resError = error;
       reservaId = fixa?.id;
-
     } else {
-      // --- LOGICA PARA RESERVA AVULSA ---
       const { data: avulsa, error } = await supabase.from('reservas').insert([{
         cliente_id: Number(userData.id),
         data_reserva: diaSelecionado.toISOString().split('T')[0],
@@ -304,17 +264,17 @@ const ClienteDashboard = () => {
         tipo: 'avulsa',
         status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada', 
         valor_total: totalGeral,
+        valor_sinal: valorSinal,
+        valor_restante: valorRestante,
         forma_pagamento: metodoPagamento
       }]).select().single();
-      
       resError = error;
       reservaId = avulsa?.id;
     }
 
-    // Verifica se houve erro em qualquer uma das inserções acima
     if (resError) throw resError;
 
-    // 2. Inserir Itens na Loja (Apenas se houver itens e for reserva avulsa)
+    // Inserir itens da loja
     if (cart.length > 0 && reservaId && tipoReserva === 'avulsa') {
       const itensParaInserir = cart.map(item => ({
         reserva_id: reservaId,
@@ -324,42 +284,37 @@ const ClienteDashboard = () => {
         subtotal: (item.preco_venda || item.preco) * 1,
         tipo: item.tipo === 'aluguel' ? 'aluguel' : 'venda'
       }));
-      
       const { error: itemError } = await supabase.from('itens_reserva').insert(itensParaInserir);
       if (itemError) console.error("Erro ao inserir itens:", itemError);
     }
 
-    // 3. Feedback e Ações de Saída
-    if (metodoPagamento === "pix") {
-      if (pixCopiaECola) {
-        navigator.clipboard.writeText(pixCopiaECola);
+    // Gerar PIX via Edge Function (50% sinal)
+    if (metodoPagamento === "pix" && reservaId) {
+      const result = await gerarPagamentoPix(
+        totalGeral,
+        `Reserva Arena Cedro - ${horarioSelecionado}`,
+        reservaId,
+        Number(userData.id),
+        userData.email,
+        'sinal'
+      );
+      
+      if (result) {
         toast({ 
-          title: "PIX GERADO COM SUCESSO!", 
-          description: "Código copiado. Pague no seu banco para garantir o horário.",
-        });
-      } else {
-        toast({ 
-          title: "Atenção", 
-          description: "Reserva salva, mas gere o PIX na tela de checkout.",
-          variant: "destructive" 
+          title: "PIX GERADO!", 
+          description: `Sinal de R$ ${result.valorSinal.toFixed(2)} (50%). Pague para confirmar.`,
         });
       }
     } else {
       toast({ 
         title: "Reserva Confirmada!", 
-        description: "Seu horário foi garantido. Pagamento no local." 
+        description: `Pague R$ ${valorSinal.toFixed(2)} (50%) na chegada. Restante no dia.` 
       });
-    }
-    
-    // 4. Limpeza de Estados
-    if (metodoPagamento !== "pix") {
       setIsCheckoutOpen(false);
       setHorarioSelecionado(null);
-      setCart([]);
-    } else {
-      // Se for PIX, limpamos o carrinho mas deixamos o modal aberto para ver o QR Code
-      setCart([]);
     }
+    
+    setCart([]);
 
   } catch (error: any) {
     console.error("Erro ao salvar:", error);
@@ -787,17 +742,21 @@ const handleTipoReserva = (tipo: string) => {
           <span>TOTAL:</span>
           <span>R$ {totalGeral.toFixed(2)}</span>
         </div>
+        <div className="flex justify-between items-center text-xs text-gray-400 font-bold">
+          <span>Sinal (50%):</span>
+          <span className="text-yellow-400">R$ {(totalGeral * 0.5).toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center text-xs text-gray-400 font-bold">
+          <span>Restante (no dia):</span>
+          <span>R$ {(totalGeral * 0.5).toFixed(2)}</span>
+        </div>
       </div>
 
       {/* Seleção de Pagamento */}
       <RadioGroup 
         defaultValue="pix" 
-        onValueChange={async (v) => {
+        onValueChange={(v) => {
           setMetodoPagamento(v as any);
-          if (v === 'pix' && !pixCopiaECola) {
-            // Passando total e string vazia para clienteNome para evitar erro vermelho
-            await gerarPagamentoPix(totalGeral, "");
-          }
         }}
         className="grid grid-cols-2 gap-4"
       >
@@ -889,7 +848,4 @@ const handleTipoReserva = (tipo: string) => {
 };
 
 export default ClienteDashboard;
-function setPixTicketUrl(ticketUrl: any) {
-  throw new Error("Function not implemented.");
-}
 

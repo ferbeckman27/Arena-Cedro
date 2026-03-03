@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { supabase } from '@/lib/supabase';
+import { usePixPayment, calcularPrecoReserva } from '@/hooks/usePixPayment';
 import { TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { AlertDialogHeader, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from "@radix-ui/react-alert-dialog";
@@ -49,10 +50,10 @@ const AtendenteDashboard = () => {
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
   const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
-  const [pixBase64, setPixBase64] = useState<string>("");
-  const [pixCopiaECola, setPixCopiaECola] = useState<string>("");
-  const [isCarregandoPix, setIsCarregandoPix] = useState(false);
-
+  const { isCarregandoPix, pixData, gerarPagamentoPix, limparPix } = usePixPayment();
+  const pixBase64 = pixData?.qrCodeBase64 || '';
+  const pixCopiaECola = pixData?.copiaECola || '';
+  const [loading, setLoading] = useState(false);
 
 
   const [novoVip, setNovoVip] = useState({
@@ -463,26 +464,17 @@ const totalCarrinho = useMemo(() => {
     if (resError) throw resError;
 
     if (metodoPgto === 'pix') {
-      const data = (await gerarPagamentoPix(valorSinal, clienteNome)) as any;
+      const result = await gerarPagamentoPix(
+        valorSinal * 2, // totalGeral (a edge function calcula 50%)
+        `Reserva Arena Cedro - ${clienteNome}`,
+        reserva.id,
+        undefined,
+        undefined,
+        'sinal'
+      );
 
-      if (data && data.id) {
-
-         setPixBase64(data.qrCodeBase64);
-         setPixCopiaECola(data.copiaECola);
-
-        const { error: pagError } = await supabase
-          .from('pagamentos')
-          .insert([{
-            reserva_id: reserva.id,
-            valor: valorSinal,
-            status: 'pendente',
-            tipo: 'sinal',
-            forma_pagamento: 'pix',
-            id_mercado_pago: String(data.id), 
-            codigo_pix: data.copiaECola
-          }]);
-
-        if (pagError) console.error("Erro na tabela pagamentos:", pagError);
+      if (!result) {
+        console.error("Erro ao gerar PIX");
       }
     }
 
@@ -566,30 +558,7 @@ const totalCarrinho = useMemo(() => {
   }
 };
 
-const gerarPagamentoPix = async (valorCobrar: number, nomeCliente: string) => {
-  setIsCarregandoPix(true);
-  try {
-    const response = await fetch('/api/pagamento', { // Verifique se o nome do arquivo é pagamentos.js
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        valor: valorCobrar, 
-        descricao: `Reserva Arena Cedro - ${nomeCliente}` 
-      })
-    });
-
-    if (!response.ok) throw new Error("Falha na comunicação com Mercado Pago");
-
-    // ESTA LINHA É A CHAVE:
-    return await response.json(); 
-
-  } catch (error) {
-    console.error("Erro no fetch do PIX:", error);
-    throw error; // Repassa o erro para o handleAgendar tratar
-  } finally {
-    setIsCarregandoPix(false);
-  }
-};
+// gerarPagamentoPix agora vem do hook usePixPayment
 
 const handleReserva = async (dadosDaReserva) => {
   // Pega o ID do funcionário logado
@@ -957,16 +926,13 @@ async function handleFecharCaixa() {
           const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
           const detalhesReserva = agendaStatus[idAgendamento];
 
-          function gerarPagamentoPix() {
-            throw new Error("Function not implemented.");
-          }
+          // gerarPagamentoPix disponível via hook
 
           return (
             <Dialog key={slot.inicio} onOpenChange={(open) => {
               if (!open) {
                 setItensTemp([]);
-                setPixCopiaECola(""); // Limpa o PIX ao fechar
-                setPixBase64("");
+                limparPix();
               }
             }}>
               <DialogTrigger asChild>
@@ -1022,7 +988,6 @@ async function handleFecharCaixa() {
                         value={metodoPgto} 
                         onChange={(e) => {
                           setMetodoPgto(e.target.value);
-                          if(e.target.value === 'pix') gerarPagamentoPix(); 
                         }}
                         className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white outline-none focus:border-[#22c55e] cursor-pointer"
                       >
@@ -1626,10 +1591,6 @@ async function handleFecharCaixa() {
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
 export default AtendenteDashboard;
-
-function setLoading(arg0: boolean) {
-  throw new Error("Function not implemented.");
-}
 function gerarSlotsAgenda(duracao: string) {
   throw new Error("Function not implemented.");
 }
