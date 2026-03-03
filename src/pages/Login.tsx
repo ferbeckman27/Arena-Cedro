@@ -54,23 +54,23 @@ const Login = () => {
   e.preventDefault();
   
   try {
-    // Chamando a função RPC que criamos (login_funcionario ou login_cliente)
-    // Se o seu banco for unificado, você pode usar uma 'login_geral'
-    const { data, error } = await supabase.rpc('login_cliente', {
-      p_email: loginEmail,
-      p_senha: loginPassword
-    });
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('email', loginEmail)
+      .eq('senha', loginPassword)
+      .maybeSingle();
 
     if (error) throw error;
 
-    if (data && data.length > 0) {
-      const usuario = data[0];
+    if (data) {
+      const usuario = data;
       const storage = saveSession ? localStorage : sessionStorage;
       
       storage.setItem("userName", usuario.nome);
       storage.setItem("userRole", usuario.tipo || "cliente");
       storage.setItem("userId", String(usuario.id));
-      storage.setItem("userEmail", usuario.email);
+      storage.setItem("userEmail", usuario.email || "");
 
       toast({ title: "Bem-vindo de volta!", description: "Acesso realizado com sucesso." });
       
