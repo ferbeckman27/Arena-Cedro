@@ -104,7 +104,6 @@ const censurarTexto = (texto: string) => {
         .from('depoimentos')
         .select('*')
         .eq('aprovado', true) // Filtro de aprovação
-        .eq('censurado', false) // Filtro de censura
         .order('created_at', { ascending: false }); // Mais recentes primeiro
 
       if (error) throw error;
