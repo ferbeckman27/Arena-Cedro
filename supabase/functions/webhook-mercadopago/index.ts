@@ -6,12 +6,79 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Valida assinatura HMAC do Mercado Pago
+async function validarAssinatura(req: Request): Promise<boolean> {
+  const secret = Deno.env.get("MP_WEBHOOK_SECRET");
+  if (!secret) {
+    console.warn("MP_WEBHOOK_SECRET não configurado, pulando validação");
+    return true; // Se não tem secret, aceita (para dev)
+  }
+
+  const xSignature = req.headers.get("x-signature");
+  const xRequestId = req.headers.get("x-request-id");
+
+  if (!xSignature || !xRequestId) {
+    console.error("Headers de assinatura ausentes");
+    return false;
+  }
+
+  // Parse x-signature: "ts=...,v1=..."
+  const parts: Record<string, string> = {};
+  xSignature.split(",").forEach((part) => {
+    const [key, value] = part.split("=");
+    if (key && value) parts[key.trim()] = value.trim();
+  });
+
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+
+  if (!ts || !v1) {
+    console.error("Formato de x-signature inválido");
+    return false;
+  }
+
+  // Obtém o data.id da query string
+  const url = new URL(req.url);
+  const dataId = url.searchParams.get("data.id") || url.searchParams.get("id") || "";
+
+  // Monta o template: id:[data.id];request-id:[x-request-id];ts:[ts];
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+
+  // Gera HMAC-SHA256
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(manifest));
+  const hashHex = Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  if (hashHex !== v1) {
+    console.error("Assinatura inválida!", { expected: hashHex, received: v1 });
+    return false;
+  }
+
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // 1. Validar assinatura
+    const assinaturaValida = await validarAssinatura(req);
+    if (!assinaturaValida) {
+      console.error("Webhook rejeitado: assinatura inválida");
+      return new Response("Forbidden", { status: 403, headers: corsHeaders });
+    }
+
     const url = new URL(req.url);
     const topic = url.searchParams.get("topic") || url.searchParams.get("type");
 
@@ -79,12 +146,10 @@ Deno.serve(async (req) => {
           data_pagamento: new Date().toISOString(),
         };
 
-        // Se é sinal (50%), marca como confirmada
         if (pagamento.tipo === "sinal") {
           updateData.status = "confirmada";
         }
 
-        // Se é pagamento restante, marca como pago total
         if (pagamento.tipo === "restante") {
           updateData.pago = true;
           updateData.status = "confirmada";
@@ -107,7 +172,6 @@ Deno.serve(async (req) => {
         mpData.status === "cancelled" ||
         mpData.status === "rejected"
       ) {
-        // Marca como cancelado
         await supabase
           .from("pagamentos")
           .update({ status: "cancelado" })
@@ -115,7 +179,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Sempre responde 200 para o MP não reenviar
     return new Response("OK", { status: 200, headers: corsHeaders });
   } catch (error) {
     console.error("Erro no webhook:", error);
