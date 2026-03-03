@@ -2,6 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Clock, Check, X, AlertTriangle } from "lucide-react";
+import { calcularPrecoReserva } from "@/hooks/usePixPayment";
 import { cn } from "@/lib/utils";
 import type { TimeSlot } from "./BookingCalendar";
 
@@ -39,8 +40,7 @@ export const TimeSlotGrid = ({ date, slots, onSelectSlot, selectedSlot, isAdmin 
   // Calculate price based on slot time and duration
   const calculatePrice = (slot: TimeSlot, durationMinutes: number) => {
     const hour = parseInt(slot.time.split(":")[0]);
-    const pricePerHour = hour >= 18 ? 120 : 80;
-    return (pricePerHour * durationMinutes) / 60;
+    return calcularPrecoReserva(durationMinutes, hour);
   };
 
   const diurnalSlots = slots.filter(s => parseInt(s.time.split(":")[0]) < 18);
@@ -132,9 +132,9 @@ return (
       {selectedDuration >= 60 && ` Valor proporcional ao tempo escolhido.`}
     </div>
 
-      {renderSlotSection(diurnalSlots, "Turno Diurno", "R$ 80,00/h")}
+      {renderSlotSection(diurnalSlots, "Turno Diurno", "30m: R$50 | 1h: R$100 | 1h30: R$150")}
       <div className="h-px bg-border w-full" />
-      {renderSlotSection(nocturnalSlots, "Turno Noturno", "R$ 120,00/h")}
+      {renderSlotSection(nocturnalSlots, "Turno Noturno", "30m: R$70 | 1h: R$140 | 1h30: R$210")}
     </div>
   );
 };
