@@ -278,7 +278,9 @@ export type Database = {
           sobrenome: string | null
           telefone: string | null
           tipo: string | null
+          total_acessos: number | null
           turno: string | null
+          ultimo_acesso: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -291,7 +293,9 @@ export type Database = {
           sobrenome?: string | null
           telefone?: string | null
           tipo?: string | null
+          total_acessos?: number | null
           turno?: string | null
+          ultimo_acesso?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -304,7 +308,9 @@ export type Database = {
           sobrenome?: string | null
           telefone?: string | null
           tipo?: string | null
+          total_acessos?: number | null
           turno?: string | null
+          ultimo_acesso?: string | null
         }
         Relationships: []
       }
@@ -833,6 +839,14 @@ export type Database = {
           nome: string
           tipo: string
         }[]
+      }
+      redefinir_senha_cliente: {
+        Args: { p_email: string; p_nova_senha: string }
+        Returns: boolean
+      }
+      registrar_acesso: {
+        Args: { p_funcionario_id: string }
+        Returns: undefined
       }
       sp_verificar_disponibilidade: {
         Args: { p_data: string; p_duracao_min: number; p_horario: string }
