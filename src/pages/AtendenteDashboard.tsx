@@ -441,7 +441,8 @@ const totalCarrinho = useMemo(() => {
     const valorReserva = valorBase * (duracaoMin / 60);
     const totalProdutos = itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
     const totalGeral = valorReserva + totalProdutos;
-    const valorSinal = totalGeral * 0.5;
+    const DESCONTO_PIX_ONLINE = 10;
+    const valorComDesconto = metodoPgto === 'pix' ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -465,12 +466,12 @@ const totalCarrinho = useMemo(() => {
 
     if (metodoPgto === 'pix') {
       const result = await gerarPagamentoPix(
-        valorSinal * 2, // totalGeral (a edge function calcula 50%)
-        `Reserva Arena Cedro - ${clienteNome}`,
+        totalGeral,
+        `Reserva Arena Cedro - ${clienteNome} (desconto R$${DESCONTO_PIX_ONLINE})`,
         reserva.id,
         undefined,
         undefined,
-        'sinal'
+        'integral'
       );
 
       if (!result) {
