@@ -6,9 +6,7 @@ import {
   UserCheck, Star, Search, DollarSign, Clock, 
   MessageSquare, AlertTriangle, FileText, TrendingUp, 
   Info, Plus, X, Check, ChevronLeft, ChevronRight,
-  Trash2,
-  CheckCircle2,
-  ShieldAlert
+  Trash2, CheckCircle2, ShieldAlert, UserPlus, Eye, EyeOff, Circle, Lock
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,6 +69,14 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
     preco_aluguel: "", 
     quantidade_estoque: "" 
   });
+
+  // Employee registration states
+  const [novoFuncNome, setNovoFuncNome] = useState("");
+  const [novoFuncSobrenome, setNovoFuncSobrenome] = useState("");
+  const [novoFuncTelefone, setNovoFuncTelefone] = useState("");
+  const [novoFuncSenha, setNovoFuncSenha] = useState("");
+  const [showFuncSenha, setShowFuncSenha] = useState(false);
+  const [loadingCadastro, setLoadingCadastro] = useState(false);
 
     // --- FUNÇÕES DE SOM E ESTILO ---
   const playApito = () => {
@@ -295,6 +301,67 @@ const [modalProdutoAberto, setModalProdutoAberto] = useState(false);
         toast({ title: "Dados atualizados com sucesso!" });
         carregarDadosIniciais(); // Recarrega a lista completa
       }
+    }
+  };
+
+  // --- VALIDAÇÃO SENHA FUNCIONÁRIO ---
+  const funcPasswordValidations = useMemo(() => {
+    const hasExactLength = novoFuncSenha.length === 8;
+    const hasUpperCase = /[A-Z]/.test(novoFuncSenha);
+    const hasLowerCase = /[a-z]/.test(novoFuncSenha);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(novoFuncSenha);
+    const hasNumber = /\d/.test(novoFuncSenha);
+    const nums = novoFuncSenha.match(/\d/g) || [];
+    const noRepeatedNumbers = nums.length === new Set(nums).size;
+    return {
+      hasExactLength, hasUpperCase, hasLowerCase, hasSpecialChar, hasNumber, noRepeatedNumbers,
+      isValid: hasExactLength && hasUpperCase && hasLowerCase && hasSpecialChar && hasNumber && noRepeatedNumbers
+    };
+  }, [novoFuncSenha]);
+
+  // --- CADASTRO DE FUNCIONÁRIO ---
+  const handleCadastrarFuncionario = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!funcPasswordValidations.isValid) {
+      return toast({ variant: "destructive", title: "Senha Inválida", description: "A senha não atende aos requisitos." });
+    }
+
+    setLoadingCadastro(true);
+    try {
+      const nomeLimpo = novoFuncNome.trim().toLowerCase().replace(/\s+/g, '');
+      const sobrenomeLimpo = novoFuncSobrenome.trim().toLowerCase().replace(/\s+/g, '');
+      const emailGerado = `${nomeLimpo}.${sobrenomeLimpo}@atendcedro.com`;
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: emailGerado,
+        password: novoFuncSenha,
+        options: {
+          data: { display_name: `${novoFuncNome} ${novoFuncSobrenome}`, role: 'atendente' }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        const { error: dbError } = await supabase.from('funcionarios').insert([{
+          id: authData.user.id,
+          nome: novoFuncNome.trim(),
+          sobrenome: novoFuncSobrenome.trim(),
+          email_corporativo: emailGerado,
+          telefone: novoFuncTelefone,
+          tipo: 'atendente',
+          ativo: true
+        }]);
+        if (dbError) throw new Error("Erro ao salvar no banco: " + dbError.message);
+      }
+
+      toast({ title: "Funcionário Cadastrado!", description: `E-mail: ${emailGerado}` });
+      setNovoFuncNome(""); setNovoFuncSobrenome(""); setNovoFuncTelefone(""); setNovoFuncSenha("");
+      carregarDadosIniciais();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro no Cadastro", description: error.message });
+    } finally {
+      setLoadingCadastro(false);
     }
   };
 
@@ -573,6 +640,7 @@ const calcularFidelidade = (totalReservas: number) => {
             <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic">Marketing</TabsTrigger>
             <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic">Relatórios</TabsTrigger>
             <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic">Equipe</TabsTrigger>
+            <TabsTrigger value="cadastro" className="px-6 font-bold uppercase italic text-[#22c55e]">+ Funcionário</TabsTrigger>
             <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic">Depoimentos</TabsTrigger>
             <TabsTrigger value="financeiro" className="px-6 font-bold uppercase italic">Financeiro</TabsTrigger>
           </TabsList>
@@ -1256,11 +1324,11 @@ const calcularFidelidade = (totalReservas: number) => {
       <TableHeader className="bg-white/5">
         <TableRow className="border-white/5 text-[10px] uppercase font-black">
           <TableHead>Atendente</TableHead>
-          <TableHead>Total de Vendas</TableHead>
-          <TableHead>Avaliação</TableHead>
-          <TableHead>Reservas</TableHead>
+          <TableHead>E-mail</TableHead>
+          <TableHead>Acessos</TableHead>
+          <TableHead>Último Acesso</TableHead>
           <TableHead>Turno</TableHead>
-          <TableHead className="text-right">Gestão</TableHead> {/* Nova Coluna */}
+          <TableHead className="text-right">Gestão</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -1276,24 +1344,24 @@ const calcularFidelidade = (totalReservas: number) => {
   )}
 </TableCell>
               
-              <TableCell className="text-[#22c55e] font-black">
-                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(membro.total_vendas || 0)}
+              <TableCell className="text-gray-400 text-xs">
+                {membro.email_corporativo || membro.email || "—"}
               </TableCell>
               
-              <TableCell className="flex gap-1 items-center">
-                <Star size={12} fill="#eab308" className="text-yellow-500" />
-                <span className="text-xs font-black">5.0</span>
+              <TableCell className="font-black text-[#22c55e]">
+                {membro.total_acessos || 0}
               </TableCell>
               
-              <TableCell className="font-bold italic">
-                {membro.total_reservas || 0}
+              <TableCell className="text-xs text-gray-400">
+                {membro.ultimo_acesso 
+                  ? new Date(membro.ultimo_acesso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                  : "Nunca"}
               </TableCell>
               
               <TableCell className="text-[10px] font-black text-gray-500 uppercase">
-                {membro.turno || (membro.id % 2 === 0 ? "NOTURNO" : "DIURNO")}
+                {membro.turno || "—"}
               </TableCell>
 
-              {/* COLUNA DE AÇÕES */}
               <TableCell className="text-right">
                 <Button 
                   variant="ghost" 
@@ -1320,6 +1388,93 @@ const calcularFidelidade = (totalReservas: number) => {
     </Table>
   </Card>
 </TabsContent>
+
+          {/* CADASTRO DE FUNCIONÁRIO */}
+          <TabsContent value="cadastro">
+            <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] max-w-2xl mx-auto">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="bg-[#22c55e]/20 p-3 rounded-2xl border border-[#22c55e]/30">
+                  <UserPlus className="text-[#22c55e]" size={28} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black italic uppercase text-white">Cadastrar Funcionário</h3>
+                  <p className="text-gray-500 text-xs">O e-mail será gerado automaticamente: nome.sobrenome@atendcedro.com</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleCadastrarFuncionario} className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Nome</Label>
+                    <Input required value={novoFuncNome} onChange={(e) => setNovoFuncNome(e.target.value)} placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Sobrenome</Label>
+                    <Input required value={novoFuncSobrenome} onChange={(e) => setNovoFuncSobrenome(e.target.value)} placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+                  </div>
+                </div>
+
+                {novoFuncNome && novoFuncSobrenome && (
+                  <div className="bg-[#22c55e]/5 border border-[#22c55e]/20 p-4 rounded-2xl">
+                    <p className="text-[10px] text-[#22c55e] font-black uppercase mb-1">E-mail que será gerado:</p>
+                    <p className="text-white font-bold">{novoFuncNome.trim().toLowerCase().replace(/\s+/g, '')}.{novoFuncSobrenome.trim().toLowerCase().replace(/\s+/g, '')}@atendcedro.com</p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Telefone</Label>
+                  <Input required value={novoFuncTelefone} onChange={(e) => setNovoFuncTelefone(e.target.value)} placeholder="(XX) XXXXX-XXXX" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Senha (8 caracteres)</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
+                    <Input 
+                      required value={novoFuncSenha}
+                      onChange={(e) => setNovoFuncSenha(e.target.value)}
+                      type={showFuncSenha ? "text" : "password"} 
+                      placeholder="Senha segura" 
+                      maxLength={8}
+                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
+                    />
+                    <button type="button" onClick={() => setShowFuncSenha(!showFuncSenha)} className="absolute right-4 top-3.5 text-gray-600">
+                      {showFuncSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password rules */}
+                <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
+                  <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Requisitos de Segurança:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { ok: funcPasswordValidations.hasExactLength, label: "Exatamente 8 caracteres" },
+                      { ok: funcPasswordValidations.hasUpperCase, label: "Letra maiúscula" },
+                      { ok: funcPasswordValidations.hasLowerCase, label: "Letra minúscula" },
+                      { ok: funcPasswordValidations.hasSpecialChar, label: "Caractere especial" },
+                      { ok: funcPasswordValidations.hasNumber, label: "Número" },
+                      { ok: funcPasswordValidations.noRepeatedNumbers, label: "Sem números repetidos" },
+                    ].map((rule, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                        {rule.ok ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
+                        <span className={rule.ok ? "text-white" : "text-gray-500"}>{rule.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Button 
+                  disabled={loadingCadastro || !funcPasswordValidations.isValid} 
+                  type="submit" 
+                  className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all disabled:opacity-30 flex items-center gap-2"
+                >
+                  <UserPlus size={20} />
+                  {loadingCadastro ? "Cadastrando..." : "Cadastrar Funcionário"}
+                </Button>
+              </form>
+            </Card>
+          </TabsContent>
 
         </Tabs>
       </main>

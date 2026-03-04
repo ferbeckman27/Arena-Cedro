@@ -3,13 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox"; // Adicionado para "Salvar Senha"
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft, KeyRound } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/lib/supabase';
-
 
 interface PasswordRules {
   hasMinLength: boolean;
@@ -22,13 +21,13 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Estados para Login
+  // Login states
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [saveSession, setSaveSession] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Estados para Cadastro
+  // Register states
   const [nome, setNome] = useState("");
   const [sobrenome, setSobrenome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -37,6 +36,14 @@ const Login = () => {
   const [showRegPassword, setShowRegPassword] = useState(false);
   
   const [activeTab, setActiveTab] = useState("login");
+
+  // Forgot password states
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   const passwordValidations = useMemo(() => {
     const hasMinLength = regPassword.length >= 8;
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(regPassword);
@@ -49,85 +56,188 @@ const Login = () => {
     };
   }, [regPassword]);
 
-  // 1. LÓGICA DE LOGIN CONECTADA AO BACKEND
- const handleLoginSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  try {
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('email', loginEmail)
-      .eq('senha', loginPassword)
-      .maybeSingle();
+  const forgotPasswordValidations = useMemo(() => {
+    const hasMinLength = newPassword.length >= 8;
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+    const noRepeatedNumbers = !/(\d)\1\1/.test(newPassword);
+    return {
+      hasMinLength,
+      hasSpecialChar,
+      noRepeatedNumbers,
+      isValid: hasMinLength && hasSpecialChar && noRepeatedNumbers
+    };
+  }, [newPassword]);
 
-    if (error) throw error;
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('email', loginEmail)
+        .eq('senha', loginPassword)
+        .maybeSingle();
 
-    if (data) {
-      const usuario = data;
-      const storage = saveSession ? localStorage : sessionStorage;
-      
-      storage.setItem("userName", usuario.nome);
-      storage.setItem("userRole", usuario.tipo || "cliente");
-      storage.setItem("userId", String(usuario.id));
-      storage.setItem("userEmail", usuario.email || "");
+      if (error) throw error;
 
-      toast({ title: "Bem-vindo de volta!", description: "Acesso realizado com sucesso." });
-      
-      // Redirecionamento inteligente
-      if (usuario.tipo === 'administrador') navigate("/admin");
-      else if (usuario.tipo === 'atendente') navigate("/atendimento");
-      else navigate("/clientdashboard");
-      
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: "E-mail ou senha incorretos." });
+      if (data) {
+        const usuario = data;
+        const storage = saveSession ? localStorage : sessionStorage;
+        storage.setItem("userName", usuario.nome);
+        storage.setItem("userRole", usuario.tipo || "cliente");
+        storage.setItem("userId", String(usuario.id));
+        storage.setItem("userEmail", usuario.email || "");
+
+        toast({ title: "Bem-vindo de volta!", description: "Acesso realizado com sucesso." });
+        
+        if (usuario.tipo === 'administrador') navigate("/admin");
+        else if (usuario.tipo === 'atendente') navigate("/atendimento");
+        else navigate("/clientdashboard");
+      } else {
+        toast({ variant: "destructive", title: "Erro", description: "E-mail ou senha incorretos." });
+      }
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro de Conexão", description: error.message });
     }
-  } catch (error: any) {
-    toast({ variant: "destructive", title: "Erro de Conexão", description: error.message });
-  }
-};
+  };
 
-  // 2. DEPOIS: Use as validações dentro da função de submissão
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Agora o TypeScript reconhecerá a variável acima
     if (!passwordValidations.isValid) {
-      toast({ 
-        variant: "destructive", 
-        title: "Senha Fraca", 
-        description: "Sua senha não atende aos requisitos de segurança." 
-      });
+      toast({ variant: "destructive", title: "Senha Fraca", description: "Sua senha não atende aos requisitos de segurança." });
       return;
     }
 
-  try {
-    // Inserindo direto na tabela 'clientes' ou 'funcionarios'
-    // O Supabase/Postgres cuidará do crypt se você usar o SQL que passei antes
-    const { error } = await supabase.from('clientes').insert([
-      {
+    try {
+      const { error } = await supabase.from('clientes').insert([{
         nome,
         sobrenome,
         email: regEmail.trim(),
         telefone: telefone.trim(),
-        // Usamos a função crypt aqui se não houver trigger no banco
         senha: regPassword 
-      }
-    ]);
-    
-    if (error) throw error;
+      }]);
+      
+      if (error) throw error;
+      toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
+      setLoginEmail(regEmail);
+      setActiveTab("login");
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já está em uso." });
+    }
+  };
 
-    toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
-    setLoginEmail(regEmail);
-    setActiveTab("login");
-  } catch (error: any) {
-    toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já está em uso." });
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordValidations.isValid) {
+      return toast({ variant: "destructive", title: "Senha Fraca", description: "Sua senha não atende aos requisitos." });
+    }
+    if (newPassword !== confirmPassword) {
+      return toast({ variant: "destructive", title: "Senhas diferentes", description: "A confirmação de senha não confere." });
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('redefinir_senha_cliente', {
+        p_email: forgotEmail.trim(),
+        p_nova_senha: newPassword
+      });
+
+      if (error) throw error;
+      if (!data) {
+        toast({ variant: "destructive", title: "E-mail não encontrado", description: "Nenhum cliente com este e-mail." });
+        return;
+      }
+
+      toast({ title: "Senha redefinida!", description: "Use sua nova senha para entrar." });
+      setShowForgotPassword(false);
+      setForgotEmail("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setLoginEmail(forgotEmail);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+    }
+  };
+
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen w-full bg-[#060a08] relative overflow-hidden flex items-center justify-center p-4">
+        <button onClick={() => setShowForgotPassword(false)} className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group">
+          <div className="bg-white/5 p-2 rounded-full border border-white/10 group-hover:border-[#22c55e]/50 group-hover:bg-[#22c55e]/10">
+            <ArrowLeft size={20} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest italic">Voltar ao login</span>
+        </button>
+
+        <div className="absolute inset-0 z-0">
+          <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Background Arena" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-transparent to-[#060a08]" />
+        </div>
+
+        <div className="relative z-10 w-full max-w-lg">
+          <div className="flex justify-center mb-10">
+            <img src="/media/logo-arena2.png" alt="Arena Cedro" className="w-[450px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
+          </div>
+
+          <div className="bg-black/80 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
+            <h2 className="text-center text-sm font-black uppercase tracking-widest text-gray-400 mb-6 flex items-center justify-center gap-2">
+              <KeyRound size={16} className="text-[#22c55e]" /> Redefinir Senha
+            </h2>
+
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail cadastrado</Label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                  <Input required type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} placeholder="seu@email.com" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">Nova Senha</Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                  <Input required type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Nova senha segura" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                  <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 top-3.5 text-gray-500">
+                    {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">Confirmar Nova Senha</Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
+                  <Input required type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repita a nova senha" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
+                <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Requisitos de Segurança:</p>
+                <div className="flex items-center gap-2 text-xs">
+                  {forgotPasswordValidations.hasMinLength ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
+                  <span className={forgotPasswordValidations.hasMinLength ? "text-white" : "text-gray-500"}>8+ caracteres</span>
+                  
+                  {forgotPasswordValidations.hasSpecialChar ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
+                  <span className={forgotPasswordValidations.hasSpecialChar ? "text-white" : "text-gray-500"}>Caractere especial (@, #, !)</span>
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                disabled={!forgotPasswordValidations.isValid || newPassword !== confirmPassword}
+                className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-black font-black h-14 rounded-2xl text-xl uppercase italic mt-4 disabled:opacity-30"
+              >
+                Salvar Nova Senha
+              </Button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
   }
-};
 
   return (
     <div className="min-h-screen w-full bg-[#060a08] relative overflow-hidden flex items-center justify-center p-4">
-      {/* Botão Voltar */}
       <button onClick={() => navigate("/")} className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group">
         <div className="bg-white/5 p-2 rounded-full border border-white/10 group-hover:border-[#22c55e]/50 group-hover:bg-[#22c55e]/10">
           <ArrowLeft size={20} />
@@ -135,7 +245,6 @@ const Login = () => {
         <span className="text-[10px] font-black uppercase tracking-widest italic">Voltar ao site</span>
       </button>
 
-      {/* Background */}
       <div className="absolute inset-0 z-0">
         <img src={heroArena} className="w-full h-full object-cover opacity-30" alt="Background Arena" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#060a08] via-transparent to-[#060a08]" />
@@ -175,7 +284,6 @@ const Login = () => {
                     </div>
                   </div>
 
-                  {/* Checkbox Salvar Senha */}
                   <div className="flex items-center space-x-2 ml-1">
                     <Checkbox id="save" checked={saveSession} onCheckedChange={(checked) => setSaveSession(checked as boolean)} className="border-white/20 data-[state=checked]:bg-[#22c55e]" />
                     <label htmlFor="save" className="text-xs text-gray-400 cursor-pointer hover:text-white transition-colors">Desejo salvar minha senha neste dispositivo</label>
@@ -184,6 +292,15 @@ const Login = () => {
                   <Button type="submit" className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-black font-black h-14 rounded-2xl text-xl uppercase italic mt-4">
                     Entrar no Sistema
                   </Button>
+
+                  <button 
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="w-full text-center text-xs text-gray-500 hover:text-[#22c55e] transition-colors uppercase tracking-widest font-bold"
+                  >
+                    <KeyRound size={14} className="inline mr-2" />
+                    Esqueci minha senha
+                  </button>
                 </div>
               </form>
             </TabsContent>
