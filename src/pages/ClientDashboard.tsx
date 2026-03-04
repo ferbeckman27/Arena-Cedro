@@ -288,7 +288,7 @@ const ClienteDashboard = () => {
       if (itemError) console.error("Erro ao inserir itens:", itemError);
     }
 
-    // Gerar PIX via Edge Function (50% sinal)
+    // Gerar PIX via Edge Function (pagamento integral com desconto)
     if (metodoPagamento === "pix" && reservaId) {
       const result = await gerarPagamentoPix(
         totalGeral,
@@ -296,19 +296,19 @@ const ClienteDashboard = () => {
         reservaId,
         Number(userData.id),
         userData.email,
-        'sinal'
+        'integral'
       );
       
       if (result) {
         toast({ 
           title: "PIX GERADO!", 
-          description: `Sinal de R$ ${result.valorSinal.toFixed(2)} (50%). Pague para confirmar.`,
+          description: `Valor: R$ ${result.valorPago.toFixed(2)} (desconto de R$ ${result.desconto.toFixed(2)} aplicado). Pague para confirmar.`,
         });
       }
     } else {
       toast({ 
         title: "Reserva Confirmada!", 
-        description: `Pague R$ ${valorSinal.toFixed(2)} (50%) na chegada. Restante no dia.` 
+        description: `Valor total: R$ ${totalGeral.toFixed(2)}. Pague na chegada.` 
       });
       setIsCheckoutOpen(false);
       setHorarioSelecionado(null);

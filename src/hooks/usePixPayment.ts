@@ -7,8 +7,9 @@ interface PixResponse {
   copiaECola: string;
   qrCodeBase64: string;
   ticketUrl: string;
-  valorSinal: number;
-  valorTotal: number;
+  valorPago: number;
+  valorOriginal: number;
+  desconto: number;
   valorRestante: number;
 }
 
@@ -54,7 +55,7 @@ export function usePixPayment() {
           reserva_id: reservaId,
           cliente_id: clienteId,
           email: email || 'cliente@arena.com',
-          tipo_pagamento: tipoPagamento || 'sinal',
+          tipo_pagamento: tipoPagamento || 'integral',
         },
       });
 

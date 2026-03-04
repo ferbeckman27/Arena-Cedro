@@ -23,8 +23,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Calcula 50% do valor (sinal)
-    const valorSinal = Number(valor) * 0.5;
+    // Valor integral com desconto de R$10 para pagamento online
+    const DESCONTO_ONLINE = 10;
+    const valorOriginal = Number(valor);
+    const valorComDesconto = Math.max(valorOriginal - DESCONTO_ONLINE, 0);
 
     // Cria pagamento PIX no Mercado Pago
     const mpResponse = await fetch("https://api.mercadopago.com/v1/payments", {
@@ -35,8 +37,8 @@ Deno.serve(async (req) => {
         "X-Idempotency-Key": `arena-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       },
       body: JSON.stringify({
-        transaction_amount: valorSinal,
-        description: descricao || "Reserva Arena Cedro - Sinal 50%",
+        transaction_amount: valorComDesconto,
+        description: descricao || "Reserva Arena Cedro - Pagamento Integral (desconto R$10)",
         payment_method_id: "pix",
         installments: 1,
         payer: {
@@ -66,12 +68,13 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      // Atualiza a reserva com os valores de sinal
+      // Atualiza a reserva com pagamento integral
       await supabase
         .from("reservas")
         .update({
-          valor_sinal: valorSinal,
-          valor_restante: Number(valor) - valorSinal,
+          valor_sinal: valorComDesconto,
+          valor_restante: 0,
+          valor_total: valorOriginal,
         })
         .eq("id", reserva_id);
 
@@ -79,9 +82,9 @@ Deno.serve(async (req) => {
       await supabase.from("pagamentos").insert([
         {
           reserva_id: reserva_id,
-          valor: valorSinal,
+          valor: valorComDesconto,
           status: "pendente",
-          tipo: tipo_pagamento || "sinal",
+          tipo: tipo_pagamento || "integral",
           forma_pagamento: "pix",
           id_mercado_pago: String(mpData.id),
           codigo_pix:
@@ -101,9 +104,10 @@ Deno.serve(async (req) => {
           mpData.point_of_interaction?.transaction_data?.qr_code_base64 || "",
         ticketUrl:
           mpData.point_of_interaction?.transaction_data?.ticket_url || "",
-        valorSinal: valorSinal,
-        valorTotal: Number(valor),
-        valorRestante: Number(valor) - valorSinal,
+        valorPago: valorComDesconto,
+        valorOriginal: valorOriginal,
+        desconto: DESCONTO_ONLINE,
+        valorRestante: 0,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
