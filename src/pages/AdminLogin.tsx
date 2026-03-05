@@ -260,21 +260,6 @@ const AdminLogin = () => {
 
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">E-mail Corporativo</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                    <Input
-                      required
-                      type="email"
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                      placeholder="seu@email.corporativo"
-                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
                   <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Nova Senha</Label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
