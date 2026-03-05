@@ -6,18 +6,18 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowLeft, CheckCircle2, Circle, KeyRound } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   // Login states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  
+
   // Forgot password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
@@ -40,15 +40,19 @@ const AdminLogin = () => {
       hasSpecialChar,
       hasNumber,
       noRepeatedNumbers,
-      isValid: hasExactLength && hasUpperCase && hasLowerCase && hasSpecialChar && hasNumber && noRepeatedNumbers
+      isValid: hasExactLength && hasUpperCase && hasLowerCase && hasSpecialChar && hasNumber && noRepeatedNumbers,
     };
   }, [newPassword]);
 
   // --- LOGIN ---
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.includes('@')) {
-      return toast({ variant: "destructive", title: "E-mail inválido", description: "Use um e-mail corporativo válido." });
+    if (!email.includes("@")) {
+      return toast({
+        variant: "destructive",
+        title: "E-mail inválido",
+        description: "Use um e-mail corporativo válido.",
+      });
     }
 
     setLoading(true);
@@ -61,20 +65,20 @@ const AdminLogin = () => {
       if (error) throw error;
 
       const userEmail = data.user?.email || "";
-      const isAdmin = userEmail.endsWith('@admincedro.com');
+      const isAdmin = userEmail.endsWith("@admincedro.com");
       localStorage.setItem("userRole", isAdmin ? "admin" : "atendente");
       localStorage.setItem("userId", data.user.id);
 
       // Register access count
-      await supabase.rpc('registrar_acesso', { p_funcionario_id: data.user.id });
+      await supabase.rpc("registrar_acesso", { p_funcionario_id: data.user.id });
 
-      toast({ title: "Acesso Autorizado", description: `Bem-vindo, ${userEmail.split('@')[0]}!` });
+      toast({ title: "Acesso Autorizado", description: `Bem-vindo, ${userEmail.split("@")[0]}!` });
       navigate(isAdmin ? "/admindashboard" : "/atendentedashboard");
-
     } catch (error: any) {
-      const msg = error.message === "Invalid login credentials" 
-        ? "E-mail ou senha corporativos incorretos." 
-        : "Erro de conexão com o servidor.";
+      const msg =
+        error.message === "Invalid login credentials"
+          ? "E-mail ou senha corporativos incorretos."
+          : "Erro de conexão com o servidor.";
       toast({ variant: "destructive", title: "Falha no Login", description: msg });
     } finally {
       setLoading(false);
@@ -85,23 +89,35 @@ const AdminLogin = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordValidations.isValid) {
-      return toast({ variant: "destructive", title: "Senha Inválida", description: "Sua senha não atende aos requisitos." });
+      return toast({
+        variant: "destructive",
+        title: "Senha Inválida",
+        description: "Sua senha não atende aos requisitos.",
+      });
     }
     if (newPassword !== confirmPassword) {
-      return toast({ variant: "destructive", title: "Senhas diferentes", description: "A confirmação de senha não confere." });
+      return toast({
+        variant: "destructive",
+        title: "Senhas diferentes",
+        description: "A confirmação de senha não confere.",
+      });
     }
 
     setLoading(true);
     try {
       // Find the user in funcionarios by email
       const { data: func } = await supabase
-        .from('funcionarios')
-        .select('id')
+        .from("funcionarios")
+        .select("id")
         .or(`email_corporativo.eq.${forgotEmail.trim()},email.eq.${forgotEmail.trim()}`)
         .single();
 
       if (!func) {
-        toast({ variant: "destructive", title: "E-mail não encontrado", description: "Nenhum funcionário com este e-mail." });
+        toast({
+          variant: "destructive",
+          title: "E-mail não encontrado",
+          description: "Nenhum funcionário com este e-mail.",
+        });
         setLoading(false);
         return;
       }
@@ -110,20 +126,24 @@ const AdminLogin = () => {
       // Since we can't use admin API from client, we update via supabase auth
       // The employee must know their current credentials - for security we update via auth
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-      
+
       if (error) {
         // If not logged in, try signing in first then updating
         const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
           email: forgotEmail.trim(),
           password: password || newPassword, // fallback
         });
-        
+
         if (signInError) {
-          toast({ variant: "destructive", title: "Erro", description: "Para redefinir a senha, entre em contato com o administrador." });
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Para redefinir a senha, entre em contato com o administrador.",
+          });
           setLoading(false);
           return;
         }
-        
+
         await supabase.auth.updateUser({ password: newPassword });
       }
 
@@ -132,7 +152,6 @@ const AdminLogin = () => {
       setNewPassword("");
       setConfirmPassword("");
       setForgotEmail("");
-
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
@@ -142,7 +161,10 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#060a08] p-4 relative overflow-hidden">
-      <button onClick={() => navigate("/")} className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group">
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-6 left-6 z-50 flex items-center gap-2 text-gray-400 hover:text-[#22c55e] transition-all group"
+      >
         <div className="bg-white/5 p-2 rounded-full border border-white/10 group-hover:border-[#22c55e]/50 group-hover:bg-[#22c55e]/10">
           <ArrowLeft size={20} />
         </div>
@@ -160,50 +182,63 @@ const AdminLogin = () => {
             <ShieldCheck className="w-10 h-10 text-[#22c55e]" />
           </div>
           <h1 className="text-2xl font-black uppercase italic text-white tracking-tighter">Portal Corporativo</h1>
-          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Cedro Arena</p>
+          <p className="text-gray-500 text-xs uppercase tracking-[0.2em]">Arena Cedro</p>
         </div>
 
         <div className="bg-[#0c120f] border border-white/5 p-8 rounded-[2.5rem] shadow-2xl">
           {!showForgotPassword ? (
             <>
-              <h2 className="text-center text-sm font-black uppercase tracking-widest text-gray-400 mb-6">Acesso Corporativo</h2>
+              <h2 className="text-center text-sm font-black uppercase tracking-widest text-gray-400 mb-6">
+                Acesso Corporativo
+              </h2>
               <form onSubmit={handleAdminLogin} className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">E-mail Corporativo</Label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                      <Input 
-                        required type="email" value={email}
+                      <Input
+                        required
+                        type="email"
+                        value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="usuario@admincedro.com" 
-                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
+                        placeholder="usuario"
+                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Senha</Label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                      <Input 
-                        required value={password}
+                      <Input
+                        required
+                        value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
                       />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3.5 text-gray-600">
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-3.5 text-gray-600"
+                      >
                         {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                       </button>
                     </div>
                   </div>
 
-                  <Button disabled={loading} type="submit" className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all">
+                  <Button
+                    disabled={loading}
+                    type="submit"
+                    className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all"
+                  >
                     {loading ? "Autenticando..." : "Entrar no Sistema"}
                   </Button>
 
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowForgotPassword(true)}
                     className="w-full text-center text-xs text-gray-500 hover:text-[#22c55e] transition-colors uppercase tracking-widest font-bold mt-2"
@@ -228,11 +263,13 @@ const AdminLogin = () => {
                   <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">E-mail Corporativo</Label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                    <Input 
-                      required type="email" value={forgotEmail}
+                    <Input
+                      required
+                      type="email"
+                      value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
-                      placeholder="seu@email.corporativo" 
-                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
+                      placeholder="seu@email.corporativo"
+                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
                     />
                   </div>
                 </div>
@@ -241,14 +278,19 @@ const AdminLogin = () => {
                   <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Nova Senha</Label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                    <Input 
-                      required value={newPassword}
+                    <Input
+                      required
+                      value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      type={showNewPassword ? "text" : "password"} 
-                      placeholder="Nova senha (8 caracteres)" 
-                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="Nova senha (8 caracteres)"
+                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
                     />
-                    <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 top-3.5 text-gray-600">
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-4 top-3.5 text-gray-600"
+                    >
                       {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
@@ -258,12 +300,13 @@ const AdminLogin = () => {
                   <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Confirmar Nova Senha</Label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                    <Input 
-                      required value={confirmPassword}
+                    <Input
+                      required
+                      value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      type="password" 
-                      placeholder="Repita a nova senha" 
-                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" 
+                      type="password"
+                      placeholder="Repita a nova senha"
+                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
                     />
                   </div>
                 </div>
@@ -281,16 +324,20 @@ const AdminLogin = () => {
                       { ok: passwordValidations.noRepeatedNumbers, label: "Sem números repetidos" },
                     ].map((rule, i) => (
                       <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                        {rule.ok ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
+                        {rule.ok ? (
+                          <CheckCircle2 className="w-3 h-3 text-[#22c55e]" />
+                        ) : (
+                          <Circle className="w-3 h-3 text-gray-600" />
+                        )}
                         <span className={rule.ok ? "text-white" : "text-gray-500"}>{rule.label}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <Button 
-                  disabled={loading || !passwordValidations.isValid || newPassword !== confirmPassword} 
-                  type="submit" 
+                <Button
+                  disabled={loading || !passwordValidations.isValid || newPassword !== confirmPassword}
+                  type="submit"
                   className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all disabled:opacity-30"
                 >
                   {loading ? "Salvando..." : "Salvar Nova Senha"}
