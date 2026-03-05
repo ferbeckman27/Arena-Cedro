@@ -1032,14 +1032,33 @@ function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {produtos.map((p) => (
                   <Card key={p.id} className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem] relative overflow-hidden group">
-                    <Badge className={cn("absolute top-4 right-4 font-black italic", p.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400")}>{String(p.tipo).toUpperCase()}</Badge>
+                    <Badge className={cn("absolute top-4 right-4 font-black italic", p.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : p.tipo === "aluguel" ? : "bg-purple-500/20 text-purple-400" : "bg-purple-500/20 text-purple-400")}>{String(p.tipo).toUpperCase()}</Badge>
                     <div className="mt-4">
                       <p className="text-xl font-black italic uppercase text-white">{p.nome}</p>
-                      <div className="flex justify-between items-end mt-6">
-                        <div><p className="text-[10px] font-black text-gray-500 uppercase">Preço Un.</p><p className="text-2xl font-black text-[#22c55e]">R$ {Number(p.preco).toFixed(2)}</p></div>
-                        <div className="text-right"><p className="text-[10px] font-black text-gray-500 uppercase">Estoque</p><p className={cn("text-xl font-black italic", p.estoque < 10 ? "text-red-500" : "text-white")}>{p.estoque} UN</p></div>
+                      <div className="mt-6 flex flex-col gap-3">
+                        <div className="flex justify-between items-end">
+                          <div className="space-y-2">
+                            {(p.tipo === "venda" || p.tipo === "ambos") && ( 
+                        <div>
+                          <p className="text-[10px] font-black text-gray-500 uppercase leading-none">Venda</p>
+                          <p className="text-xl font-black text-[#22c55e]">R$ {Number(p.preco_venda || p.preco || 0).toFixed(2)}</p>
+                        </div>
+                      )}
+                            {(p.tipo === "aluguel" || p.tipo === "ambos") && (
+                         <div>
+                           <p className="text-[10px] font-black text-gray-500 uppercase leading-none">Aluguel</p>
+                           <p className="text-xl font-black text-purple-400">R$ {Number(p.preco_aluguel || 0).toFixed(2)}</p>
+                         </div>
+                      )}
                       </div>
+
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-gray-500 uppercase">Estoque</p>
+                        <p className={cn("text-xl font-black italic", p.estoque < 10 ? "text-red-500" : "text-white")}> {p.estoque} UN</p>
                     </div>
+                  </div>
+                </div>
+              </div>
                     <div className="grid grid-cols-2 gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="outline" onClick={() => { setEditandoProduto(p); setFormProduto({ nome: p.nome, tipo: p.tipo as any, preco_venda: String(p.preco_venda ?? p.preco ?? ""), preco_aluguel: String(p.preco_aluguel ?? ""), quantidade_estoque: String(p.estoque) }); setModalProdutoAberto(true); }} className="border-white/10 text-[10px] font-black uppercase">Editar</Button>
                       <Button variant="outline" onClick={() => excluirProduto(p.id)} className="border-red-500/20 text-red-500 text-[10px] font-black uppercase">Excluir</Button>
