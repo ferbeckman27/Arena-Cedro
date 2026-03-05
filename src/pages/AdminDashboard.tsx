@@ -822,15 +822,15 @@ function AdminDashboard() {
 
         <Tabs defaultValue="agenda" className="space-y-6">
           <TabsList className="bg-white/5 border border-white/10 p-1 h-14 rounded-2xl w-full flex overflow-x-auto">
-            <TabsTrigger value="agenda" className="flex-1 font-bold uppercase italic">Agenda</TabsTrigger>
-            <TabsTrigger value="vip" className="flex-1 font-bold uppercase italic">VIPs</TabsTrigger>
-            <TabsTrigger value="produtos" className="flex-1 font-bold uppercase italic">Produtos</TabsTrigger>
-            <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic">Marketing</TabsTrigger>
-            <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic">Relatórios</TabsTrigger>
-            <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic">Equipe</TabsTrigger>
+            <TabsTrigger value="agenda" className="flex-1 font-bold uppercase italic text-[#22c55e]">+">Agenda</TabsTrigger>
+            <TabsTrigger value="vip" className="flex-1 font-bold uppercase italic text-[#22c55e]">+">VIPs</TabsTrigger>
+            <TabsTrigger value="produtos" className="flex-1 font-bold uppercase italic text-[#22c55e]">+">Produtos</TabsTrigger>
+            <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic text-[#22c55e]">+">Marketing</TabsTrigger>
+            <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic text-[#22c55e]">+">Relatórios</TabsTrigger>
+            <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic text-[#22c55e]">+">Equipe</TabsTrigger>
             <TabsTrigger value="cadastro" className="px-6 font-bold uppercase italic text-[#22c55e]">+ Funcionário</TabsTrigger>
-            <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic">Depoimentos</TabsTrigger>
-            <TabsTrigger value="financeiro" className="px-6 font-bold uppercase italic">Financeiro</TabsTrigger>
+            <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic text-[#22c55e]">+">Depoimentos</TabsTrigger>
+            <TabsTrigger value="financeiro" className="px-6 font-bold uppercase italic text-[#22c55e]">+">Financeiro</TabsTrigger>
           </TabsList>
 
           {/* CONTEÚDO AGENDA */}
@@ -1179,7 +1179,6 @@ function AdminDashboard() {
           {/* FINANCEIRO - CAIXA + COMISSÕES */}
           <TabsContent value="financeiro">
             <div className="space-y-8">
-              {/* CAIXA DO DIA */}
               <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem] border-t-4 border-t-[#22c55e]">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                   <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
