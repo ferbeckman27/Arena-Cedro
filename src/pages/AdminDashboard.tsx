@@ -1063,8 +1063,6 @@ function AdminDashboard() {
                     <span className="text-gray-400">Horas Avulsas:</span>
                     <span className="font-bold text-white">R$ 6.410,00</span>
                   </div>
-
-                  {/* SEÇÃO DE COMISSÕES (ADICIONADA) */}
                   <div className="mt-6 bg-red-500/5 border border-red-500/10 p-4 rounded-2xl space-y-2">
                     <p className="text-[10px] font-black uppercase text-red-500 mb-1 tracking-widest">
                       Repasses e Comissões
@@ -1078,8 +1076,6 @@ function AdminDashboard() {
                       <span className="font-bold text-red-400">- R$ 1.240,00</span>
                     </div>
                   </div>
-
-                  {/* PERFORMANCE */}
                   <div className="flex justify-between text-sm text-blue-400 pt-4 font-black uppercase tracking-tighter">
                     <span>Taxa de Ocupação:</span>
                     <span>87.4%</span>
