@@ -104,6 +104,7 @@ function AdminDashboard() {
   const [novoFuncSenha, setNovoFuncSenha] = useState("");
   const [showFuncSenha, setShowFuncSenha] = useState(false);
   const [loadingCadastro, setLoadingCadastro] = useState(false);
+  const [novoFuncEmail, setNovoFuncEmail] = useState("");
 
   // --- FUNÇÕES DE SOM E ESTILO ---
   const playApito = () => {
@@ -1295,7 +1296,7 @@ function AdminDashboard() {
                     <div className="space-y-4">
                       {depoimentos.filter((d: any) => d.status === tipo).length === 0 ? (
                         <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem] opacity-20">
-                          <p className="italic font-bold text-gray-500">Nada para mostrar aqui</p>
+                          <p className="italic font-bold text-gray-500">Esperando Depoimentos...</p>
                         </div>
                       ) : (
                         depoimentos
@@ -1372,12 +1373,12 @@ function AdminDashboard() {
           </TabsContent>
 
           {/* ABA VIP COM SISTEMA DE FIDELIDADE */}
-          <TabsContent value="vip">
+          <TabsContent value="clientes/vip">
             <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="border-white/5 uppercase font-black text-[10px]">
-                    <TableHead>Grupo</TableHead>
+                    <TableHead>Grupo/Nome</TableHead>
                     <TableHead>Dia/Hora</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Fidelidade (Progresso)</TableHead> {/* Nova Coluna */}
@@ -1482,21 +1483,6 @@ function AdminDashboard() {
                                     <p className="text-sm italic text-gray-300 leading-relaxed">
                                       "{vip.observacao || "Nenhuma observação registrada para este grupo."}"
                                     </p>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <Button
-                                      className="bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-14 rounded-2xl shadow-lg"
-                                      onClick={() => handlePagarVip(vip.id)}
-                                    >
-                                      Confirmar Mensalidade
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      className="bg-transparent hover:bg-white/5 text-white border-white/10 font-black uppercase h-14 rounded-2xl"
-                                    >
-                                      Editar Grupo
-                                    </Button>
                                   </div>
                                 </div>
                               </DialogContent>
