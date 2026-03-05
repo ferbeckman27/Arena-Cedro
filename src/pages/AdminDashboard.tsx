@@ -33,6 +33,7 @@ import {
   EyeOff,
   Circle,
   Lock,
+  Activity,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,6 +107,43 @@ function AdminDashboard() {
   const [loadingCadastro, setLoadingCadastro] = useState(false);
   const [novoFuncEmail, setNovoFuncEmail] = useState("");
 
+  // STATS reais
+  const [statsReais, setStatsReais] = useState({
+    receitaMensal: 0,
+    ocupacao: 0,
+    clientesVip: 0,
+    alertas: 0,
+    acessosDiarios: 0,
+  });
+
+  // Relatórios - filtros de período
+  const hoje = new Date();
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const [sinteticoInicio, setSinteticoInicio] = useState(primeiroDiaMes.toISOString().slice(0, 10));
+  const [sinteticoFim, setSinteticoFim] = useState(hoje.toISOString().slice(0, 10));
+  const [analiticoInicio, setAnaliticoInicio] = useState(primeiroDiaMes.toISOString().slice(0, 10));
+  const [analiticoFim, setAnaliticoFim] = useState(hoje.toISOString().slice(0, 10));
+  const [comissaoInicio, setComissaoInicio] = useState(primeiroDiaMes.toISOString().slice(0, 10));
+  const [comissaoFim, setComissaoFim] = useState(hoje.toISOString().slice(0, 10));
+
+  // Relatório sintético - dados reais
+  const [dadosSintetico, setDadosSintetico] = useState({
+    faturamentoTotal: 0,
+    jogosPagos: 0,
+    mediaDiaria: 0,
+    acessosDiarios: 0,
+    acessosMensais: 0,
+  });
+
+  // Financeiro - Caixa
+  const [caixaData, setCaixaData] = useState(hoje.toISOString().slice(0, 10));
+  const [dadosCaixa, setDadosCaixa] = useState({
+    pix: 0,
+    dinheiro: 0,
+    totalRecebido: 0,
+    totalAReceber: 0,
+  });
+
   // --- FUNÇÕES DE SOM E ESTILO ---
   const playApito = () => {
     const audio = new Audio("/sound/apito.mp3");
@@ -156,6 +194,57 @@ function AdminDashboard() {
       );
     }
     carregarProdutos();
+    carregarStatsReais();
+  };
+
+  const carregarStatsReais = async () => {
+    const mesInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+    const mesFim = hoje.toISOString().slice(0, 10);
+
+    // Receita mensal
+    const { data: reservasMes } = await supabase
+      .from("reservas")
+      .select("valor_total, status, pago")
+      .gte("data_reserva", mesInicio)
+      .lte("data_reserva", mesFim);
+
+    const receitaMensal = reservasMes?.filter(r => r.status === "confirmada" || r.pago)
+      .reduce((acc, r) => acc + Number(r.valor_total || 0), 0) || 0;
+
+    // Ocupação do dia
+    const { data: reservasHoje } = await supabase
+      .from("reservas")
+      .select("id")
+      .eq("data_reserva", mesFim)
+      .in("status", ["confirmada", "pendente"]);
+    const totalSlotsDia = 26; // slots possíveis por dia
+    const ocupacao = reservasHoje ? Math.round((reservasHoje.length / totalSlotsDia) * 100) : 0;
+
+    // Clientes VIP
+    const { count: vipCount } = await supabase.from("clientes").select("id", { count: "exact", head: true }).eq("tipo", "mensalista");
+
+    // Alertas (reservas pendentes de pagamento)
+    const { count: alertasCount } = await supabase
+      .from("reservas")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pendente")
+      .eq("pago", false);
+
+    // Acessos diários (funcionários que acessaram hoje)
+    const hojeStr = hoje.toISOString().slice(0, 10);
+    const { data: acessosHoje } = await supabase
+      .from("funcionarios")
+      .select("ultimo_acesso")
+      .not("ultimo_acesso", "is", null);
+    const acessosDiarios = acessosHoje?.filter(f => f.ultimo_acesso && f.ultimo_acesso.slice(0, 10) === hojeStr).length || 0;
+
+    setStatsReais({
+      receitaMensal,
+      ocupacao,
+      clientesVip: vipCount || 0,
+      alertas: alertasCount || 0,
+      acessosDiarios,
+    });
   };
 
   const carregarProdutos = async () => {
@@ -175,21 +264,66 @@ function AdminDashboard() {
     }
   };
 
+  // Carregar dados do relatório sintético
+  const carregarDadosSintetico = async () => {
+    const { data: reservas } = await supabase
+      .from("reservas")
+      .select("valor_total, status, pago, data_reserva")
+      .gte("data_reserva", sinteticoInicio)
+      .lte("data_reserva", sinteticoFim);
+
+    const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
+    const faturamentoTotal = reservasPagas.reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
+    const jogosPagos = reservasPagas.length;
+
+    // Dias no período
+    const d1 = new Date(sinteticoInicio);
+    const d2 = new Date(sinteticoFim);
+    const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    const mediaDiaria = faturamentoTotal / diasPeriodo;
+
+    // Acessos no período
+    const { data: funcs } = await supabase.from("funcionarios").select("total_acessos");
+    const acessosMensais = funcs?.reduce((acc, f) => acc + (f.total_acessos || 0), 0) || 0;
+
+    // Acessos diários (hoje)
+    const hojeStr = hoje.toISOString().slice(0, 10);
+    const { data: acessosHoje } = await supabase.from("funcionarios").select("ultimo_acesso").not("ultimo_acesso", "is", null);
+    const acessosDiarios = acessosHoje?.filter(f => f.ultimo_acesso?.slice(0, 10) === hojeStr).length || 0;
+
+    setDadosSintetico({
+      faturamentoTotal,
+      jogosPagos,
+      mediaDiaria,
+      acessosDiarios,
+      acessosMensais,
+    });
+  };
+
+  // Carregar dados do caixa
+  const carregarCaixa = async () => {
+    const { data: reservasDia } = await supabase
+      .from("reservas")
+      .select("valor_total, forma_pagamento, pago, status, valor_restante")
+      .eq("data_reserva", caixaData);
+
+    const pagas = reservasDia?.filter(r => r.pago || r.status === "confirmada") || [];
+    const pendentes = reservasDia?.filter(r => !r.pago && r.status === "pendente") || [];
+
+    const pix = pagas.filter(r => r.forma_pagamento === "pix").reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
+    const dinheiro = pagas.filter(r => r.forma_pagamento === "dinheiro" || r.forma_pagamento === "local").reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
+    const totalRecebido = pix + dinheiro;
+    const totalAReceber = pendentes.reduce((acc, r) => acc + Number(r.valor_restante || r.valor_total || 0), 0);
+
+    setDadosCaixa({ pix, dinheiro, totalRecebido, totalAReceber });
+  };
+
   const diasMes = useMemo<(Date | null)[]>(() => {
     const start = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1);
     const end = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0);
     const days: (Date | null)[] = [];
-
-    // Preenche os dias vazios do início da semana
-    for (let i = 0; i < start.getDay(); i++) {
-      days.push(null);
-    }
-
-    // Preenche os dias do mês
-    for (let i = 1; i <= end.getDate(); i++) {
-      days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
-    }
-
+    for (let i = 0; i < start.getDay(); i++) days.push(null);
+    for (let i = 1; i <= end.getDate(); i++) days.push(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), i));
     return days;
   }, [mesAtual]);
 
@@ -216,6 +350,14 @@ function AdminDashboard() {
   useEffect(() => {
     carregarDadosIniciais();
   }, []);
+
+  useEffect(() => {
+    carregarDadosSintetico();
+  }, [sinteticoInicio, sinteticoFim]);
+
+  useEffect(() => {
+    carregarCaixa();
+  }, [caixaData]);
 
   useEffect(() => {
     const pendentes = depoimentos.filter((d) => d.status === "pendente").length;
@@ -256,10 +398,9 @@ function AdminDashboard() {
 
   const gerarEstruturaAgenda = (duracaoMinutos: number) => {
     const slots = [];
-    // Define os períodos de funcionamento da Arena
     const periodos = [
-      { inicio: 9, fim: 17.5 }, // Manhã/Tarde
-      { inicio: 18, fim: 22 }, // Noite
+      { inicio: 9, fim: 17.5 },
+      { inicio: 18, fim: 22 },
     ];
 
     for (const periodo of periodos) {
@@ -278,7 +419,7 @@ function AdminDashboard() {
           turno: horas >= 18 ? "noturno" : "diurno",
           status: "livre",
         });
-        atual += 0.5; // Incremento de 30 em 30 min para permitir encaixes
+        atual += 0.5;
       }
     }
     return slots;
@@ -310,25 +451,20 @@ function AdminDashboard() {
   };
 
   const handleToggleStatusEquipe = async (id: string, statusAtual: boolean) => {
-    // Usamos um confirm estilizado ou o nativo para segurança
     if (confirm(`Deseja ${statusAtual ? "DESATIVAR" : "ATIVAR"} este funcionário?`)) {
       const { error } = await supabase.from("funcionarios").update({ ativo: !statusAtual }).eq("id", id);
-
       if (error) {
         toast({ variant: "destructive", title: "Erro na operação", description: error.message });
       } else {
         toast({ title: statusAtual ? "Funcionário Desativado" : "Funcionário Ativado" });
-        // Atualiza a lista local para refletir a mudança visualmente
         setListaEquipe((prev) => prev.map((f) => (f.id === id ? { ...f, ativo: !statusAtual } : f)));
       }
     }
   };
 
   const editarFuncionario = async (funcionario: any) => {
-    // Aqui você pode abrir um modal. Para fins de exemplo, usaremos o prompt para campos simples
     const novoTelefone = prompt("Editar Telefone:", funcionario.telefone);
     const novoTurno = prompt("Editar Turno (DIURNO/NOTURNO):", funcionario.turno);
-
     if (novoTelefone || novoTurno) {
       const { error } = await supabase
         .from("funcionarios")
@@ -337,12 +473,11 @@ function AdminDashboard() {
           turno: novoTurno || funcionario.turno,
         })
         .eq("id", funcionario.id);
-
       if (error) {
         toast({ variant: "destructive", title: "Erro ao atualizar", description: error.message });
       } else {
         toast({ title: "Dados atualizados com sucesso!" });
-        carregarDadosIniciais(); // Recarrega a lista completa
+        carregarDadosIniciais();
       }
     }
   };
@@ -357,12 +492,7 @@ function AdminDashboard() {
     const nums = novoFuncSenha.match(/\d/g) || [];
     const noRepeatedNumbers = nums.length === new Set(nums).size;
     return {
-      hasExactLength,
-      hasUpperCase,
-      hasLowerCase,
-      hasSpecialChar,
-      hasNumber,
-      noRepeatedNumbers,
+      hasExactLength, hasUpperCase, hasLowerCase, hasSpecialChar, hasNumber, noRepeatedNumbers,
       isValid: hasExactLength && hasUpperCase && hasLowerCase && hasSpecialChar && hasNumber && noRepeatedNumbers,
     };
   }, [novoFuncSenha]);
@@ -371,21 +501,11 @@ function AdminDashboard() {
   const handleCadastrarFuncionario = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!funcPasswordValidations.isValid) {
-      return toast({
-        variant: "destructive",
-        title: "Senha Inválida",
-        description: "A senha não atende aos requisitos.",
-      });
+      return toast({ variant: "destructive", title: "Senha Inválida", description: "A senha não atende aos requisitos." });
     }
-
     if (!novoFuncEmail.toLowerCase().endsWith("@atendcedro.com")) {
-      return toast({
-        variant: "destructive",
-        title: "E-mail Inválido",
-        description: "O e-mail deve obrigatoriamente terminar com @atendcedro.com",
-      });
+      return toast({ variant: "destructive", title: "E-mail Inválido", description: "O e-mail deve obrigatoriamente terminar com @atendcedro.com" });
     }
-
     setLoadingCadastro(true);
     try {
       const nomeLimpo = novoFuncNome.trim().toLowerCase().replace(/\s+/g, "");
@@ -395,34 +515,23 @@ function AdminDashboard() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: emailFinal,
         password: novoFuncSenha,
-        options: {
-          data: { display_name: `${novoFuncNome} ${novoFuncSobrenome}`, role: "atendente" },
-        },
+        options: { data: { display_name: `${novoFuncNome} ${novoFuncSobrenome}`, role: "atendente" } },
       });
-
       if (authError) throw authError;
-
       if (authData.user) {
-        const { error: dbError } = await supabase.from("funcionarios").insert([
-          {
-            id: authData.user.id,
-            nome: novoFuncNome.trim(),
-            sobrenome: novoFuncSobrenome.trim(),
-            email_corporativo: emailFinal,
-            telefone: novoFuncTelefone,
-            tipo: "atendente",
-            ativo: true,
-          },
-        ]);
+        const { error: dbError } = await supabase.from("funcionarios").insert([{
+          id: authData.user.id,
+          nome: novoFuncNome.trim(),
+          sobrenome: novoFuncSobrenome.trim(),
+          email_corporativo: emailFinal,
+          telefone: novoFuncTelefone,
+          tipo: "atendente",
+          ativo: true,
+        }]);
         if (dbError) throw new Error("Erro ao salvar no banco: " + dbError.message);
       }
-
       toast({ title: "Funcionário Cadastrado!", description: `O acesso para ${emailFinal} foi criado com sucesso.` });
-      setNovoFuncNome("");
-      setNovoFuncSobrenome("");
-      setNovoFuncEmail("");
-      setNovoFuncTelefone("");
-      setNovoFuncSenha("");
+      setNovoFuncNome(""); setNovoFuncSobrenome(""); setNovoFuncEmail(""); setNovoFuncTelefone(""); setNovoFuncSenha("");
       carregarDadosIniciais();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no Cadastro", description: error.message });
@@ -431,113 +540,139 @@ function AdminDashboard() {
     }
   };
 
-  // --- RELATÓRIOS (SINTÉTICO E ANALÍTICO) ---
+  // --- RELATÓRIOS PDF ---
 
   const baixarPdfSintetico = async () => {
     try {
-      // 1. Busca os valores de Reservas e Produtos no Banco
-      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo").eq("status", "confirmado");
+      const { data: reservas } = await supabase
+        .from("reservas")
+        .select("valor_total, tipo, status, pago")
+        .gte("data_reserva", sinteticoInicio)
+        .lte("data_reserva", sinteticoFim);
 
-      const { data: produtos } = await supabase
+      const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
+      const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total), 0);
+      const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total), 0);
+
+      const { data: pagProdutos } = await supabase
         .from("pagamentos")
         .select("valor")
         .eq("tipo", "produto")
         .eq("status", "pago");
-
-      // 2. Cálculos Rápidos (Sintéticos)
-      const totalAvulsas =
-        reservas?.filter((r) => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total), 0) || 0;
-
-      const totalVIP =
-        reservas?.filter((r) => r.tipo === "VIP").reduce((acc, cur) => acc + Number(cur.valor_total), 0) || 0;
-
-      const totalProdutos = produtos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
-
+      const totalProdutos = pagProdutos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
       const faturamentoTotal = totalAvulsas + totalVIP + totalProdutos;
 
-      // 3. Gerar o PDF (Layout Limpo)
-      const doc = new jsPDF();
+      // Acessos
+      const { data: funcs } = await supabase.from("funcionarios").select("total_acessos");
+      const acessosTotal = funcs?.reduce((acc, f) => acc + (f.total_acessos || 0), 0) || 0;
 
-      // Título
+      const d1 = new Date(sinteticoInicio);
+      const d2 = new Date(sinteticoFim);
+      const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+      const doc = new jsPDF();
       doc.setFontSize(20);
       doc.setFont(undefined, "bold");
       doc.text("RELATÓRIO SINTÉTICO - ARENA CEDRO", 20, 25);
-
-      // Data de emissão
       doc.setFontSize(10);
       doc.setFont(undefined, "normal");
       doc.setTextColor(100);
       doc.text(`Data de emissão: ${new Date().toLocaleDateString("pt-BR")}`, 20, 32);
-
-      // Linha divisória
+      doc.text(`Período: ${new Date(sinteticoInicio).toLocaleDateString("pt-BR")} a ${new Date(sinteticoFim).toLocaleDateString("pt-BR")}`, 20, 38);
       doc.setDrawColor(200);
-      doc.line(20, 36, 190, 36);
-
-      // Corpo do Relatório
+      doc.line(20, 42, 190, 42);
       doc.setFontSize(12);
       doc.setTextColor(0);
-
-      doc.text(`Faturamento Horas Avulsas:`, 20, 50);
-      doc.text(`R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 140, 50);
-
-      doc.text(`Faturamento Contratos VIP:`, 20, 60);
-      doc.text(`R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 140, 60);
-
-      doc.text(`Venda de Produtos (Cantina/Loja):`, 20, 70);
-      doc.text(`R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 140, 70);
-
-      // Linha do Total
-      doc.setLineWidth(0.5);
-      doc.line(20, 80, 190, 80);
-
-      // TOTAL FINAL
-      doc.setFontSize(16);
+      doc.text(`Faturamento Horas Avulsas:`, 20, 55);
+      doc.text(`R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 140, 55);
+      doc.text(`Faturamento Contratos VIP:`, 20, 65);
+      doc.text(`R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 140, 65);
+      doc.text(`Venda de Produtos (Cantina/Loja):`, 20, 75);
+      doc.text(`R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 140, 75);
+      doc.line(20, 85, 190, 85);
+      doc.setFontSize(14);
       doc.setFont(undefined, "bold");
-      doc.text(`FATURAMENTO TOTAL:`, 20, 95);
-      doc.text(`R$ ${faturamentoTotal.toFixed(2).replace(".", ",")}`, 120, 95);
+      doc.text(`FATURAMENTO TOTAL:`, 20, 98);
+      doc.text(`R$ ${faturamentoTotal.toFixed(2).replace(".", ",")}`, 120, 98);
+      doc.setFontSize(12);
+      doc.setFont(undefined, "normal");
+      doc.text(`Jogos Pagos: ${reservasPagas.length}`, 20, 112);
+      doc.text(`Média Diária: R$ ${(faturamentoTotal / diasPeriodo).toFixed(2).replace(".", ",")}`, 20, 122);
+      doc.text(`Total de Acessos (equipe): ${acessosTotal}`, 20, 132);
+      doc.text(`Acessos Diários (média): ${Math.round(acessosTotal / diasPeriodo)}`, 20, 142);
 
-      // Salvar
       doc.save(`Sintetico_Arena_Cedro_${new Date().toLocaleDateString("pt-BR")}.pdf`);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
-      alert("Erro ao carregar dados do banco.");
+      toast({ variant: "destructive", title: "Erro ao gerar relatório." });
     }
   };
 
   const baixarPdfAnalitico = async () => {
-    // Busca dados detalhados para o relatório analítico
-    const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo").eq("status", "confirmada");
-    const { data: vendas } = await supabase.from("vendas_produtos").select("valor_total");
+    try {
+      const { data: reservas } = await supabase
+        .from("reservas")
+        .select("valor_total, tipo, status, pago, comissao_valor")
+        .gte("data_reserva", analiticoInicio)
+        .lte("data_reserva", analiticoFim);
 
-    const faturamentoReservas = reservas?.reduce((acc, cur) => acc + (cur.valor_total || 0), 0) || 0;
-    const faturamentoVendas = vendas?.reduce((acc, cur) => acc + (cur.valor_total || 0), 0) || 0;
+      const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
+      const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const comissoes = reservasPagas.reduce((acc, cur) => acc + Number(cur.comissao_valor || 0), 0);
 
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Relatorio Analitico - Arena Cedro", 20, 20);
-    doc.setFontSize(12);
-    doc.text(`Venda de Produtos: R$ ${faturamentoVendas.toFixed(2)}`, 20, 40);
-    doc.text(`Locacao de Quadras: R$ ${faturamentoReservas.toFixed(2)}`, 20, 50);
-    doc.text(`Faturamento Geral: R$ ${(faturamentoReservas + faturamentoVendas).toFixed(2)}`, 20, 65);
-    doc.save("analitico.pdf");
+      const { data: pagProdutos } = await supabase.from("pagamentos").select("valor").eq("tipo", "produto").eq("status", "pago");
+      const totalProdutos = pagProdutos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
+
+      const faturamentoBruto = totalAvulsas + totalVIP + totalProdutos;
+      const saldoLiquido = faturamentoBruto - comissoes;
+
+      // Ocupação
+      const totalReservas = reservas?.length || 0;
+      const d1 = new Date(analiticoInicio);
+      const d2 = new Date(analiticoFim);
+      const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      const taxaOcupacao = totalReservas > 0 ? Math.min(100, (totalReservas / (diasPeriodo * 26)) * 100) : 0;
+
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.setFont(undefined, "bold");
+      doc.text("RELATÓRIO ANALÍTICO - ARENA CEDRO", 20, 20);
+      doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(100);
+      doc.text(`Período: ${new Date(analiticoInicio).toLocaleDateString("pt-BR")} a ${new Date(analiticoFim).toLocaleDateString("pt-BR")}`, 20, 28);
+      doc.setDrawColor(200);
+      doc.line(20, 32, 190, 32);
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(`Horas Avulsas: R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 20, 45);
+      doc.text(`Contratos VIP: R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 20, 55);
+      doc.text(`Venda de Produtos: R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 20, 65);
+      doc.line(20, 72, 190, 72);
+      doc.text(`Comissão Atendentes (5%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 82);
+      doc.text(`Taxa de Ocupação: ${taxaOcupacao.toFixed(1)}%`, 20, 95);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(14);
+      doc.text(`SALDO LÍQUIDO: R$ ${saldoLiquido.toFixed(2).replace(".", ",")}`, 20, 110);
+
+      doc.save(`Analitico_Arena_Cedro_${new Date().toLocaleDateString("pt-BR")}.pdf`);
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast({ variant: "destructive", title: "Erro ao gerar relatório." });
+    }
   };
 
   // --- AUXILIARES ---
   const slotsCalculados = useMemo(() => {
-    // 1. Gera a grade vazia baseada na duração selecionada no filtro
     const gradeMestre = gerarEstruturaAgenda(duracaoFiltro);
-
-    // 2. Cria um mapa de busca rápida para os detalhes vindos do Supabase
     const detalhesPorHorario: Record<string, any> = {};
     detalhesAgenda.forEach((d) => {
       detalhesPorHorario[String(d.horario_inicio).slice(0, 5)] = d;
     });
 
-    // 3. Mescla a grade com os dados reais
     return gradeMestre.map((slotVazio) => {
       const reservaReal = detalhesPorHorario[slotVazio.inicio];
-
-      // Calcula valor padrão se não houver reserva
       const valorPadrao = (slotVazio.turno === "noturno" ? 120 : 80) * (duracaoFiltro / 60);
 
       if (reservaReal) {
@@ -549,16 +684,11 @@ function AdminDashboard() {
             cliente: reservaReal.cliente_nome,
             pagamento: reservaReal.forma_pagamento,
             obs: reservaReal.observacoes,
-            tipo: reservaReal.tipo, // avulsa ou fixa
+            tipo: reservaReal.tipo,
           },
         };
       }
-
-      return {
-        ...slotVazio,
-        valor: valorPadrao,
-        reserva: null,
-      };
+      return { ...slotVazio, valor: valorPadrao, reserva: null };
     });
   }, [detalhesAgenda, duracaoFiltro]);
 
@@ -580,10 +710,7 @@ function AdminDashboard() {
       });
       setIsModalDetalheAberto(true);
     } else {
-      toast({
-        title: "Horário Livre",
-        description: `O horário das ${slot.inicio} está disponível para reserva.`,
-      });
+      toast({ title: "Horário Livre", description: `O horário das ${slot.inicio} está disponível para reserva.` });
     }
   };
 
@@ -601,52 +728,50 @@ function AdminDashboard() {
     localStorage.setItem("arena_promo_ativa", String(promoAtiva));
     localStorage.setItem("arena_promo_texto", promoTexto);
     localStorage.setItem("arena_promo_link", promoLink);
-
-    toast({
-      title: "Marketing Atualizado!",
-      description: "As alterações já estão no site.",
-    });
+    toast({ title: "Marketing Atualizado!", description: "As alterações já estão no site." });
   };
 
   const [relatorioComissoes, setRelatorioComissoes] = useState<any[]>([]);
 
+  const carregarComissoes = async () => {
+    const { data } = await supabase
+      .from("reservas")
+      .select("comissao_valor, atendente_id, funcionario_id, data_reserva")
+      .gt("comissao_valor", 0)
+      .gte("data_reserva", comissaoInicio)
+      .lte("data_reserva", comissaoFim);
+
+    if (data) {
+      // Buscar nomes dos funcionários
+      const ids = [...new Set(data.map(d => d.atendente_id || d.funcionario_id).filter(Boolean))];
+      const { data: funcs } = await supabase.from("funcionarios").select("id, nome, sobrenome").in("id", ids.length > 0 ? ids : ["none"]);
+      const nomeMap: Record<string, string> = {};
+      funcs?.forEach(f => { nomeMap[f.id] = `${f.nome} ${f.sobrenome || ""}`.trim(); });
+
+      const agrupado = data.reduce((acc: any, curr: any) => {
+        const id = curr.atendente_id || curr.funcionario_id;
+        const nome = nomeMap[id] || "Atendente";
+        if (!acc[nome]) acc[nome] = 0;
+        acc[nome] += Number(curr.comissao_valor);
+        return acc;
+      }, {});
+
+      const lista = Object.entries(agrupado).map(([nome, total]) => ({ nome, total }));
+      setRelatorioComissoes(lista);
+    }
+  };
+
   useEffect(() => {
-    const buscarRelatorioComissoes = async () => {
-      // Busca as reservas trazendo também o nome do atendente (se houver relação no banco)
-      const { data, error } = await supabase
-        .from("reservas")
-        .select(
-          `
-        comissao_valor,
-        atendente_id,
-        perfil:atendente_id ( nome )
-      `,
-        )
-        .gt("comissao_valor", 0); // Só quem tem comissão
-
-      if (data) {
-        // Agrupa os valores por atendente
-        const agrupado = data.reduce((acc: any, curr: any) => {
-          const nome = curr.perfil?.nome || "Atendente Antigo";
-          if (!acc[nome]) acc[nome] = 0;
-          acc[nome] += Number(curr.comissao_valor);
-          return acc;
-        }, {});
-
-        // Transforma em array para listar no HTML
-        const lista = Object.entries(agrupado).map(([nome, total]) => ({ nome, total }));
-        setRelatorioComissoes(lista);
-      }
-    };
-
-    buscarRelatorioComissoes();
-  }, []);
+    carregarComissoes();
+  }, [comissaoInicio, comissaoFim]);
 
   const calcularFidelidade = (totalReservas: number) => {
     const progresso = totalReservas % 10;
     const completou = totalReservas > 0 && totalReservas % 10 === 0;
     return { progresso, completou };
   };
+
+  const formatarMoeda = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans pb-10">
@@ -655,18 +780,10 @@ function AdminDashboard() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex flex-col items-center">
-              <img
-                src="/media/logo-arena.png"
-                alt="Logo"
-                className="h-40 md:h-48 w-auto object-contain transition-transform hover:scale-105"
-              />
+              <img src="/media/logo-arena.png" alt="Logo" className="h-40 md:h-48 w-auto object-contain transition-transform hover:scale-105" />
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">
-                  Painel Operacional
-                </span>
-                <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">
-                  Bem Vindo Administrador{" "}
-                </span>
+                <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
+                <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">Bem Vindo Administrador</span>
               </div>
             </div>
           </div>
@@ -674,27 +791,24 @@ function AdminDashboard() {
             <div className="hidden md:flex flex-col items-end mr-4">
               <p className="text-[10px] font-black text-gray-500 uppercase italic">Status do Sistema</p>
               <div className="flex items-center gap-2">
-                <span className={cn("text-[10px] font-bold", emManutencao ? "text-red-500" : "text-[#22c55e]")}>
-                  {emManutencao ? "MANUTENÇÃO" : "OPERACIONAL"}
-                </span>
+                <span className={cn("text-[10px] font-bold", emManutencao ? "text-red-500" : "text-[#22c55e]")}>{emManutencao ? "MANUTENÇÃO" : "OPERACIONAL"}</span>
                 <Switch checked={emManutencao} onCheckedChange={handleToggleManutencao} />
               </div>
             </div>
-            <Button variant="ghost" className="text-red-500" onClick={() => navigate("/adminlogin")}>
-              <LogOut size={20} />
-            </Button>
+            <Button variant="ghost" className="text-red-500" onClick={() => navigate("/adminlogin")}><LogOut size={20} /></Button>
           </div>
         </div>
       </header>
 
       <main className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
-        {/* STATS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* STATS REAIS */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
-            { label: "Receita Mensal", val: "R$ 18.450", icon: DollarSign, color: "text-[#22c55e]" },
-            { label: "Ocupação", val: "85%", icon: TrendingUp, color: "text-blue-400" },
-            { label: "Clientes VIP", val: "12", icon: Star, color: "text-yellow-500" },
-            { label: "Alertas", val: "2 Pendentes", icon: AlertTriangle, color: "text-red-500" },
+            { label: "Receita Mensal", val: formatarMoeda(statsReais.receitaMensal), icon: DollarSign, color: "text-[#22c55e]" },
+            { label: "Ocupação Hoje", val: `${statsReais.ocupacao}%`, icon: TrendingUp, color: "text-blue-400" },
+            { label: "Clientes VIP", val: String(statsReais.clientesVip), icon: Star, color: "text-yellow-500" },
+            { label: "Alertas", val: `${statsReais.alertas} Pendentes`, icon: AlertTriangle, color: "text-red-500" },
+            { label: "Acessos Hoje", val: String(statsReais.acessosDiarios), icon: Activity, color: "text-purple-400" },
           ].map((stat, i) => (
             <Card key={i} className="bg-white/5 border-white/5 text-white">
               <CardContent className="p-6">
@@ -708,294 +822,110 @@ function AdminDashboard() {
 
         <Tabs defaultValue="agenda" className="space-y-6">
           <TabsList className="bg-white/5 border border-white/10 p-1 h-14 rounded-2xl w-full flex overflow-x-auto">
-            <TabsTrigger value="agenda" className="flex-1 font-bold uppercase italic">
-              Agenda
-            </TabsTrigger>
-            <TabsTrigger value="vip" className="flex-1 font-bold uppercase italic">
-              VIPs
-            </TabsTrigger>
-            <TabsTrigger value="produtos" className="flex-1 font-bold uppercase italic">
-              Produtos
-            </TabsTrigger>
-            <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic">
-              Marketing
-            </TabsTrigger>
-            <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic">
-              Relatórios
-            </TabsTrigger>
-            <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic">
-              Equipe
-            </TabsTrigger>
-            <TabsTrigger value="cadastro" className="px-6 font-bold uppercase italic text-[#22c55e]">
-              + Funcionário
-            </TabsTrigger>
-            <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic">
-              Depoimentos
-            </TabsTrigger>
-            <TabsTrigger value="financeiro" className="px-6 font-bold uppercase italic">
-              Financeiro
-            </TabsTrigger>
+            <TabsTrigger value="agenda" className="flex-1 font-bold uppercase italic">Agenda</TabsTrigger>
+            <TabsTrigger value="vip" className="flex-1 font-bold uppercase italic">VIPs</TabsTrigger>
+            <TabsTrigger value="produtos" className="flex-1 font-bold uppercase italic">Produtos</TabsTrigger>
+            <TabsTrigger value="marketing" className="flex-1 font-bold uppercase italic">Marketing</TabsTrigger>
+            <TabsTrigger value="relatorios" className="flex-1 font-bold uppercase italic">Relatórios</TabsTrigger>
+            <TabsTrigger value="equipe" className="flex-1 font-bold uppercase italic">Equipe</TabsTrigger>
+            <TabsTrigger value="cadastro" className="px-6 font-bold uppercase italic text-[#22c55e]">+ Funcionário</TabsTrigger>
+            <TabsTrigger value="comentarios" className="px-6 font-bold uppercase italic">Depoimentos</TabsTrigger>
+            <TabsTrigger value="financeiro" className="px-6 font-bold uppercase italic">Financeiro</TabsTrigger>
           </TabsList>
 
-          {/* CONTEÚDO AGENDA: CALENDÁRIO E SLOTS */}
+          {/* CONTEÚDO AGENDA */}
           <TabsContent value="agenda" className="grid lg:grid-cols-12 gap-6 outline-none">
-            {/* COLUNA ESQUERDA: CALENDÁRIO */}
             <Card className="lg:col-span-4 bg-[#0c120f] border-white/5 rounded-[2.5rem] p-6 h-fit">
               <div className="flex justify-between items-center mb-6">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-white/5 text-white"
-                  onClick={() => setMesAtual((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                >
-                  <ChevronLeft size={20} />
-                </Button>
-                <h2 className="font-black uppercase italic text-sm tracking-tighter text-[#22c55e]">
-                  {new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(mesAtual)}
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-white/5 text-white"
-                  onClick={() => setMesAtual((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                >
-                  <ChevronRight size={20} />
-                </Button>
+                <Button variant="ghost" size="icon" className="hover:bg-white/5 text-white" onClick={() => setMesAtual((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}><ChevronLeft size={20} /></Button>
+                <h2 className="font-black uppercase italic text-sm tracking-tighter text-[#22c55e]">{new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(mesAtual)}</h2>
+                <Button variant="ghost" size="icon" className="hover:bg-white/5 text-white" onClick={() => setMesAtual((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}><ChevronRight size={20} /></Button>
               </div>
-
               <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                {["D", "S", "T", "Q", "Q", "S", "S"].map((d) => (
-                  <span key={d} className="text-[10px] font-black text-gray-600">
-                    {d}
-                  </span>
-                ))}
+                {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (<span key={i} className="text-[10px] font-black text-gray-600">{d}</span>))}
               </div>
-
               <div className="grid grid-cols-7 gap-1">
                 {diasMes.map((date, i) => (
-                  <button
-                    key={i}
-                    disabled={!date}
-                    onClick={() => date && setDiaSelecionado(date)}
-                    className={cn(
-                      "h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all",
-                      !date ? "opacity-0" : "hover:bg-[#22c55e]/20",
-                      date?.toDateString() === diaSelecionado.toDateString()
-                        ? "bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]"
-                        : "text-white bg-white/5",
-                    )}
-                  >
+                  <button key={i} disabled={!date} onClick={() => date && setDiaSelecionado(date)} className={cn("h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all", !date ? "opacity-0" : "hover:bg-[#22c55e]/20", date?.toDateString() === diaSelecionado.toDateString() ? "bg-[#22c55e] text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]" : "text-white bg-white/5")}>
                     {date?.getDate()}
                   </button>
                 ))}
               </div>
             </Card>
 
-            {/* COLUNA DIREITA: LISTA DE HORÁRIOS */}
             <div className="lg:col-span-8 space-y-4">
               <div className="flex flex-col md:flex-row justify-between items-center bg-black/40 p-5 rounded-[2rem] border border-white/10 gap-4">
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Dia Selecionado</p>
-                  <p className="font-black italic uppercase text-lg text-white">
-                    {diaSelecionado.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-                  </p>
+                  <p className="font-black italic uppercase text-lg text-white">{diaSelecionado.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</p>
                 </div>
-
                 <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
                   {[30, 60, 90].map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setDuracaoFiltro(m)}
-                      className={cn(
-                        "px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all",
-                        duracaoFiltro === m ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white",
-                      )}
-                    >
-                      {m} Min
-                    </button>
+                    <button key={m} onClick={() => setDuracaoFiltro(m)} className={cn("px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all", duracaoFiltro === m ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>{m} Min</button>
                   ))}
                 </div>
               </div>
 
-              {/* GRID DE SLOTS */}
               <ScrollArea className="h-[500px] pr-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {slotsCalculados.map((slot, i) => {
                     const isReservado = slot.status === "reservado" || slot.status === "ocupado";
-
-                    // Cálculo de Preço: Diurno 100, Noturno 140 (proporcional aos minutos)
                     const horaInt = parseInt(slot.inicio.split(":")[0]);
                     const isNoturno = horaInt >= 18;
                     const precoBase = isNoturno ? 140 : 100;
                     const valorExibir = (precoBase / 60) * duracaoFiltro;
-
-                    // Label do Turno
                     const labelTurno = horaInt < 12 ? "Manhã" : horaInt < 18 ? "Tarde" : "Noite";
 
                     return (
-                      <button
-                        key={i}
-                        onClick={() => abrirDetalheSlot(slot)}
-                        className={cn(
-                          "p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1",
-                          isReservado
-                            ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50"
-                            : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl",
-                        )}
-                      >
-                        {/* Turno */}
-                        <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">
-                          {labelTurno}
-                        </span>
-
-                        {/* Horário de Início */}
-                        <p className="text-2xl font-black italic text-white group-hover:scale-110 transition-transform">
-                          {slot.inicio}
+                      <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1", isReservado ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50" : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl")}>
+                        <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">{labelTurno}</span>
+                        {/* Horário no formato 09:00-09:30 */}
+                        <p className="text-xl font-black italic text-white group-hover:scale-110 transition-transform">
+                          {slot.inicio}-{slot.fim}
                         </p>
-
-                        {/* Horário de Término (Calculado) */}
-                        <span className="text-[10px] text-gray-500 font-bold -mt-1">até {slot.fim}</span>
-
-                        {/* Badge de Status */}
-                        <div
-                          className={cn(
-                            "mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border",
-                            isReservado
-                              ? "bg-red-500/10 text-red-500 border-red-500/20"
-                              : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20",
-                          )}
-                        >
-                          {isReservado ? "OCUPADO" : "LIVRE"}
-                        </div>
-
-                        {/* Rodapé: Cliente ou Valor */}
+                        <div className={cn("mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border", isReservado ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20")}>{isReservado ? "OCUPADO" : "LIVRE"}</div>
                         {isReservado ? (
-                          <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">
-                            👤 {slot.reserva?.cliente || "Agendado"}
-                          </p>
+                          <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">👤 {slot.reserva?.cliente || "Agendado"}</p>
                         ) : (
-                          <p className="text-[10px] font-bold text-gray-400 italic mt-2 tracking-tight">
-                            R$ {valorExibir.toFixed(2).replace(".", ",")}
-                          </p>
+                          <p className="text-[10px] font-bold text-gray-400 italic mt-2 tracking-tight">R$ {valorExibir.toFixed(2).replace(".", ",")}</p>
                         )}
-
-                        {/* Efeito de brilho no hover para os livres */}
-                        {!isReservado && (
-                          <div className="absolute inset-0 bg-gradient-to-tr from-[#22c55e]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        )}
+                        {!isReservado && <div className="absolute inset-0 bg-gradient-to-tr from-[#22c55e]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />}
                       </button>
                     );
                   })}
                 </div>
               </ScrollArea>
 
-              {/* MODAL DE DETALHES DA RESERVA */}
               <Dialog open={isModalDetalheAberto} onOpenChange={setIsModalDetalheAberto}>
                 <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8 max-w-md">
                   <DialogHeader>
                     <DialogTitle className="italic uppercase font-black text-2xl flex items-center gap-3 text-[#22c55e]">
-                      <div className="w-2 h-8 bg-[#22c55e] rounded-full" />
-                      Detalhes do Horário
+                      <div className="w-2 h-8 bg-[#22c55e] rounded-full" /> Detalhes do Horário
                     </DialogTitle>
                   </DialogHeader>
-
                   {slotDetalhe && (
                     <div className="space-y-6 pt-6">
-                      {/* GRID DE HORÁRIO E STATUS */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Horário</p>
-                          <p className="font-black text-xl text-white">
-                            {slotDetalhe.inicio} - {slotDetalhe.fim}
-                          </p>
+                          <p className="text-[10px] text-gray-500 font-black uppercase">Horário</p>
+                          <p className="text-2xl font-black italic text-[#22c55e]">{slotDetalhe.inicio}-{slotDetalhe.fim}</p>
                         </div>
                         <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 font-black uppercase mb-1">Status</p>
-                          <p
-                            className={cn(
-                              "font-black text-xl uppercase",
-                              slotDetalhe.status === "reservado" || slotDetalhe.status === "ocupado"
-                                ? "text-red-500"
-                                : "text-[#22c55e]",
-                            )}
-                          >
-                            {slotDetalhe.status}
-                          </p>
+                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor</p>
+                          <p className="text-2xl font-black italic text-white">R$ {Number(slotDetalhe.valor).toFixed(2)}</p>
                         </div>
                       </div>
-
-                      {/* INFORMAÇÕES DO CLIENTE E ORIGEM */}
-                      <div className="bg-white/5 p-5 rounded-2xl border border-white/5 space-y-4">
-                        <div>
-                          <p className="text-[10px] text-gray-500 font-black uppercase mb-2">Informações da Reserva</p>
-                          <div className="space-y-2">
-                            <p className="font-bold text-lg text-white">👤 {slotDetalhe.cliente || "Disponível"}</p>
-
-                            <div className="flex flex-wrap gap-2">
-                              {/* TIPO DE RESERVA: VIP OU AVULSA */}
-                              <span
-                                className={cn(
-                                  "px-2 py-0.5 rounded text-[9px] font-black uppercase border",
-                                  slotDetalhe.tipo === "VIP"
-                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                                    : "bg-blue-500/10 text-blue-400 border-blue-500/20",
-                                )}
-                              >
-                                {slotDetalhe.tipo || "Avulsa"}
-                              </span>
-
-                              {/* ORIGEM: QUEM FEZ A RESERVA */}
-                              <span className="bg-white/10 text-gray-300 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-white/10">
-                                Origem: {slotDetalhe.criado_por === "admin" ? "Atendente" : "Próprio Cliente"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-white/5">
-                          <p className="text-sm text-gray-400 font-medium tracking-tight">
-                            💰 Pagamento:{" "}
-                            <span className="text-white uppercase font-black">
-                              {slotDetalhe.pagamento || "Pendente"}
-                            </span>
-                          </p>
-                        </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Cliente:</span><span className="font-bold">{slotDetalhe.cliente}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Reservado por:</span><span className="font-bold">{slotDetalhe.reservadoPor}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Pagamento:</span><span className="font-bold">{slotDetalhe.pagamento}</span></div>
                       </div>
-
-                      {/* SISTEMA DE FIDELIDADE (Ex: 10 reservas ganha 1) */}
-                      {slotDetalhe.status !== "livre" && (
-                        <div className="bg-[#22c55e]/5 border border-[#22c55e]/20 p-5 rounded-2xl">
-                          <div className="flex justify-between items-end mb-2">
-                            <p className="text-[10px] text-[#22c55e] font-black uppercase">Progresso Fidelidade</p>
-                            <p className="text-xs font-black text-white">{slotDetalhe.fidelidade_total || 0}/10</p>
-                          </div>
-                          {/* Barra de Progresso */}
-                          <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[#22c55e] shadow-[0_0_10px_rgba(34,197,94,0.5)] transition-all"
-                              style={{ width: `${(slotDetalhe.fidelidade_total || 0) * 10}%` }}
-                            />
-                          </div>
-                          <p className="text-[9px] text-gray-500 mt-2 italic font-medium">
-                            O cliente recebe uma reserva grátis ao completar 10 reservas.
-                          </p>
+                      {slotDetalhe.obs && (
+                        <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
+                          <p className="text-[10px] text-yellow-500 font-black uppercase mb-1">Observações</p>
+                          <p className="text-sm italic text-gray-300">{slotDetalhe.obs}</p>
                         </div>
                       )}
-
-                      {/* OBSERVAÇÕES */}
-                      <div className="bg-yellow-500/5 border border-yellow-500/20 p-5 rounded-2xl">
-                        <p className="text-[10px] text-yellow-500 font-black uppercase mb-2">Observações Internas</p>
-                        <p className="text-sm italic text-gray-300 leading-relaxed">
-                          {slotDetalhe.obs || "Nenhuma observação registrada."}
-                        </p>
-                      </div>
-
-                      <Button
-                        className="w-full h-14 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-black uppercase transition-all active:scale-95"
-                        onClick={() => setIsModalDetalheAberto(false)}
-                      >
-                        Fechar Detalhes
-                      </Button>
                     </div>
                   )}
                 </DialogContent>
@@ -1003,44 +933,63 @@ function AdminDashboard() {
             </div>
           </TabsContent>
 
-          {/* ABA RELATÓRIOS (SINTÉTICO E ANALÍTICO) */}
+          {/* ABA RELATÓRIOS */}
           <TabsContent value="relatorios" className="space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
-              {/* CARD RELATÓRIO SINTÉTICO (RESUMO) */}
+              {/* SINTÉTICO */}
               <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem] border-t-4 border-t-[#22c55e]">
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h3 className="text-2xl font-black italic uppercase">Sintético</h3>
-                    <p className="text-gray-500 text-xs italic">Resumo de desempenho mensal</p>
+                    <p className="text-gray-500 text-xs italic">Resumo de desempenho por período</p>
                   </div>
                   <BarChart3 className="text-[#22c55e]" size={32} />
+                </div>
+
+                {/* Filtro de período */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div>
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Início</Label>
+                    <Input type="date" value={sinteticoInicio} onChange={e => setSinteticoInicio(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Final</Label>
+                    <Input type="date" value={sinteticoFim} onChange={e => setSinteticoFim(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
                 </div>
 
                 <div className="space-y-4 mb-8">
                   <div className="flex justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                     <span className="text-sm font-bold text-gray-400">Faturamento Total</span>
-                    <span className="text-xl font-black text-[#22c55e]">R$ 18.450,00</span>
+                    <span className="text-xl font-black text-[#22c55e]">{formatarMoeda(dadosSintetico.faturamentoTotal)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                       <p className="text-[10px] text-gray-500 font-bold uppercase">Jogos Pagos</p>
-                      <p className="text-lg font-black italic">142</p>
+                      <p className="text-lg font-black italic">{dadosSintetico.jogosPagos}</p>
                     </div>
                     <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                       <p className="text-[10px] text-gray-500 font-bold uppercase">Média Diária</p>
-                      <p className="text-lg font-black italic">R$ 615,00</p>
+                      <p className="text-lg font-black italic">{formatarMoeda(dadosSintetico.mediaDiaria)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase">Acessos Diários</p>
+                      <p className="text-lg font-black italic">{dadosSintetico.acessosDiarios}</p>
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase">Acessos no Período</p>
+                      <p className="text-lg font-black italic">{dadosSintetico.acessosMensais}</p>
                     </div>
                   </div>
                 </div>
-                <Button
-                  onClick={baixarPdfSintetico}
-                  className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl"
-                >
-                  Baixar PDF Sintético
+                <Button onClick={baixarPdfSintetico} className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl">
+                  <Download size={18} className="mr-2" /> Baixar PDF Sintético
                 </Button>
               </Card>
 
-              {/* CARD RELATÓRIO ANALÍTICO (DETALHADO) */}
+              {/* ANALÍTICO */}
               <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem] border-t-4 border-t-blue-500 shadow-2xl">
                 <div className="flex justify-between items-start mb-6">
                   <div>
@@ -1050,49 +999,24 @@ function AdminDashboard() {
                   <FileText className="text-blue-500" size={32} />
                 </div>
 
-                <div className="space-y-3 mb-6">
-                  {/* ENTRADAS */}
-                  <div className="flex justify-between text-sm border-b border-white/5 pb-2">
-                    <span className="text-gray-400">Venda de Produtos:</span>
-                    <span className="font-bold text-white">R$ 3.840,00</span>
+                {/* Filtro de período */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div>
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Início</Label>
+                    <Input type="date" value={analiticoInicio} onChange={e => setAnaliticoInicio(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
                   </div>
-                  <div className="flex justify-between text-sm border-b border-white/5 pb-2">
-                    <span className="text-gray-400">Contratos VIP (Fixos):</span>
-                    <span className="font-bold text-white">R$ 8.200,00</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-b border-white/5 pb-2">
-                    <span className="text-gray-400">Horas Avulsas:</span>
-                    <span className="font-bold text-white">R$ 6.410,00</span>
-                  </div>
-                  <div className="mt-6 bg-red-500/5 border border-red-500/10 p-4 rounded-2xl space-y-2">
-                    <p className="text-[10px] font-black uppercase text-red-500 mb-1 tracking-widest">
-                      Repasses e Comissões
-                    </p>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400 font-medium">Comissão Atendentes (5%):</span>
-                      <span className="font-bold text-red-400">- R$ 511,50</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400 font-medium">Aulas / Professores:</span>
-                      <span className="font-bold text-red-400">- R$ 1.240,00</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-sm text-blue-400 pt-4 font-black uppercase tracking-tighter">
-                    <span>Taxa de Ocupação:</span>
-                    <span>87.4%</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-[#22c55e] pb-2 font-black uppercase tracking-tighter border-b border-white/5">
-                    <span>Saldo Líquido Estimado:</span>
-                    <span>R$ 16.698,50</span>
+                  <div>
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Final</Label>
+                    <Input type="date" value={analiticoFim} onChange={e => setAnaliticoFim(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
                   </div>
                 </div>
 
-                <Button
-                  onClick={baixarPdfAnalitico}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic h-14 rounded-2xl transition-all active:scale-95 flex gap-2"
-                >
-                  <FileText size={18} />
-                  Baixar PDF Analítico
+                <div className="space-y-3 mb-6">
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Os dados serão calculados ao baixar o PDF</p>
+                </div>
+
+                <Button onClick={baixarPdfAnalitico} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase italic h-14 rounded-2xl transition-all active:scale-95 flex gap-2">
+                  <FileText size={18} /> Baixar PDF Analítico
                 </Button>
               </Card>
             </div>
@@ -1102,268 +1026,79 @@ function AdminDashboard() {
           <TabsContent value="produtos">
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-black italic uppercase text-white flex items-center gap-3">
-                  <Package className="text-[#22c55e]" /> Inventário de Produtos
-                </h3>
-                <Button
-                  onClick={() => {
-                    setEditandoProduto(null);
-                    setFormProduto({
-                      nome: "",
-                      tipo: "venda",
-                      preco_venda: "",
-                      preco_aluguel: "",
-                      quantidade_estoque: "",
-                    });
-                    setModalProdutoAberto(true);
-                  }}
-                  className="bg-[#22c55e] text-black font-black uppercase rounded-xl h-12"
-                >
-                  + CADASTRAR PRODUTO
-                </Button>
+                <h3 className="text-2xl font-black italic uppercase text-white flex items-center gap-3"><Package className="text-[#22c55e]" /> Inventário de Produtos</h3>
+                <Button onClick={() => { setEditandoProduto(null); setFormProduto({ nome: "", tipo: "venda", preco_venda: "", preco_aluguel: "", quantidade_estoque: "" }); setModalProdutoAberto(true); }} className="bg-[#22c55e] text-black font-black uppercase rounded-xl h-12">+ CADASTRAR PRODUTO</Button>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {produtos.map((p) => (
-                  <Card
-                    key={p.id}
-                    className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem] relative overflow-hidden group"
-                  >
-                    <Badge
-                      className={cn(
-                        "absolute top-4 right-4 font-black italic",
-                        p.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400",
-                      )}
-                    >
-                      {String(p.tipo).toUpperCase()}
-                    </Badge>
+                  <Card key={p.id} className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem] relative overflow-hidden group">
+                    <Badge className={cn("absolute top-4 right-4 font-black italic", p.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400")}>{String(p.tipo).toUpperCase()}</Badge>
                     <div className="mt-4">
                       <p className="text-xl font-black italic uppercase text-white">{p.nome}</p>
                       <div className="flex justify-between items-end mt-6">
-                        <div>
-                          <p className="text-[10px] font-black text-gray-500 uppercase">Preço Un.</p>
-                          <p className="text-2xl font-black text-[#22c55e]">R$ {Number(p.preco).toFixed(2)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-black text-gray-500 uppercase">Estoque</p>
-                          <p
-                            className={cn("text-xl font-black italic", p.estoque < 10 ? "text-red-500" : "text-white")}
-                          >
-                            {p.estoque} UN
-                          </p>
-                        </div>
+                        <div><p className="text-[10px] font-black text-gray-500 uppercase">Preço Un.</p><p className="text-2xl font-black text-[#22c55e]">R$ {Number(p.preco).toFixed(2)}</p></div>
+                        <div className="text-right"><p className="text-[10px] font-black text-gray-500 uppercase">Estoque</p><p className={cn("text-xl font-black italic", p.estoque < 10 ? "text-red-500" : "text-white")}>{p.estoque} UN</p></div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setEditandoProduto(p);
-                          setFormProduto({
-                            nome: p.nome,
-                            tipo: p.tipo as "venda" | "aluguel" | "ambos",
-                            preco_venda: String(p.preco_venda ?? p.preco ?? ""),
-                            preco_aluguel: String(p.preco_aluguel ?? ""),
-                            quantidade_estoque: String(p.estoque),
-                          });
-                          setModalProdutoAberto(true);
-                        }}
-                        className="border-white/10 text-[10px] font-black uppercase"
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => excluirProduto(p.id)}
-                        className="border-red-500/20 text-red-500 text-[10px] font-black uppercase"
-                      >
-                        Excluir
-                      </Button>
+                      <Button variant="outline" onClick={() => { setEditandoProduto(p); setFormProduto({ nome: p.nome, tipo: p.tipo as any, preco_venda: String(p.preco_venda ?? p.preco ?? ""), preco_aluguel: String(p.preco_aluguel ?? ""), quantidade_estoque: String(p.estoque) }); setModalProdutoAberto(true); }} className="border-white/10 text-[10px] font-black uppercase">Editar</Button>
+                      <Button variant="outline" onClick={() => excluirProduto(p.id)} className="border-red-500/20 text-red-500 text-[10px] font-black uppercase">Excluir</Button>
                     </div>
                   </Card>
                 ))}
               </div>
-
               <Dialog open={modalProdutoAberto} onOpenChange={setModalProdutoAberto}>
                 <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-                  <DialogHeader>
-                    <DialogTitle className="italic uppercase font-black">
-                      {editandoProduto ? "Editar produto" : "Cadastrar novo produto"}
-                    </DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle className="italic uppercase font-black">{editandoProduto ? "Editar produto" : "Cadastrar novo produto"}</DialogTitle></DialogHeader>
                   <div className="space-y-4 pt-2">
-                    <div>
-                      <Label className="text-[10px] uppercase">Nome</Label>
-                      <Input
-                        value={formProduto.nome}
-                        onChange={(e) => setFormProduto((prev) => ({ ...prev, nome: e.target.value }))}
-                        className="bg-white/5 mt-1"
-                        placeholder="Nome do produto"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase">Tipo</Label>
-                      <select
-                        value={formProduto.tipo}
-                        onChange={(e) =>
-                          setFormProduto((prev) => ({ ...prev, tipo: e.target.value as "venda" | "aluguel" | "ambos" }))
-                        }
-                        className="w-full bg-white/5 border border-white/10 rounded-lg p-2 mt-1"
-                      >
-                        <option value="venda">Venda</option>
-                        <option value="aluguel">Aluguel</option>
-                        <option value="ambos">Ambos</option>
-                      </select>
-                    </div>
-                    {formProduto.tipo !== "aluguel" && (
-                      <div>
-                        <Label className="text-[10px] uppercase">Preço venda (R$)</Label>
-                        <Input
-                          type="number"
-                          value={formProduto.preco_venda}
-                          onChange={(e) => setFormProduto((prev) => ({ ...prev, preco_venda: e.target.value }))}
-                          className="bg-white/5 mt-1"
-                        />
-                      </div>
-                    )}
-                    {formProduto.tipo !== "venda" && (
-                      <div>
-                        <Label className="text-[10px] uppercase">Preço aluguel (R$)</Label>
-                        <Input
-                          type="number"
-                          value={formProduto.preco_aluguel}
-                          onChange={(e) => setFormProduto((prev) => ({ ...prev, preco_aluguel: e.target.value }))}
-                          className="bg-white/5 mt-1"
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <Label className="text-[10px] uppercase">Estoque</Label>
-                      <Input
-                        type="number"
-                        value={formProduto.quantidade_estoque}
-                        onChange={(e) => setFormProduto((prev) => ({ ...prev, quantidade_estoque: e.target.value }))}
-                        className="bg-white/5 mt-1"
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setModalProdutoAberto(false)}>
-                        Cancelar
-                      </Button>
-                      <Button className="bg-[#22c55e] text-black" onClick={salvarProduto}>
-                        Salvar
-                      </Button>
-                    </DialogFooter>
+                    <div><Label className="text-[10px] uppercase">Nome</Label><Input value={formProduto.nome} onChange={(e) => setFormProduto((prev) => ({ ...prev, nome: e.target.value }))} className="bg-white/5 mt-1" placeholder="Nome do produto" /></div>
+                    <div><Label className="text-[10px] uppercase">Tipo</Label><select value={formProduto.tipo} onChange={(e) => setFormProduto((prev) => ({ ...prev, tipo: e.target.value as any }))} className="w-full bg-white/5 border border-white/10 rounded-lg p-2 mt-1"><option value="venda">Venda</option><option value="aluguel">Aluguel</option><option value="ambos">Ambos</option></select></div>
+                    {formProduto.tipo !== "aluguel" && (<div><Label className="text-[10px] uppercase">Preço venda (R$)</Label><Input type="number" value={formProduto.preco_venda} onChange={(e) => setFormProduto((prev) => ({ ...prev, preco_venda: e.target.value }))} className="bg-white/5 mt-1" /></div>)}
+                    {formProduto.tipo !== "venda" && (<div><Label className="text-[10px] uppercase">Preço aluguel (R$)</Label><Input type="number" value={formProduto.preco_aluguel} onChange={(e) => setFormProduto((prev) => ({ ...prev, preco_aluguel: e.target.value }))} className="bg-white/5 mt-1" /></div>)}
+                    <div><Label className="text-[10px] uppercase">Estoque</Label><Input type="number" value={formProduto.quantidade_estoque} onChange={(e) => setFormProduto((prev) => ({ ...prev, quantidade_estoque: e.target.value }))} className="bg-white/5 mt-1" /></div>
+                    <DialogFooter><Button variant="outline" onClick={() => setModalProdutoAberto(false)}>Cancelar</Button><Button className="bg-[#22c55e] text-black" onClick={salvarProduto}>Salvar</Button></DialogFooter>
                   </div>
                 </DialogContent>
               </Dialog>
             </div>
           </TabsContent>
 
-          {/* ABA DEPOIMENTOS MODERADOS */}
-          <TabsContent value="depoimentos" className="outline-none">
+          {/* ABA DEPOIMENTOS */}
+          <TabsContent value="comentarios" className="outline-none">
             <div className="grid md:grid-cols-2 gap-6">
               {["pendente", "aprovado"].map((tipo) => (
-                <Card
-                  key={tipo}
-                  className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] min-h-[600px] flex flex-col"
-                >
-                  {/* Cabeçalho da Coluna */}
+                <Card key={tipo} className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] min-h-[600px] flex flex-col">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-black italic uppercase flex items-center gap-3 text-white">
-                      {tipo === "pendente" ? (
-                        <>
-                          <AlertTriangle className="text-yellow-500" size={24} /> Em Análise
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="text-[#22c55e]" size={24} /> Publicados
-                        </>
-                      )}
+                      {tipo === "pendente" ? (<><AlertTriangle className="text-yellow-500" size={24} /> Em Análise</>) : (<><CheckCircle2 className="text-[#22c55e]" size={24} /> Publicados</>)}
                     </h3>
-                    <Badge
-                      className={cn(
-                        "font-black px-3 py-1 rounded-full text-[10px] border-none",
-                        tipo === "pendente" ? "bg-yellow-500/10 text-yellow-500" : "bg-[#22c55e]/10 text-[#22c55e]",
-                      )}
-                    >
-                      {depoimentos.filter((d: any) => d.status === tipo).length} ITENS
-                    </Badge>
+                    <Badge className={cn("font-black px-3 py-1 rounded-full text-[10px] border-none", tipo === "pendente" ? "bg-yellow-500/10 text-yellow-500" : "bg-[#22c55e]/10 text-[#22c55e]")}>{depoimentos.filter((d: any) => d.status === tipo).length} ITENS</Badge>
                   </div>
-
-                  {/* Área de Rolagem dos Cards */}
                   <ScrollArea className="flex-1 pr-4">
                     <div className="space-y-4">
                       {depoimentos.filter((d: any) => d.status === tipo).length === 0 ? (
-                        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem] opacity-20">
-                          <p className="italic font-bold text-gray-500">Esperando Depoimentos...</p>
-                        </div>
+                        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-[2rem] opacity-20"><p className="italic font-bold text-gray-500">Esperando Depoimentos...</p></div>
                       ) : (
-                        depoimentos
-                          .filter((d: any) => d.status === tipo)
-                          .map((d: any) => (
-                            <div
-                              key={d.id}
-                              className="p-5 bg-white/5 border border-white/10 rounded-[2rem] group hover:border-[#22c55e]/30 transition-all duration-300"
-                            >
-                              <div className="flex justify-between items-start mb-3">
-                                <div>
-                                  {/* Nome do Autor vindo do Banco */}
-                                  <p className="text-[10px] text-[#22c55e] font-black uppercase tracking-tighter">
-                                    {d.autor}
-                                  </p>
-
-                                  {/* Estrelas Dinâmicas (Sem erro de tipagem) */}
-                                  <div className="flex gap-0.5 mt-1">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        size={10}
-                                        fill={i < (Number(d.estrelas) || 0) ? "#eab308" : "transparent"}
-                                        className={
-                                          i < (Number(d.estrelas) || 0) ? "text-yellow-500" : "text-gray-600/40"
-                                        }
-                                      />
-                                    ))}
-                                  </div>
-                                  <p className="text-[9px] text-gray-600 font-bold mt-1 uppercase">{d.data}</p>
-                                </div>
-
-                                {/* Botão de Excluir (Censurar) */}
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => processarComentario(d.id, "rejeitado")}
-                                  className="h-8 w-8 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
+                        depoimentos.filter((d: any) => d.status === tipo).map((d: any) => (
+                          <div key={d.id} className="p-5 bg-white/5 border border-white/10 rounded-[2rem] group hover:border-[#22c55e]/30 transition-all duration-300">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <p className="text-[10px] text-[#22c55e] font-black uppercase tracking-tighter">{d.autor}</p>
+                                <div className="flex gap-0.5 mt-1">{[...Array(5)].map((_, i) => (<Star key={i} size={10} fill={i < (Number(d.estrelas) || 0) ? "#eab308" : "transparent"} className={i < (Number(d.estrelas) || 0) ? "text-yellow-500" : "text-gray-600/40"} />))}</div>
+                                <p className="text-[9px] text-gray-600 font-bold mt-1 uppercase">{d.data}</p>
                               </div>
-
-                              {/* Texto do Depoimento Real */}
-                              <p className="text-sm italic text-gray-300 leading-relaxed mb-5">"{d.texto}"</p>
-
-                              {/* Ações de Moderação */}
-                              <div className="flex gap-2">
-                                {tipo === "pendente" ? (
-                                  <Button
-                                    onClick={() => processarComentario(d.id, "aprovado")}
-                                    className="w-full bg-[#22c55e] hover:bg-[#1da850] text-black font-black text-[10px] uppercase h-10 rounded-xl shadow-lg shadow-[#22c55e]/10"
-                                  >
-                                    <Check size={14} className="mr-2" /> Aprovar no Mural
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    onClick={() => processarComentario(d.id, "pendente")}
-                                    variant="outline"
-                                    className="w-full border-white/10 text-gray-500 font-black text-[10px] uppercase h-10 rounded-xl hover:bg-white/5 hover:text-white"
-                                  >
-                                    Remover do Mural
-                                  </Button>
-                                )}
-                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => processarComentario(d.id, "rejeitado")} className="h-8 w-8 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></Button>
                             </div>
-                          ))
+                            <p className="text-sm italic text-gray-300 leading-relaxed mb-5">"{d.texto}"</p>
+                            <div className="flex gap-2">
+                              {tipo === "pendente" ? (
+                                <Button onClick={() => processarComentario(d.id, "aprovado")} className="w-full bg-[#22c55e] hover:bg-[#1da850] text-black font-black text-[10px] uppercase h-10 rounded-xl shadow-lg shadow-[#22c55e]/10"><Check size={14} className="mr-2" /> Aprovar no Mural</Button>
+                              ) : (
+                                <Button onClick={() => processarComentario(d.id, "pendente")} variant="outline" className="w-full border-white/10 text-gray-500 font-black text-[10px] uppercase h-10 rounded-xl hover:bg-white/5 hover:text-white">Remover do Mural</Button>
+                              )}
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
                   </ScrollArea>
@@ -1372,8 +1107,8 @@ function AdminDashboard() {
             </div>
           </TabsContent>
 
-          {/* ABA VIP COM SISTEMA DE FIDELIDADE */}
-          <TabsContent value="clientes/vip">
+          {/* ABA VIP */}
+          <TabsContent value="vip">
             <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
               <Table>
                 <TableHeader>
@@ -1381,156 +1116,118 @@ function AdminDashboard() {
                     <TableHead>Grupo/Nome</TableHead>
                     <TableHead>Dia/Hora</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Fidelidade (Progresso)</TableHead> {/* Nova Coluna */}
+                    <TableHead>Fidelidade</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vipsReais.length > 0 ? (
-                    vipsReais.map((vip, i) => {
-                      // Lógica de cálculo: progresso de 0 a 10
-                      const progressoFidelidade = (vip.total_reservas || 0) % 10;
-                      const ganhouGratuidade = vip.total_reservas > 0 && vip.total_reservas % 10 === 0;
-
+                    vipsReais.map((vip: any, i) => {
+                      const progressoFidelidade = (vip.reservas_concluidas || 0) % 10;
+                      const ganhouGratuidade = vip.reservas_concluidas > 0 && vip.reservas_concluidas % 10 === 0;
                       return (
                         <TableRow key={i} className="border-white/5 hover:bg-white/[0.02] transition-colors">
                           <TableCell className="font-black italic uppercase text-[#22c55e]">{vip.nome}</TableCell>
-                          <TableCell className="text-gray-300 font-medium">
-                            {vip.dia_semana} às {vip.horario ? vip.horario.substring(0, 5) : "--:--"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              className={
-                                vip.status_pagamento === "em_atraso"
-                                  ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1"
-                                  : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"
-                              }
-                            >
-                              {vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}
-                            </Badge>
-                          </TableCell>
-
-                          {/* COLUNA DE FIDELIDADE */}
+                          <TableCell className="text-gray-300 font-medium">{vip.dia_fixo || "—"} às {vip.horario_fixo ? vip.horario_fixo.substring(0, 5) : "--:--"}</TableCell>
+                          <TableCell><Badge className={vip.status_pagamento === "em_atraso" ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1" : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"}>{vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}</Badge></TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1.5 min-w-[120px]">
                               <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-tighter">
-                                <span className={ganhouGratuidade ? "text-yellow-500 animate-pulse" : "text-gray-500"}>
-                                  {ganhouGratuidade ? "★ Próximo Grátis" : "Progresso"}
-                                </span>
+                                <span className={ganhouGratuidade ? "text-yellow-500 animate-pulse" : "text-gray-500"}>{ganhouGratuidade ? "★ Próximo Grátis" : "Progresso"}</span>
                                 <span className="text-white">{progressoFidelidade}/10</span>
                               </div>
                               <div className="w-full bg-white/5 h-2 rounded-full border border-white/5 overflow-hidden">
-                                <div
-                                  className={`h-full transition-all duration-500 ${ganhouGratuidade ? "bg-yellow-500" : "bg-[#22c55e]"}`}
-                                  style={{ width: `${ganhouGratuidade ? 100 : progressoFidelidade * 10}%` }}
-                                />
+                                <div className={`h-full transition-all duration-500 ${ganhouGratuidade ? "bg-yellow-500" : "bg-[#22c55e]"}`} style={{ width: `${ganhouGratuidade ? 100 : progressoFidelidade * 10}%` }} />
                               </div>
                             </div>
                           </TableCell>
-
                           <TableCell className="text-right">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="hover:bg-white/10 rounded-full h-10 w-10 p-0"
-                                >
-                                  <Settings size={18} className="text-[#22c55e]" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2.5rem] p-8">
-                                <DialogHeader>
-                                  <DialogTitle className="italic uppercase font-black text-[#22c55e] text-2xl">
-                                    Dados do Cliente VIP
-                                  </DialogTitle>
-                                </DialogHeader>
-
-                                <div className="space-y-6 pt-6">
-                                  <div className="grid grid-cols-2 gap-6">
-                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">
-                                        Responsável
-                                      </p>
-                                      <p className="font-bold text-lg text-white">
-                                        {vip.responsavel_cadastro || vip.responsavel || "Sistema"}
-                                      </p>
-                                    </div>
-                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">
-                                        Pagamento
-                                      </p>
-                                      <p className="font-bold text-lg text-white">
-                                        {vip.metodo_pagamento || "Não informado"}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  {/* AVISO DE FIDELIDADE NO MODAL */}
-                                  {ganhouGratuidade && (
-                                    <div className="p-4 bg-yellow-500 text-black rounded-2xl flex items-center gap-3 animate-bounce">
-                                      <Star size={24} fill="black" />
-                                      <p className="font-black uppercase text-xs leading-none">
-                                        Este grupo completou 10 jogos! Próximo horário é cortesia.
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  <div className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-[1.5rem]">
-                                    <p className="text-[10px] text-yellow-500 font-black uppercase flex items-center gap-2 mb-3">
-                                      <Info size={14} /> Alerta / Observação do Atendente
-                                    </p>
-                                    <p className="text-sm italic text-gray-300 leading-relaxed">
-                                      "{vip.observacao || "Nenhuma observação registrada para este grupo."}"
-                                    </p>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            {vip.status_pagamento === "em_atraso" && (
+                              <Button size="sm" onClick={() => handlePagarVip(vip.id)} className="bg-[#22c55e] text-black font-black text-[9px] uppercase h-8 rounded-xl">Confirmar Pgto</Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
                     })
                   ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-24 text-gray-500 italic text-lg">
-                        Buscando dados reais no banco...
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-24 text-gray-500 italic text-lg">Nenhum cliente VIP encontrado.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </Card>
           </TabsContent>
 
-          {/* FINANCEIRO */}
+          {/* FINANCEIRO - CAIXA + COMISSÕES */}
           <TabsContent value="financeiro">
-            <div className="space-y-4">
-              <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
-                <DollarSign className="text-[#22c55e]" /> Relatório de Comissões
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {relatorioComissoes.map((item, index) => (
-                  <div
-                    key={index}
-                    className="bg-white/5 border border-white/10 p-5 rounded-[2rem] flex justify-between items-center hover:bg-white/10 transition-all"
-                  >
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Funcionário</p>
-                      <p className="text-lg font-black italic text-white uppercase">{item.nome}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black uppercase text-[#22c55e] tracking-widest">Total a Pagar</p>
-                      <p className="text-2xl font-black text-[#22c55e]">R$ {Number(item.total).toFixed(2)}</p>
-                    </div>
+            <div className="space-y-8">
+              {/* CAIXA DO DIA */}
+              <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem] border-t-4 border-t-[#22c55e]">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                  <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
+                    <DollarSign className="text-[#22c55e]" /> Caixa do Dia
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Data:</Label>
+                    <Input type="date" value={caixaData} onChange={e => { setCaixaData(e.target.value); }} className="bg-white/5 border-white/10 text-white w-44" />
                   </div>
-                ))}
+                </div>
 
-                {relatorioComissoes.length === 0 && (
-                  <p className="text-gray-500 italic">Nenhuma comissão registrada ainda.</p>
-                )}
-              </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-5 bg-white/5 rounded-2xl border border-white/5">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase">Pgto Pix</p>
+                    <p className="text-2xl font-black text-blue-400">{formatarMoeda(dadosCaixa.pix)}</p>
+                  </div>
+                  <div className="p-5 bg-white/5 rounded-2xl border border-white/5">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase">Pgto Dinheiro</p>
+                    <p className="text-2xl font-black text-green-400">{formatarMoeda(dadosCaixa.dinheiro)}</p>
+                  </div>
+                  <div className="p-5 bg-[#22c55e]/5 rounded-2xl border border-[#22c55e]/20">
+                    <p className="text-[10px] text-[#22c55e] font-bold uppercase">Total Recebido</p>
+                    <p className="text-2xl font-black text-[#22c55e]">{formatarMoeda(dadosCaixa.totalRecebido)}</p>
+                  </div>
+                  <div className="p-5 bg-red-500/5 rounded-2xl border border-red-500/20">
+                    <p className="text-[10px] text-red-500 font-bold uppercase">Total a Receber</p>
+                    <p className="text-2xl font-black text-red-400">{formatarMoeda(dadosCaixa.totalAReceber)}</p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* COMISSÕES */}
+              <Card className="bg-[#0c120f] border-white/10 p-8 rounded-[3rem]">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                  <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
+                    <DollarSign className="text-[#22c55e]" /> Relatório de Comissões
+                  </h2>
+                </div>
+
+                {/* Filtro de período */}
+                <div className="grid grid-cols-2 gap-3 mb-6 max-w-md">
+                  <div>
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Início</Label>
+                    <Input type="date" value={comissaoInicio} onChange={e => setComissaoInicio(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase text-gray-500 font-bold">Final</Label>
+                    <Input type="date" value={comissaoFim} onChange={e => setComissaoFim(e.target.value)} className="bg-white/5 border-white/10 text-white mt-1" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {relatorioComissoes.map((item, index) => (
+                    <div key={index} className="bg-white/5 border border-white/10 p-5 rounded-[2rem] flex justify-between items-center hover:bg-white/10 transition-all">
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Funcionário</p>
+                        <p className="text-lg font-black italic text-white uppercase">{item.nome}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase text-[#22c55e] tracking-widest">Total a Pagar</p>
+                        <p className="text-2xl font-black text-[#22c55e]">R$ {Number(item.total).toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {relatorioComissoes.length === 0 && (<p className="text-gray-500 italic">Nenhuma comissão registrada no período.</p>)}
+                </div>
+              </Card>
             </div>
           </TabsContent>
 
@@ -1541,24 +1238,9 @@ function AdminDashboard() {
                 <h3 className="text-xl font-black italic uppercase">Banner de Promoção</h3>
                 <Switch checked={promoAtiva} onCheckedChange={setPromoAtiva} />
               </div>
-              <Input
-                value={promoTexto}
-                onChange={(e) => setPromoTexto(e.target.value)}
-                className="bg-white/5 h-14 italic font-bold"
-                placeholder="Texto da Promoção"
-              />
-              <Input
-                value={promoLink}
-                onChange={(e) => setPromoLink(e.target.value)}
-                className="bg-white/5"
-                placeholder="Link do Botão"
-              />
-              <Button
-                onClick={salvarPromocao}
-                className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14"
-              >
-                Publicar Promoção
-              </Button>
+              <Input value={promoTexto} onChange={(e) => setPromoTexto(e.target.value)} className="bg-white/5 h-14 italic font-bold" placeholder="Texto da Promoção" />
+              <Input value={promoLink} onChange={(e) => setPromoLink(e.target.value)} className="bg-white/5" placeholder="Link do Botão" />
+              <Button onClick={salvarPromocao} className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14">Publicar Promoção</Button>
             </Card>
           </TabsContent>
 
@@ -1579,63 +1261,25 @@ function AdminDashboard() {
                 <TableBody>
                   {listaEquipe.length > 0 ? (
                     listaEquipe.map((membro: any) => (
-                      <TableRow
-                        key={membro.id}
-                        className={`border-white/5 transition-opacity ${!membro.ativo ? "opacity-40" : ""}`}
-                      >
-                        <TableCell
-                          className={`font-bold italic uppercase ${!membro.ativo ? "line-through text-gray-600" : ""}`}
-                        >
+                      <TableRow key={membro.id} className={`border-white/5 transition-opacity ${!membro.ativo ? "opacity-40" : ""}`}>
+                        <TableCell className={`font-bold italic uppercase ${!membro.ativo ? "line-through text-gray-600" : ""}`}>
                           {membro.nome} {membro.sobrenome}
-                          {!membro.ativo && (
-                            <span className="ml-2 text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-black not-italic inline-block align-middle">
-                              BLOQUEADO
-                            </span>
-                          )}
+                          {!membro.ativo && (<span className="ml-2 text-[8px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-black not-italic inline-block align-middle">BLOQUEADO</span>)}
                         </TableCell>
-
-                        <TableCell className="text-gray-400 text-xs">
-                          {membro.email_corporativo || membro.email || "—"}
-                        </TableCell>
-
+                        <TableCell className="text-gray-400 text-xs">{membro.email_corporativo || membro.email || "—"}</TableCell>
                         <TableCell className="font-black text-[#22c55e]">{membro.total_acessos || 0}</TableCell>
-
-                        <TableCell className="text-xs text-gray-400">
-                          {membro.ultimo_acesso
-                            ? new Date(membro.ultimo_acesso).toLocaleString("pt-BR", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "Nunca"}
-                        </TableCell>
-
-                        <TableCell className="text-[10px] font-black text-gray-500 uppercase">
-                          {membro.turno || "—"}
-                        </TableCell>
-
+                        <TableCell className="text-xs text-gray-400">{membro.ultimo_acesso ? new Date(membro.ultimo_acesso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Nunca"}</TableCell>
+                        <TableCell className="text-[10px] font-black text-gray-500 uppercase">{membro.turno || "—"}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? "text-red-500 hover:bg-red-500/10" : "text-green-500 hover:bg-green-500/10"}`}
-                            onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}
-                          >
+                          <Button variant="ghost" size="sm" className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? "text-red-500 hover:bg-red-500/10" : "text-green-500 hover:bg-green-500/10"}`} onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}>
                             {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
-                            <span className="ml-2 text-[9px] font-black uppercase">
-                              {membro.ativo ? "Bloquear" : "Ativar"}
-                            </span>
+                            <span className="ml-2 text-[9px] font-black uppercase">{membro.ativo ? "Bloquear" : "Ativar"}</span>
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 opacity-50 italic">
-                        Carregando equipe ou nenhum atendente cadastrado...
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center py-10 opacity-50 italic">Carregando equipe ou nenhum atendente cadastrado...</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -1646,86 +1290,30 @@ function AdminDashboard() {
           <TabsContent value="cadastro">
             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem] max-w-2xl mx-auto">
               <div className="flex items-center gap-3 mb-8">
-                <div className="bg-[#22c55e]/20 p-3 rounded-2xl border border-[#22c55e]/30">
-                  <UserPlus className="text-[#22c55e]" size={28} />
-                </div>
+                <div className="bg-[#22c55e]/20 p-3 rounded-2xl border border-[#22c55e]/30"><UserPlus className="text-[#22c55e]" size={28} /></div>
                 <div>
                   <h3 className="text-2xl font-black italic uppercase text-white">Cadastrar Funcionário</h3>
-                  <p lassName="text-gray-500 text-xs">Preencha os dados abaixo</p>
+                  <p className="text-gray-500 text-xs">Preencha os dados abaixo</p>
                 </div>
               </div>
-
               <form onSubmit={handleCadastrarFuncionario} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Nome</Label>
-                    <Input
-                      required
-                      value={novoFuncNome}
-                      onChange={(e) => setNovoFuncNome(e.target.value)}
-                      placeholder="Nome"
-                      className="bg-white/5 border-white/10 h-12 rounded-xl text-white"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Sobrenome</Label>
-                    <Input
-                      required
-                      value={novoFuncSobrenome}
-                      onChange={(e) => setNovoFuncSobrenome(e.target.value)}
-                      placeholder="Sobrenome"
-                      className="bg-white/5 border-white/10 h-12 rounded-xl text-white"
-                    />
-                  </div>
+                  <div className="space-y-2"><Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Nome</Label><Input required value={novoFuncNome} onChange={(e) => setNovoFuncNome(e.target.value)} placeholder="Nome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" /></div>
+                  <div className="space-y-2"><Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Sobrenome</Label><Input required value={novoFuncSobrenome} onChange={(e) => setNovoFuncSobrenome(e.target.value)} placeholder="Sobrenome" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" /></div>
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase">E-mail do Atendente</label>
-                  <input
-                    type="email"
-                    placeholder="exemplo@atendcedro.com"
-                    value={novoFuncEmail}
-                    onChange={(e) => setNovoFuncEmail(e.target.value)}
-                    className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-[#22c55e]"
-                    required
-                  />
+                  <input type="email" placeholder="exemplo@atendcedro.com" value={novoFuncEmail} onChange={(e) => setNovoFuncEmail(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-[#22c55e]" required />
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Telefone</Label>
-                  <Input
-                    required
-                    value={novoFuncTelefone}
-                    onChange={(e) => setNovoFuncTelefone(e.target.value)}
-                    placeholder="(XX) XXXXX-XXXX"
-                    className="bg-white/5 border-white/10 h-12 rounded-xl text-white"
-                  />
-                </div>
-
+                <div className="space-y-2"><Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Telefone</Label><Input required value={novoFuncTelefone} onChange={(e) => setNovoFuncTelefone(e.target.value)} placeholder="(XX) XXXXX-XXXX" className="bg-white/5 border-white/10 h-12 rounded-xl text-white" /></div>
                 <div className="space-y-2">
                   <Label className="text-gray-400 text-[10px] font-bold uppercase ml-1">Senha (8 caracteres)</Label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-600" />
-                    <Input
-                      required
-                      value={novoFuncSenha}
-                      onChange={(e) => setNovoFuncSenha(e.target.value)}
-                      type={showFuncSenha ? "text" : "password"}
-                      placeholder="Senha segura"
-                      maxLength={8}
-                      className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowFuncSenha(!showFuncSenha)}
-                      className="absolute right-4 top-3.5 text-gray-600"
-                    >
-                      {showFuncSenha ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+                    <Input required value={novoFuncSenha} onChange={(e) => setNovoFuncSenha(e.target.value)} type={showFuncSenha ? "text" : "password"} placeholder="Senha segura" maxLength={8} className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                    <button type="button" onClick={() => setShowFuncSenha(!showFuncSenha)} className="absolute right-4 top-3.5 text-gray-600">{showFuncSenha ? <EyeOff size={20} /> : <Eye size={20} />}</button>
                   </div>
                 </div>
-
-                {/* Password rules */}
                 <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2">
                   <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Requisitos de Segurança:</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -1738,24 +1326,14 @@ function AdminDashboard() {
                       { ok: funcPasswordValidations.noRepeatedNumbers, label: "Sem números repetidos" },
                     ].map((rule, i) => (
                       <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                        {rule.ok ? (
-                          <CheckCircle2 className="w-3 h-3 text-[#22c55e]" />
-                        ) : (
-                          <Circle className="w-3 h-3 text-gray-600" />
-                        )}
+                        {rule.ok ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
                         <span className={rule.ok ? "text-white" : "text-gray-500"}>{rule.label}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-
-                <Button
-                  disabled={loadingCadastro || !funcPasswordValidations.isValid}
-                  type="submit"
-                  className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all disabled:opacity-30 flex items-center gap-2"
-                >
-                  <UserPlus size={20} />
-                  {loadingCadastro ? "Cadastrando..." : "Cadastrar Funcionário"}
+                <Button disabled={loadingCadastro || !funcPasswordValidations.isValid} type="submit" className="w-full bg-[#22c55e] hover:bg-[#1bb054] text-black font-black h-14 rounded-2xl uppercase italic transition-all disabled:opacity-30 flex items-center gap-2">
+                  <UserPlus size={20} /> {loadingCadastro ? "Cadastrando..." : "Cadastrar Funcionário"}
                 </Button>
               </form>
             </Card>
