@@ -228,14 +228,18 @@ const ClienteDashboard = () => {
   return slots;
 };
 
+ const DESCONTO_PIX_ONLINE = 10;
+ const valorComDesconto = metodoPagamento === "pix" ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
+
+ const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
+ const [aceitouTermos, setAceitouTermos] = useState(false);
+
  const handleFinalizePedido = async () => {
   if (!horarioSelecionado) return;
 
   const mapaBlocos: Record<number, number> = { 30: 1, 60: 2, 90: 3 };
   const hora = parseInt(horarioSelecionado.split(":")[0]);
   const turno_id = hora >= 18 ? 2 : 1;
-  const valorSinal = totalGeral * 0.5;
-  const valorRestante = totalGeral - valorSinal;
 
   try {
     let resError = null;
@@ -264,8 +268,8 @@ const ClienteDashboard = () => {
         tipo: 'avulsa',
         status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada', 
         valor_total: totalGeral,
-        valor_sinal: valorSinal,
-        valor_restante: valorRestante,
+        valor_sinal: valorComDesconto,
+        valor_restante: 0,
         forma_pagamento: metodoPagamento
       }]).select().single();
       resError = error;
@@ -300,10 +304,9 @@ const ClienteDashboard = () => {
       );
       
       if (result) {
-        toast({ 
-          title: "PIX GERADO!", 
-          description: `Valor: R$ ${result.valorPago.toFixed(2)} (desconto de R$ ${result.desconto.toFixed(2)} aplicado). Pague para confirmar.`,
-        });
+        setIsCheckoutOpen(false);
+        setIsConfirmacaoAberta(true);
+        setAceitouTermos(false);
       }
     } else {
       toast({ 
