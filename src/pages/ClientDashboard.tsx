@@ -95,11 +95,8 @@ const ClienteDashboard = () => {
 
   const { isCarregandoPix, pixData, gerarPagamentoPix, limparPix } = usePixPayment();
 
-  // Compat aliases
-  const pixCopiaECola = pixData?.copiaECola || '';
-  const pixBase64 = pixData?.qrCodeBase64 || '';
-  const pixTicketUrl = pixData?.ticketUrl || '';
-  
+  // PIX payment hook
+
   const [reservasFixas, setReservasFixas] = useState<{
   dia?: string; 
   dia_semana?: string; 
