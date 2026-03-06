@@ -84,6 +84,8 @@ const ClienteDashboard = () => {
   const [progressoFidelidade, setProgressoFidelidade] = useState(0);
 
   const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'fixa'>('avulsa');
+  const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
 
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
 
@@ -230,9 +232,6 @@ const ClienteDashboard = () => {
 
  const DESCONTO_PIX_ONLINE = 10;
  const valorComDesconto = metodoPagamento === "pix" ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
-
- const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
- const [aceitouTermos, setAceitouTermos] = useState(false);
 
  const handleFinalizePedido = async () => {
   if (!horarioSelecionado) return;
