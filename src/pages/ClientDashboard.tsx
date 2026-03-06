@@ -740,18 +740,22 @@ const handleTipoReserva = (tipo: string) => {
         ))}
 
         <Separator className="bg-white/10" />
-        <div className="flex justify-between items-center font-black text-2xl text-[#22c55e] italic pt-2">
-          <span>TOTAL:</span>
-          <span>R$ {totalGeral.toFixed(2)}</span>
+        <div className="flex justify-between items-center font-black text-lg text-gray-400 italic pt-2">
+          <span>Valor Original:</span>
+          <span className={metodoPagamento === "pix" ? "line-through" : "text-[#22c55e] text-2xl"}>R$ {totalGeral.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between items-center text-xs text-gray-400 font-bold">
-          <span>Sinal (50%):</span>
-          <span className="text-yellow-400">R$ {(totalGeral * 0.5).toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between items-center text-xs text-gray-400 font-bold">
-          <span>Restante (no dia):</span>
-          <span>R$ {(totalGeral * 0.5).toFixed(2)}</span>
-        </div>
+        {metodoPagamento === "pix" && (
+          <>
+            <div className="flex justify-between items-center text-sm text-[#22c55e] font-bold">
+              <span>🏷️ Desconto PIX Online:</span>
+              <span>- R$ {DESCONTO_PIX_ONLINE.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center font-black text-2xl text-[#22c55e] italic">
+              <span>TOTAL:</span>
+              <span>R$ {valorComDesconto.toFixed(2)}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Seleção de Pagamento */}
