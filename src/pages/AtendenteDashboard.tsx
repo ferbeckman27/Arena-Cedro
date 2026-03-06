@@ -1043,12 +1043,6 @@ async function handleFecharCaixa() {
   disabled={isCarregandoPix}
   className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl text-base shadow-lg shadow-[#22c55e]/10 active:scale-95 transition-all"
   onClick={() => {
-    // Se for PIX e já tiver o código, apenas copia. Se não, finaliza o agendamento.
-    if (metodoPgto === "pix" && pixCopiaECola) {
-      navigator.clipboard.writeText(pixCopiaECola);
-      toast({ title: "PIX Copiado!" });
-    }
-    
     const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
     const hora = parseInt(slot.inicio.split(":")[0]);
     const turno_id = hora >= 18 ? 2 : 1; 
@@ -1056,7 +1050,7 @@ async function handleFecharCaixa() {
     handleAgendar(slot.inicio, input?.value, turno_id);
   }}
 >
-  {metodoPgto === "pix" ? (pixCopiaECola ? "Copiar PIX & Finalizar" : "Gerando PIX...") : "Fazer Reserva"}
+  {isCarregandoPix ? "Processando..." : "Fazer Reserva"}
 </Button>
                 </div>
               </DialogContent>
