@@ -54,7 +54,7 @@ import { supabase } from "@/lib/supabase";
 interface Produto {
   id: number;
   nome: string;
-  tipo: "venda" | "aluguel";
+  tipo: "venda" | "aluguel" | "ambos";
   preco: number;
   preco_venda?: number;
   preco_aluguel?: number;
@@ -1032,7 +1032,7 @@ function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {produtos.map((p) => (
                   <Card key={p.id} className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem] relative overflow-hidden group">
-                    <Badge className={cn("absolute top-4 right-4 font-black italic", p.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : p.tipo === "aluguel" ? : "bg-purple-500/20 text-purple-400" : "bg-purple-500/20 text-purple-400")}>{String(p.tipo).toUpperCase()}</Badge>
+                    <Badge className={cn("absolute top-4 right-4 font-black italic", p.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400")}>{String(p.tipo).toUpperCase()}</Badge>
                     <div className="mt-4">
                       <p className="text-xl font-black italic uppercase text-white">{p.nome}</p>
                       <div className="mt-6 flex flex-col gap-3">
