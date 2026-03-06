@@ -780,56 +780,13 @@ const handleTipoReserva = (tipo: string) => {
         </div>
       </RadioGroup>
 
-      {/* Área do PIX ou Confirmação Local */}
-      <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center min-h-[180px] flex items-center justify-center">
+      {/* Área de info do pagamento */}
+      <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center min-h-[100px] flex items-center justify-center">
         {metodoPagamento === "pix" ? (
-          <div className="flex flex-col items-center gap-4 w-full">
-            {isCarregandoPix ? (
-              <div className="flex flex-col items-center gap-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#22c55e]"></div>
-                <p className="text-[10px] font-black uppercase text-gray-500">Gerando PIX...</p>
-              </div>
-            ) : (
-              <>
-                {/* QR CODE */}
-                <div className="bg-white p-3 rounded-2xl shadow-xl shadow-black">
-                  <img 
-                    src={pixBase64.startsWith('data:image') ? pixBase64 : `data:image/png;base64,${pixBase64}`}
-                    className="w-32 h-32" 
-                    alt="QR Code Mercado Pago" 
-                  />
-                </div>
-
-                {/* Link para o Ticket do Mercado Pago */}
-                <a 
-                  href={pixTicketUrl || "#"} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="text-[#22c55e] text-[10px] font-bold underline uppercase hover:text-white transition-colors"
-                >
-                  Pagar com Pix (Abrir no Mercado Pago)
-                </a>
-
-                {/* Input de Copiar Hash */}
-                <div className="w-full space-y-2 text-left">
-                  <label htmlFor="copiar" className="text-[10px] text-gray-400 font-black uppercase italic">
-                    Copiar Hash:
-                  </label>
-                  <input 
-                    type="text" 
-                    id="copiar" 
-                    value={pixCopiaECola} 
-                    readOnly 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] font-mono text-[#22c55e] outline-none cursor-default"
-                    onClick={(e) => {
-                      (e.target as HTMLInputElement).select();
-                      navigator.clipboard.writeText(pixCopiaECola);
-                      toast({ title: "Código Copiado!" });
-                    }}
-                  />
-                </div>
-              </>
-            )}
+          <div className="space-y-2">
+            <p className="text-xs font-black uppercase italic text-[#22c55e]">Pagamento integral via PIX com desconto</p>
+            <p className="text-[10px] text-gray-400">Após confirmar, o PIX será gerado pelo Mercado Pago.</p>
+            <p className="text-[10px] text-yellow-400 font-bold">⚠️ Pagamento integral. Não há devolução do valor pago.</p>
           </div>
         ) : (
           <div className="py-2">
@@ -844,7 +801,59 @@ const handleTipoReserva = (tipo: string) => {
         onClick={handleFinalizePedido} 
         className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl shadow-[#22c55e]/10 hover:scale-[1.02] active:scale-95 transition-all"
       >
-        {metodoPagamento === "pix" ? "Fazer Reserva" : "Finalizar Agendamento"}
+        {isCarregandoPix ? "Processando..." : metodoPagamento === "pix" ? `Pagar R$ ${valorComDesconto.toFixed(2)} via PIX` : "Finalizar Agendamento"}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* MODAL DE CONFIRMAÇÃO PÓS-PAGAMENTO PIX */}
+<Dialog open={isConfirmacaoAberta} onOpenChange={(open) => { if (!open && aceitouTermos) { setIsConfirmacaoAberta(false); setHorarioSelecionado(null); } }}>
+  <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[480px] rounded-[3rem] p-8 outline-none backdrop-blur-xl">
+    <DialogHeader>
+      <DialogTitle className="text-xl font-black italic uppercase text-[#22c55e] flex items-center gap-3">
+        <CheckCircle2 size={24} /> Reserva Confirmada
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-5">
+      <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-2xl p-5">
+        <p className="text-xs font-bold text-white leading-relaxed uppercase">
+          SUA RESERVA ESTÁ CONFIRMADA E PAGA NA MODALIDADE COM DESCONTO. SE HOUVER CANCELAMENTO ATÉ 24 HORAS ANTES DO INÍCIO DO JOGO, DEVERÁ COMUNICAR IMEDIATAMENTE EM NOSSO CANAL DIRETO NO WHATSAPP (98 99991-0535), SOLICITANDO REMARCAÇÃO PARA NO MÁXIMO SEMANA SEGUINTE, E MESMO HORÁRIO A SER REMARCADO. EX: DIURNO, REMARCAR DIURNO E NOTURNO REMARCAR NOTURNO. APÓS 24 HORAS NÃO HAVERÁ RESSARCIMENTO E NEM REMARCAÇÃO, SALVO EM CASOS COMPROVADAMENTE JUSTIFICÁVEL.
+        </p>
+      </div>
+
+      <a 
+        href="/regras-arena.pdf" 
+        target="_blank" 
+        rel="noreferrer"
+        className="flex items-center justify-center gap-2 text-[#22c55e] text-sm font-black uppercase underline hover:text-white transition-colors"
+      >
+        📄 Ver Regras da Arena Cedro
+      </a>
+
+      <label className="flex items-start gap-3 cursor-pointer bg-white/5 p-4 rounded-2xl border border-white/10 hover:border-[#22c55e]/30 transition-all">
+        <input 
+          type="checkbox" 
+          checked={aceitouTermos} 
+          onChange={(e) => setAceitouTermos(e.target.checked)}
+          className="mt-1 accent-[#22c55e] w-5 h-5"
+        />
+        <span className="text-xs font-bold text-gray-300 uppercase leading-relaxed">
+          Estou ciente e concordo com os termos e regras da Arena Cedro.
+        </span>
+      </label>
+
+      <Button 
+        disabled={!aceitouTermos}
+        onClick={() => {
+          setIsConfirmacaoAberta(false);
+          setHorarioSelecionado(null);
+          toast({ title: "✅ Tudo certo!", description: "Sua reserva está confirmada. Bom jogo!" });
+        }}
+        className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl disabled:opacity-30 transition-all"
+      >
+        Confirmar e Fechar
       </Button>
     </div>
   </DialogContent>
