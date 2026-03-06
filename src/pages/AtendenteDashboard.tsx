@@ -992,7 +992,7 @@ async function handleFecharCaixa() {
                         }}
                         className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white outline-none focus:border-[#22c55e] cursor-pointer"
                       >
-                        <option value="pix" className="bg-[#0c120f]">PIX (Sinal 50%)</option>
+                        <option value="pix" className="bg-[#0c120f]">PIX Online (Desconto R$10)</option>
                         <option value="dinheiro" className="bg-[#0c120f]">Dinheiro (Local)</option>
                       </select>
                     </div>
@@ -1002,47 +1002,22 @@ async function handleFecharCaixa() {
                     </div>
                   </div>
 
-                  {/* ÁREA DO PIX (QR CODE E COPIA E COLA) */}
+                  {/* INFO DO DESCONTO PIX */}
 {metodoPgto === "pix" && (
-  <div className="mt-2 p-5 bg-black/60 rounded-[1.5rem] border border-[#22c55e]/20 flex flex-col items-center gap-4">
-    {isCarregandoPix ? (
-      <div className="flex flex-col items-center py-4">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#22c55e]"></div>
-      </div>
-    ) : pixBase64 ? (
-      <>
-        {/* IMAGEM DO QR CODE */}
-        <div className="bg-white p-2 rounded-xl">
-          <img 
-            src={`data:image/png;base64,${pixBase64}`} 
-            className="w-28 h-28" 
-            alt="QR Code" 
-          />
-        </div>
-
-        {/* ESTRUTURA DE INPUT QUE VOCÊ PEDIU */}
-        <div className="w-full space-y-2">
-          <label htmlFor="copiar" className="text-[10px] font-bold uppercase text-gray-400 italic">
-            Copiar Hash:
-          </label>
-          <input 
-            type="text" 
-            id="copiar" 
-            value={pixCopiaECola} 
-            readOnly 
-            onClick={(e) => {
-              (e.target as HTMLInputElement).select();
-              navigator.clipboard.writeText(pixCopiaECola);
-              toast({ title: "Copiado!" });
-            }}
-            className="w-full bg-white/5 border border-white/10 p-2.5 rounded-lg text-[10px] font-mono text-[#22c55e] outline-none cursor-pointer"
-          />
-          <p className="text-[8px] text-gray-500 uppercase text-center italic">Clique no código para copiar</p>
-        </div>
-      </>
-    ) : (
-      <p className="text-[10px] text-gray-600 italic uppercase font-black">Aguardando geração do PIX...</p>
-    )}
+  <div className="mt-2 p-5 bg-black/60 rounded-[1.5rem] border border-[#22c55e]/20 space-y-3">
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-gray-400 font-bold uppercase">Valor da reserva:</span>
+      <span className="text-white font-black">R$ {slot.valor.toFixed(2)}</span>
+    </div>
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-[#22c55e] font-bold uppercase">Desconto PIX Online:</span>
+      <span className="text-[#22c55e] font-black">- R$ 10,00</span>
+    </div>
+    <div className="border-t border-white/10 pt-2 flex justify-between items-center">
+      <span className="text-gray-300 font-bold uppercase text-sm">Total a pagar:</span>
+      <span className="text-[#22c55e] font-black text-xl italic">R$ {Math.max(slot.valor - 10, 0).toFixed(2)}</span>
+    </div>
+    <p className="text-[8px] text-gray-500 uppercase text-center italic">Pagamento integral com desconto exclusivo para PIX no site</p>
   </div>
 )}
 
