@@ -54,7 +54,7 @@ import { supabase } from "@/lib/supabase";
 interface Produto {
   id: number;
   nome: string;
-  tipo: "venda" | "aluguel";
+  tipo: "venda" | "aluguel" | "ambos";
   preco: number;
   preco_venda?: number;
   preco_aluguel?: number;
