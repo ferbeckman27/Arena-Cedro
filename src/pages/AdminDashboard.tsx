@@ -153,12 +153,26 @@ function AdminDashboard() {
 
   const getCorStatus = (status: string) => {
     switch (status) {
-      case "venda_balcao":
-        return "bg-yellow-500/20 border-yellow-500 text-yellow-500";
-      case "pago":
-        return "bg-red-500/20 border-red-500 text-red-500";
+      case "reservado":
+      case "confirmada":
+        return "bg-red-500/5 border-red-500/20 hover:border-red-500/50";
+      case "pendente":
+        return "bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/50";
+      case "livre":
       default:
-        return "bg-white/5 border-white/10";
+        return "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl";
+    }
+  };
+
+  const getCorStatusBadge = (status: string) => {
+    switch (status) {
+      case "reservado":
+      case "confirmada":
+        return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "pendente":
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      default:
+        return "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20";
     }
   };
 
@@ -426,11 +440,11 @@ function AdminDashboard() {
   };
 
   const salvarProduto = async () => {
-    const payload = {
+    const payload: any = {
       nome: formProduto.nome,
       tipo: formProduto.tipo,
-      preco_venda: formProduto.tipo !== "venda" ? Number(formProduto.preco_venda) : 0,
-      preco_aluguel: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_aluguel) : 0,
+      preco_venda: (formProduto.tipo === "venda" || formProduto.tipo === "ambos") ? Number(formProduto.preco_venda) : 0,
+      preco_aluguel: (formProduto.tipo === "aluguel" || formProduto.tipo === "ambos") ? Number(formProduto.preco_aluguel) : 0,
       quantidade_estoque: Number(formProduto.quantidade_estoque) || 0,
     };
     if (editandoProduto) {
@@ -676,15 +690,19 @@ function AdminDashboard() {
       const valorPadrao = (slotVazio.turno === "noturno" ? 120 : 80) * (duracaoFiltro / 60);
 
       if (reservaReal) {
+        const slotStatus = reservaReal.pago ? "reservado" : (reservaReal.status === "pendente" ? "pendente" : "reservado");
         return {
           ...slotVazio,
-          status: "reservado",
+          status: slotStatus,
           valor: reservaReal.valor_total || valorPadrao,
           reserva: {
             cliente: reservaReal.cliente_nome,
             pagamento: reservaReal.forma_pagamento,
             obs: reservaReal.observacoes,
             tipo: reservaReal.tipo,
+            pago: reservaReal.pago,
+            valor_total: reservaReal.valor_total,
+            valor_sinal: reservaReal.valor_sinal,
           },
         };
       }
@@ -692,13 +710,15 @@ function AdminDashboard() {
     });
   }, [detalhesAgenda, duracaoFiltro]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAdmin");
-    navigate("/");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.clear();
+    sessionStorage.clear();
+    navigate("/adminlogin");
   };
 
   const abrirDetalheSlot = (slot: any) => {
-    if (slot.status === "reservado") {
+    if (slot.status === "reservado" || slot.status === "pendente") {
       setSlotDetalhe({
         inicio: slot.inicio,
         fim: slot.fim,
@@ -707,6 +727,11 @@ function AdminDashboard() {
         pagamento: slot.reserva?.pagamento || "Pendente",
         obs: slot.reserva?.obs || "",
         valor: slot.valor,
+        tipo: slot.reserva?.tipo || "avulsa",
+        pago: slot.reserva?.pago || false,
+        valorSinal: slot.reserva?.valor_sinal || 0,
+        valorTotal: slot.reserva?.valor_total || slot.valor,
+        status: slot.status,
       });
       setIsModalDetalheAberto(true);
     } else {
@@ -866,10 +891,19 @@ function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Legenda de Cores */}
+              <div className="flex flex-wrap gap-4 mb-4 text-xs font-bold uppercase">
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e]" /> Disponível</div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500" /> Pgto Pendente</div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /> Reservado</div>
+              </div>
+
               <ScrollArea className="h-[500px] pr-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {slotsCalculados.map((slot, i) => {
-                    const isReservado = slot.status === "reservado" || slot.status === "ocupado";
+                    const isPendente = slot.status === "pendente";
+                    const isReservado = slot.status === "reservado" || slot.status === "ocupado" || slot.status === "confirmada";
+                    const isOcupado = isReservado || isPendente;
                     const horaInt = parseInt(slot.inicio.split(":")[0]);
                     const isNoturno = horaInt >= 18;
                     const precoBase = isNoturno ? 140 : 100;
@@ -877,14 +911,15 @@ function AdminDashboard() {
                     const labelTurno = horaInt < 12 ? "Manhã" : horaInt < 18 ? "Tarde" : "Noite";
 
                     return (
-                      <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1", isReservado ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50" : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl")}>
+                      <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1", getCorStatus(slot.status))}>
                         <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">{labelTurno}</span>
-                        {/* Horário no formato 09:00-09:30 */}
                         <p className="text-xl font-black italic text-white group-hover:scale-110 transition-transform">
                           {slot.inicio}-{slot.fim}
                         </p>
-                        <div className={cn("mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border", isReservado ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20")}>{isReservado ? "OCUPADO" : "LIVRE"}</div>
-                        {isReservado ? (
+                        <div className={cn("mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border", getCorStatusBadge(slot.status))}>
+                          {isReservado ? "RESERVADO" : isPendente ? "PENDENTE" : "LIVRE"}
+                        </div>
+                        {isOcupado ? (
                           <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">👤 {slot.reserva?.cliente || "Agendado"}</p>
                         ) : (
                           <p className="text-[10px] font-bold text-gray-400 italic mt-2 tracking-tight">R$ {valorExibir.toFixed(2).replace(".", ",")}</p>
@@ -911,14 +946,32 @@ function AdminDashboard() {
                           <p className="text-2xl font-black italic text-[#22c55e]">{slotDetalhe.inicio}-{slotDetalhe.fim}</p>
                         </div>
                         <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor</p>
-                          <p className="text-2xl font-black italic text-white">R$ {Number(slotDetalhe.valor).toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor Total</p>
+                          <p className="text-2xl font-black italic text-white">R$ {Number(slotDetalhe.valorTotal || slotDetalhe.valor).toFixed(2)}</p>
                         </div>
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm"><span className="text-gray-500">Cliente:</span><span className="font-bold">{slotDetalhe.cliente}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Reservado por:</span><span className="font-bold">{slotDetalhe.reservadoPor}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Pagamento:</span><span className="font-bold">{slotDetalhe.pagamento}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Pagamento:</span><span className="font-bold">{slotDetalhe.pagamento || "—"}</span></div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Tipo:</span>
+                          <Badge className={cn("text-[9px] font-black border-none", slotDetalhe.tipo === 'fixa' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                            {slotDetalhe.tipo === 'fixa' ? 'FIXA / MENSAL' : 'AVULSA'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Status:</span>
+                          <Badge className={cn("text-[9px] font-black border-none", slotDetalhe.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-yellow-500/20 text-yellow-500")}>
+                            {slotDetalhe.pago ? "PAGO" : "PENDENTE"}
+                          </Badge>
+                        </div>
+                        {slotDetalhe.pagamento === 'pix' && slotDetalhe.valorSinal > 0 && (
+                          <div className="p-4 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-2xl">
+                            <p className="text-[10px] text-[#22c55e] font-black uppercase mb-1">PIX com Desconto</p>
+                            <p className="text-sm text-gray-300">Valor pago: <span className="font-black text-[#22c55e]">R$ {Number(slotDetalhe.valorSinal).toFixed(2)}</span></p>
+                            <p className="text-[9px] text-gray-500 mt-1">Desconto de R$ 10,00 aplicado via PIX online</p>
+                          </div>
+                        )}
                       </div>
                       {slotDetalhe.obs && (
                         <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
