@@ -944,14 +944,32 @@ function AdminDashboard() {
                           <p className="text-2xl font-black italic text-[#22c55e]">{slotDetalhe.inicio}-{slotDetalhe.fim}</p>
                         </div>
                         <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor</p>
-                          <p className="text-2xl font-black italic text-white">R$ {Number(slotDetalhe.valor).toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor Total</p>
+                          <p className="text-2xl font-black italic text-white">R$ {Number(slotDetalhe.valorTotal || slotDetalhe.valor).toFixed(2)}</p>
                         </div>
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm"><span className="text-gray-500">Cliente:</span><span className="font-bold">{slotDetalhe.cliente}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Reservado por:</span><span className="font-bold">{slotDetalhe.reservadoPor}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-gray-500">Pagamento:</span><span className="font-bold">{slotDetalhe.pagamento}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-gray-500">Pagamento:</span><span className="font-bold">{slotDetalhe.pagamento || "—"}</span></div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Tipo:</span>
+                          <Badge className={cn("text-[9px] font-black border-none", slotDetalhe.tipo === 'fixa' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                            {slotDetalhe.tipo === 'fixa' ? 'FIXA / MENSAL' : 'AVULSA'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Status:</span>
+                          <Badge className={cn("text-[9px] font-black border-none", slotDetalhe.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-yellow-500/20 text-yellow-500")}>
+                            {slotDetalhe.pago ? "PAGO" : "PENDENTE"}
+                          </Badge>
+                        </div>
+                        {slotDetalhe.pagamento === 'pix' && slotDetalhe.valorSinal > 0 && (
+                          <div className="p-4 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-2xl">
+                            <p className="text-[10px] text-[#22c55e] font-black uppercase mb-1">PIX com Desconto</p>
+                            <p className="text-sm text-gray-300">Valor pago: <span className="font-black text-[#22c55e]">R$ {Number(slotDetalhe.valorSinal).toFixed(2)}</span></p>
+                            <p className="text-[9px] text-gray-500 mt-1">Desconto de R$ 10,00 aplicado via PIX online</p>
+                          </div>
+                        )}
                       </div>
                       {slotDetalhe.obs && (
                         <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
