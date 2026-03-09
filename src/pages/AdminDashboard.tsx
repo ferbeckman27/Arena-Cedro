@@ -710,9 +710,11 @@ function AdminDashboard() {
     });
   }, [detalhesAgenda, duracaoFiltro]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAdmin");
-    navigate("/");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.clear();
+    sessionStorage.clear();
+    navigate("/adminlogin");
   };
 
   const abrirDetalheSlot = (slot: any) => {
