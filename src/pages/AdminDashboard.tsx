@@ -153,12 +153,26 @@ function AdminDashboard() {
 
   const getCorStatus = (status: string) => {
     switch (status) {
-      case "venda_balcao":
-        return "bg-yellow-500/20 border-yellow-500 text-yellow-500";
-      case "pago":
-        return "bg-red-500/20 border-red-500 text-red-500";
+      case "reservado":
+      case "confirmada":
+        return "bg-red-500/5 border-red-500/20 hover:border-red-500/50";
+      case "pendente":
+        return "bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/50";
+      case "livre":
       default:
-        return "bg-white/5 border-white/10";
+        return "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl";
+    }
+  };
+
+  const getCorStatusBadge = (status: string) => {
+    switch (status) {
+      case "reservado":
+      case "confirmada":
+        return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "pendente":
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      default:
+        return "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20";
     }
   };
 
