@@ -440,11 +440,11 @@ function AdminDashboard() {
   };
 
   const salvarProduto = async () => {
-    const payload = {
+    const payload: any = {
       nome: formProduto.nome,
       tipo: formProduto.tipo,
-      preco_venda: formProduto.tipo !== "venda" ? Number(formProduto.preco_venda) : 0,
-      preco_aluguel: formProduto.tipo !== "aluguel" ? Number(formProduto.preco_aluguel) : 0,
+      preco_venda: (formProduto.tipo === "venda" || formProduto.tipo === "ambos") ? Number(formProduto.preco_venda) : 0,
+      preco_aluguel: (formProduto.tipo === "aluguel" || formProduto.tipo === "ambos") ? Number(formProduto.preco_aluguel) : 0,
       quantidade_estoque: Number(formProduto.quantidade_estoque) || 0,
     };
     if (editandoProduto) {
