@@ -889,10 +889,19 @@ function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Legenda de Cores */}
+              <div className="flex flex-wrap gap-4 mb-4 text-xs font-bold uppercase">
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e]" /> Disponível</div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500" /> Pgto Pendente</div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /> Reservado</div>
+              </div>
+
               <ScrollArea className="h-[500px] pr-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {slotsCalculados.map((slot, i) => {
-                    const isReservado = slot.status === "reservado" || slot.status === "ocupado";
+                    const isPendente = slot.status === "pendente";
+                    const isReservado = slot.status === "reservado" || slot.status === "ocupado" || slot.status === "confirmada";
+                    const isOcupado = isReservado || isPendente;
                     const horaInt = parseInt(slot.inicio.split(":")[0]);
                     const isNoturno = horaInt >= 18;
                     const precoBase = isNoturno ? 140 : 100;
@@ -900,14 +909,15 @@ function AdminDashboard() {
                     const labelTurno = horaInt < 12 ? "Manhã" : horaInt < 18 ? "Tarde" : "Noite";
 
                     return (
-                      <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1", isReservado ? "bg-red-500/5 border-red-500/20 hover:border-red-500/50" : "bg-[#0c120f] border-white/5 hover:border-[#22c55e]/50 shadow-xl")}>
+                      <button key={i} onClick={() => abrirDetalheSlot(slot)} className={cn("p-5 rounded-[2rem] border text-center transition-all relative overflow-hidden group flex flex-col items-center justify-center gap-1", getCorStatus(slot.status))}>
                         <span className="text-[9px] font-black uppercase text-gray-600 tracking-widest">{labelTurno}</span>
-                        {/* Horário no formato 09:00-09:30 */}
                         <p className="text-xl font-black italic text-white group-hover:scale-110 transition-transform">
                           {slot.inicio}-{slot.fim}
                         </p>
-                        <div className={cn("mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border", isReservado ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20")}>{isReservado ? "OCUPADO" : "LIVRE"}</div>
-                        {isReservado ? (
+                        <div className={cn("mt-2 px-3 py-0.5 rounded-full text-[8px] font-black uppercase border", getCorStatusBadge(slot.status))}>
+                          {isReservado ? "RESERVADO" : isPendente ? "PENDENTE" : "LIVRE"}
+                        </div>
+                        {isOcupado ? (
                           <p className="text-[10px] font-bold text-red-400 truncate mt-2 w-full px-2">👤 {slot.reserva?.cliente || "Agendado"}</p>
                         ) : (
                           <p className="text-[10px] font-bold text-gray-400 italic mt-2 tracking-tight">R$ {valorExibir.toFixed(2).replace(".", ",")}</p>
