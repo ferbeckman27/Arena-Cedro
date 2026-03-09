@@ -716,7 +716,7 @@ function AdminDashboard() {
   };
 
   const abrirDetalheSlot = (slot: any) => {
-    if (slot.status === "reservado") {
+    if (slot.status === "reservado" || slot.status === "pendente") {
       setSlotDetalhe({
         inicio: slot.inicio,
         fim: slot.fim,
@@ -725,6 +725,11 @@ function AdminDashboard() {
         pagamento: slot.reserva?.pagamento || "Pendente",
         obs: slot.reserva?.obs || "",
         valor: slot.valor,
+        tipo: slot.reserva?.tipo || "avulsa",
+        pago: slot.reserva?.pago || false,
+        valorSinal: slot.reserva?.valor_sinal || 0,
+        valorTotal: slot.reserva?.valor_total || slot.valor,
+        status: slot.status,
       });
       setIsModalDetalheAberto(true);
     } else {
