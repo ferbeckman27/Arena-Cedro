@@ -690,15 +690,19 @@ function AdminDashboard() {
       const valorPadrao = (slotVazio.turno === "noturno" ? 120 : 80) * (duracaoFiltro / 60);
 
       if (reservaReal) {
+        const slotStatus = reservaReal.pago ? "reservado" : (reservaReal.status === "pendente" ? "pendente" : "reservado");
         return {
           ...slotVazio,
-          status: "reservado",
+          status: slotStatus,
           valor: reservaReal.valor_total || valorPadrao,
           reserva: {
             cliente: reservaReal.cliente_nome,
             pagamento: reservaReal.forma_pagamento,
             obs: reservaReal.observacoes,
             tipo: reservaReal.tipo,
+            pago: reservaReal.pago,
+            valor_total: reservaReal.valor_total,
+            valor_sinal: reservaReal.valor_sinal,
           },
         };
       }
