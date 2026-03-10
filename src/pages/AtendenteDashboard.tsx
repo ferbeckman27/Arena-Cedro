@@ -241,7 +241,6 @@ const AtendenteDashboard = () => {
 };
 
   const listaSlotsAgendamento = useMemo(() => {
-  // Forçamos a tipagem como 'any' aqui para evitar o erro do .map
   const slotsCalculados = gerarSlotsAgenda(Number(duracao)) as any[];
 
   return slotsCalculados.map((slot) => {
@@ -254,9 +253,20 @@ const AtendenteDashboard = () => {
       );
     });
 
+    let slotStatus = "livre";
+    if (reservaEncontrada) {
+      if (reservaEncontrada.pago) {
+        slotStatus = "reservado";
+      } else if ((reservaEncontrada as any).status === "pendente") {
+        slotStatus = "pendente";
+      } else {
+        slotStatus = "reservado";
+      }
+    }
+
     return {
       ...slot,
-      status: reservaEncontrada ? "reservado" : "livre",
+      status: slotStatus,
       detalhes: reservaEncontrada || null
     };
   }) as SlotAgenda[];
