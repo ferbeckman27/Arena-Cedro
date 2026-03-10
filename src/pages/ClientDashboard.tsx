@@ -82,6 +82,7 @@ const ClienteDashboard = () => {
   const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'fixa'>('avulsa');
   const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [descontoPixAtivo, setDescontoPixAtivo] = useState(false);
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
   const [listaReservas, setListaReservas] = useState<Reserva[]>([]);
   const [historicoReservas, setHistoricoReservas] = useState<Reserva[]>([]);
