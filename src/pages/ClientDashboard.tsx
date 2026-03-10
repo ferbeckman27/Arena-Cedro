@@ -345,6 +345,15 @@ const ClienteDashboard = () => {
     return days;
   }, [mesAtual]);
 
+  // Polling de manutenção a cada 30s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+      if (config) setEmManutencao(config.valor === 'true');
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   if (emManutencao) return (
     <div className="min-h-screen bg-[#060a08] flex flex-col items-center justify-center p-6 text-center">
       <AlertTriangle size={60} className="text-red-500 animate-pulse mb-4" />
