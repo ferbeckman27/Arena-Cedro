@@ -474,8 +474,8 @@ const totalCarrinho = useMemo(() => {
 
     if (metodoPgto === 'pix') {
       const result = await gerarPagamentoPix(
-        totalGeral,
-        `Reserva Arena Cedro - ${clienteNome} (desconto R$${DESCONTO_PIX_ONLINE})`,
+        valorComDesconto,
+        `Reserva Arena Cedro - ${clienteNome}${descontoPixAtivo ? ` (desconto R$${DESCONTO_PIX_ONLINE})` : ''}`,
         reserva.id,
         undefined,
         undefined,
