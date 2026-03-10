@@ -949,17 +949,24 @@ async function handleFecharCaixa() {
     <ScrollArea className="h-[600px] pr-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
         {listaSlotsAgendamento.map((slot) => {
-          const isOcupado = slot.status === "reservado";
+          const isReservado = slot.status === "reservado";
+          const isPendente = slot.status === "pendente";
+          const isOcupado = isReservado || isPendente;
           const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
-          const detalhesReserva = agendaStatus[idAgendamento];
+          const detalhesReserva = agendaStatus[idAgendamento] || (slot as any).detalhes;
 
-          // gerarPagamentoPix disponível via hook
+          const getSlotBtnClass = () => {
+            if (isReservado) return "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed";
+            if (isPendente) return "bg-yellow-500/5 border-yellow-500/20 cursor-not-allowed opacity-70";
+            return "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5";
+          };
 
           return (
             <Dialog key={slot.inicio} onOpenChange={(open) => {
               if (!open) {
                 setItensTemp([]);
                 limparPix();
+                setDescontoPixAtivo(false);
               }
             }}>
               <DialogTrigger asChild>
@@ -967,20 +974,23 @@ async function handleFecharCaixa() {
                   disabled={isOcupado}
                   className={cn(
                     "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24 w-full",
-                    isOcupado 
-                      ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
-                      : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
+                    getSlotBtnClass()
                   )}
                 >
                   <span className="text-[7px] font-black uppercase text-gray-600 mb-1">{slot.turno}</span>
-                  <span className={cn("text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap", isOcupado ? "text-red-500/50" : "text-white")}>
+                  <span className={cn("text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap", isReservado ? "text-red-500/50" : isPendente ? "text-yellow-500/50" : "text-white")}>
                     {slot.inicio} - {slot.fim}
                   </span>
                   <div className="mt-2">
-                    {isOcupado ? (
+                    {isReservado ? (
                       <div className="flex flex-col items-center">
-                         <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Ocupado</span>
-                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente || "Reservado"}</p>
+                         <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Reservado</span>
+                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente_nome || detalhesReserva?.cliente || "Reservado"}</p>
+                      </div>
+                    ) : isPendente ? (
+                      <div className="flex flex-col items-center">
+                         <span className="text-[7px] font-black uppercase text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full">Pendente</span>
+                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente_nome || "Aguardando"}</p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-1">
