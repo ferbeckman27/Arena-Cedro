@@ -1364,10 +1364,32 @@ function AdminDashboard() {
                         <TableCell className="text-xs text-gray-400">{membro.ultimo_acesso ? new Date(membro.ultimo_acesso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Nunca"}</TableCell>
                         <TableCell className="text-[10px] font-black text-gray-500 uppercase">{membro.turno || "—"}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? "text-red-500 hover:bg-red-500/10" : "text-green-500 hover:bg-green-500/10"}`} onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}>
-                            {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
-                            <span className="ml-2 text-[9px] font-black uppercase">{membro.ativo ? "Bloquear" : "Ativar"}</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Editar */}
+                            <Button variant="ghost" size="sm" className="h-8 rounded-xl border border-white/10 text-blue-400 hover:bg-blue-500/10" onClick={() => editarFuncionario(membro)}>
+                              <span className="text-[9px] font-black uppercase">Editar</span>
+                            </Button>
+                            {/* Bloquear/Ativar */}
+                            <Button variant="ghost" size="sm" className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? "text-yellow-500 hover:bg-yellow-500/10" : "text-green-500 hover:bg-green-500/10"}`} onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}>
+                              {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
+                              <span className="ml-1 text-[9px] font-black uppercase">{membro.ativo ? "Bloquear" : "Ativar"}</span>
+                            </Button>
+                            {/* Excluir */}
+                            <Button variant="ghost" size="sm" className="h-8 rounded-xl border border-red-500/20 text-red-500 hover:bg-red-500/10" onClick={async () => {
+                              if (confirm(`Deseja EXCLUIR permanentemente ${membro.nome} ${membro.sobrenome || ''}?`)) {
+                                const { error } = await supabase.from("funcionarios").delete().eq("id", membro.id);
+                                if (error) {
+                                  toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+                                } else {
+                                  toast({ title: "Funcionário excluído!" });
+                                  setListaEquipe((prev) => prev.filter((f: any) => f.id !== membro.id));
+                                }
+                              }
+                            }}>
+                              <Trash2 size={14} />
+                              <span className="ml-1 text-[9px] font-black uppercase">Excluir</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

@@ -1045,15 +1045,24 @@ async function handleFecharCaixa() {
       <span className="text-gray-400 font-bold uppercase">Valor da reserva:</span>
       <span className="text-white font-black">R$ {slot.valor.toFixed(2)}</span>
     </div>
-    <div className="flex justify-between items-center text-sm">
-      <span className="text-[#22c55e] font-bold uppercase">Desconto PIX Online:</span>
-      <span className="text-[#22c55e] font-black">- R$ 10,00</span>
-    </div>
+    {/* Opção de desconto PIX */}
+    <label className="flex items-center gap-3 cursor-pointer bg-[#22c55e]/5 p-3 rounded-xl border border-[#22c55e]/20 hover:bg-[#22c55e]/10 transition-all">
+      <input type="checkbox" checked={descontoPixAtivo} onChange={(e) => setDescontoPixAtivo(e.target.checked)} className="accent-[#22c55e] w-5 h-5" />
+      <div>
+        <p className="text-[#22c55e] font-black text-xs uppercase">Aplicar Desconto PIX Online (-R$ 10,00)</p>
+        <p className="text-[8px] text-gray-500">Desconto exclusivo para pagamento via PIX pelo site</p>
+      </div>
+    </label>
+    {descontoPixAtivo && (
+      <div className="flex justify-between items-center text-sm">
+        <span className="text-[#22c55e] font-bold uppercase">Desconto PIX:</span>
+        <span className="text-[#22c55e] font-black">- R$ 10,00</span>
+      </div>
+    )}
     <div className="border-t border-white/10 pt-2 flex justify-between items-center">
       <span className="text-gray-300 font-bold uppercase text-sm">Total a pagar:</span>
-      <span className="text-[#22c55e] font-black text-xl italic">R$ {Math.max(slot.valor - 10, 0).toFixed(2)}</span>
+      <span className="text-[#22c55e] font-black text-xl italic">R$ {descontoPixAtivo ? Math.max(slot.valor - 10, 0).toFixed(2) : slot.valor.toFixed(2)}</span>
     </div>
-    <p className="text-[8px] text-gray-500 uppercase text-center italic">Pagamento integral com desconto exclusivo para PIX no site</p>
   </div>
 )}
 
