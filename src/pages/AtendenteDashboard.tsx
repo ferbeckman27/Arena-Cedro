@@ -846,6 +846,24 @@ async function handleFecharCaixa() {
 </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
+        {/* ALERTA MANUTENÇÃO */}
+        {isMaintenance && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 animate-pulse">
+            <AlertTriangle className="text-red-500 shrink-0" size={24} />
+            <div>
+              <p className="text-red-500 font-black uppercase text-sm">⚠️ SISTEMA EM MANUTENÇÃO</p>
+              <p className="text-red-400/70 text-xs">O administrador ativou o modo manutenção. Novos agendamentos estão bloqueados.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Legenda de Cores */}
+        <div className="flex flex-wrap gap-4 mb-6 text-xs font-bold uppercase">
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e]" /> Disponível</div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500" /> Pgto Pendente</div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /> Reservado</div>
+        </div>
+
         <Tabs defaultValue="agenda" className="space-y-6">
           <TabsList className="bg-white/5 p-1 rounded-2xl border border-white/5 w-full md:w-fit overflow-x-auto">
             <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">Agenda Mensal</TabsTrigger>
