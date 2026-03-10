@@ -946,10 +946,38 @@ function AdminDashboard() {
                           <p className="text-2xl font-black italic text-[#22c55e]">{slotDetalhe.inicio}-{slotDetalhe.fim}</p>
                         </div>
                         <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor Total</p>
+                          <p className="text-[10px] text-gray-500 font-black uppercase">Valor Original</p>
                           <p className="text-2xl font-black italic text-white">R$ {Number(slotDetalhe.valorTotal || slotDetalhe.valor).toFixed(2)}</p>
                         </div>
                       </div>
+
+                      {/* VALOR PAGO E DESCONTO */}
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-2">
+                        <p className="text-[10px] text-gray-500 font-black uppercase">Valor Pago pelo Cliente</p>
+                        {(() => {
+                          const valorTotal = Number(slotDetalhe.valorTotal || slotDetalhe.valor || 0);
+                          const valorPago = Number(slotDetalhe.valorSinal || 0);
+                          const teveDesconto = valorPago > 0 && valorPago < valorTotal;
+                          const descontoAplicado = teveDesconto ? valorTotal - valorPago : 0;
+                          return (
+                            <>
+                              <p className="text-2xl font-black italic text-[#22c55e]">
+                                R$ {(valorPago > 0 ? valorPago : valorTotal).toFixed(2)}
+                              </p>
+                              {teveDesconto ? (
+                                <Badge className="bg-[#22c55e]/10 text-[#22c55e] border-none text-[9px] font-black">
+                                  ✅ COM DESCONTO PIX (-R$ {descontoAplicado.toFixed(2)})
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-gray-500/10 text-gray-400 border-none text-[9px] font-black">
+                                  SEM DESCONTO (VALOR INTEGRAL)
+                                </Badge>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm"><span className="text-gray-500">Cliente:</span><span className="font-bold">{slotDetalhe.cliente}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-gray-500">Pagamento:</span><span className="font-bold">{slotDetalhe.pagamento || "—"}</span></div>
@@ -965,13 +993,6 @@ function AdminDashboard() {
                             {slotDetalhe.pago ? "PAGO" : "PENDENTE"}
                           </Badge>
                         </div>
-                        {slotDetalhe.pagamento === 'pix' && slotDetalhe.valorSinal > 0 && (
-                          <div className="p-4 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded-2xl">
-                            <p className="text-[10px] text-[#22c55e] font-black uppercase mb-1">PIX com Desconto</p>
-                            <p className="text-sm text-gray-300">Valor pago: <span className="font-black text-[#22c55e]">R$ {Number(slotDetalhe.valorSinal).toFixed(2)}</span></p>
-                            <p className="text-[9px] text-gray-500 mt-1">Desconto de R$ 10,00 aplicado via PIX online</p>
-                          </div>
-                        )}
                       </div>
                       {slotDetalhe.obs && (
                         <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
@@ -1343,10 +1364,32 @@ function AdminDashboard() {
                         <TableCell className="text-xs text-gray-400">{membro.ultimo_acesso ? new Date(membro.ultimo_acesso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Nunca"}</TableCell>
                         <TableCell className="text-[10px] font-black text-gray-500 uppercase">{membro.turno || "—"}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? "text-red-500 hover:bg-red-500/10" : "text-green-500 hover:bg-green-500/10"}`} onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}>
-                            {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
-                            <span className="ml-2 text-[9px] font-black uppercase">{membro.ativo ? "Bloquear" : "Ativar"}</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Editar */}
+                            <Button variant="ghost" size="sm" className="h-8 rounded-xl border border-white/10 text-blue-400 hover:bg-blue-500/10" onClick={() => editarFuncionario(membro)}>
+                              <span className="text-[9px] font-black uppercase">Editar</span>
+                            </Button>
+                            {/* Bloquear/Ativar */}
+                            <Button variant="ghost" size="sm" className={`h-8 rounded-xl border border-white/10 ${membro.ativo ? "text-yellow-500 hover:bg-yellow-500/10" : "text-green-500 hover:bg-green-500/10"}`} onClick={() => handleToggleStatusEquipe(membro.id, membro.ativo)}>
+                              {membro.ativo ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
+                              <span className="ml-1 text-[9px] font-black uppercase">{membro.ativo ? "Bloquear" : "Ativar"}</span>
+                            </Button>
+                            {/* Excluir */}
+                            <Button variant="ghost" size="sm" className="h-8 rounded-xl border border-red-500/20 text-red-500 hover:bg-red-500/10" onClick={async () => {
+                              if (confirm(`Deseja EXCLUIR permanentemente ${membro.nome} ${membro.sobrenome || ''}?`)) {
+                                const { error } = await supabase.from("funcionarios").delete().eq("id", membro.id);
+                                if (error) {
+                                  toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+                                } else {
+                                  toast({ title: "Funcionário excluído!" });
+                                  setListaEquipe((prev) => prev.filter((f: any) => f.id !== membro.id));
+                                }
+                              }
+                            }}>
+                              <Trash2 size={14} />
+                              <span className="ml-1 text-[9px] font-black uppercase">Excluir</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

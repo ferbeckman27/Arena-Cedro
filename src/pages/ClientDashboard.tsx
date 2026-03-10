@@ -82,6 +82,7 @@ const ClienteDashboard = () => {
   const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'fixa'>('avulsa');
   const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [descontoPixAtivo, setDescontoPixAtivo] = useState(false);
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
   const [listaReservas, setListaReservas] = useState<Reserva[]>([]);
   const [historicoReservas, setHistoricoReservas] = useState<Reserva[]>([]);
@@ -169,7 +170,7 @@ const ClienteDashboard = () => {
   }, [cart, valorApenasReserva]);
 
   const DESCONTO_PIX_ONLINE = 10;
-  const valorComDesconto = metodoPagamento === "pix" ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
+  const valorComDesconto = (metodoPagamento === "pix" && descontoPixAtivo) ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
 
   // --- FUNÇÕES ---
   const addToCart = (product: Product) => {
@@ -343,6 +344,15 @@ const ClienteDashboard = () => {
     for (let i = 1; i <= end.getDate(); i++) days.push(i);
     return days;
   }, [mesAtual]);
+
+  // Polling de manutenção a cada 30s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+      if (config) setEmManutencao(config.valor === 'true');
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (emManutencao) return (
     <div className="min-h-screen bg-[#060a08] flex flex-col items-center justify-center p-6 text-center">
@@ -714,14 +724,24 @@ const ClienteDashboard = () => {
               <Separator className="bg-white/10" />
               <div className="flex justify-between items-center font-black text-lg text-gray-400 italic pt-2">
                 <span>Valor Original:</span>
-                <span className={metodoPagamento === "pix" ? "line-through" : "text-[#22c55e] text-2xl"}>R$ {totalGeral.toFixed(2)}</span>
+                <span className={descontoPixAtivo ? "line-through" : "text-[#22c55e] text-2xl"}>R$ {totalGeral.toFixed(2)}</span>
               </div>
               {metodoPagamento === "pix" && (
                 <>
-                  <div className="flex justify-between items-center text-sm text-[#22c55e] font-bold">
-                    <span>🏷️ Desconto PIX Online:</span>
-                    <span>- R$ {DESCONTO_PIX_ONLINE.toFixed(2)}</span>
-                  </div>
+                  {/* Opção de desconto PIX */}
+                  <label className="flex items-center gap-3 cursor-pointer bg-[#22c55e]/5 p-3 rounded-xl border border-[#22c55e]/20 hover:bg-[#22c55e]/10 transition-all">
+                    <input type="checkbox" checked={descontoPixAtivo} onChange={(e) => setDescontoPixAtivo(e.target.checked)} className="accent-[#22c55e] w-5 h-5" />
+                    <div>
+                      <p className="text-[#22c55e] font-black text-xs uppercase">Aplicar Desconto PIX Online (-R$ {DESCONTO_PIX_ONLINE})</p>
+                      <p className="text-[8px] text-gray-500">Desconto exclusivo para pagamento integral via PIX pelo site</p>
+                    </div>
+                  </label>
+                  {descontoPixAtivo && (
+                    <div className="flex justify-between items-center text-sm text-[#22c55e] font-bold">
+                      <span>🏷️ Desconto PIX Online:</span>
+                      <span>- R$ {DESCONTO_PIX_ONLINE.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center font-black text-2xl text-[#22c55e] italic">
                     <span>TOTAL:</span>
                     <span>R$ {valorComDesconto.toFixed(2)}</span>

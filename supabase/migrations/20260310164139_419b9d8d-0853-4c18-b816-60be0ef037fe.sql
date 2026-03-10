@@ -1,0 +1,1 @@
+CREATE POLICY "Exclusão de funcionários" ON public.funcionarios FOR DELETE TO public USING (true);

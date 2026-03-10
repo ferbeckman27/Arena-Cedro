@@ -185,11 +185,15 @@ const AtendenteDashboard = () => {
 
   useEffect(() => { buscarDadosIniciais(); }, []);
 
-  // --- LOGICA DE MANUTENÇÃO ---
+  // --- LOGICA DE MANUTENÇÃO (polling DB a cada 30s) ---
   useEffect(() => {
     const handler = () => { setIsMaintenance(localStorage.getItem("arena_manutencao") === "true"); };
     window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    const interval = setInterval(async () => {
+      const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+      if (config) setIsMaintenance(config.valor === 'true');
+    }, 30000);
+    return () => { window.removeEventListener("storage", handler); clearInterval(interval); };
   }, []);
 
   const handleToggleMaintenance = async () => {
@@ -241,7 +245,6 @@ const AtendenteDashboard = () => {
 };
 
   const listaSlotsAgendamento = useMemo(() => {
-  // Forçamos a tipagem como 'any' aqui para evitar o erro do .map
   const slotsCalculados = gerarSlotsAgenda(Number(duracao)) as any[];
 
   return slotsCalculados.map((slot) => {
@@ -254,9 +257,20 @@ const AtendenteDashboard = () => {
       );
     });
 
+    let slotStatus = "livre";
+    if (reservaEncontrada) {
+      if (reservaEncontrada.pago) {
+        slotStatus = "reservado";
+      } else if ((reservaEncontrada as any).status === "pendente") {
+        slotStatus = "pendente";
+      } else {
+        slotStatus = "reservado";
+      }
+    }
+
     return {
       ...slot,
-      status: reservaEncontrada ? "reservado" : "livre",
+      status: slotStatus,
       detalhes: reservaEncontrada || null
     };
   }) as SlotAgenda[];
@@ -425,6 +439,8 @@ const totalCarrinho = useMemo(() => {
     }
   };
 
+  const [descontoPixAtivo, setDescontoPixAtivo] = useState(false);
+
   async function handleAgendar(slot: any, clienteNome: string, turno_id: number) {
   if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
   
@@ -432,17 +448,13 @@ const totalCarrinho = useMemo(() => {
   setLoading(true);
 
   try {
-    if (!verificarDisponibilidade(slot.inicio, duracaoMin)) {
-      throw new Error("Conflito de Horário! Outro jogador já reservou este slot.");
-    }
-
     const horaH = parseInt(slot.inicio.split(":")[0]);
     const valorBase = horaH >= 18 ? 120 : 80;
     const valorReserva = valorBase * (duracaoMin / 60);
     const totalProdutos = itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
     const totalGeral = valorReserva + totalProdutos;
     const DESCONTO_PIX_ONLINE = 10;
-    const valorComDesconto = metodoPgto === 'pix' ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
+    const valorComDesconto = (metodoPgto === 'pix' && descontoPixAtivo) ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -466,8 +478,8 @@ const totalCarrinho = useMemo(() => {
 
     if (metodoPgto === 'pix') {
       const result = await gerarPagamentoPix(
-        totalGeral,
-        `Reserva Arena Cedro - ${clienteNome} (desconto R$${DESCONTO_PIX_ONLINE})`,
+        valorComDesconto,
+        `Reserva Arena Cedro - ${clienteNome}${descontoPixAtivo ? ` (desconto R$${DESCONTO_PIX_ONLINE})` : ''}`,
         reserva.id,
         undefined,
         undefined,
@@ -838,6 +850,24 @@ async function handleFecharCaixa() {
 </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
+        {/* ALERTA MANUTENÇÃO */}
+        {isMaintenance && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 animate-pulse">
+            <AlertTriangle className="text-red-500 shrink-0" size={24} />
+            <div>
+              <p className="text-red-500 font-black uppercase text-sm">⚠️ SISTEMA EM MANUTENÇÃO</p>
+              <p className="text-red-400/70 text-xs">O administrador ativou o modo manutenção. Novos agendamentos estão bloqueados.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Legenda de Cores */}
+        <div className="flex flex-wrap gap-4 mb-6 text-xs font-bold uppercase">
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e]" /> Disponível</div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500" /> Pgto Pendente</div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /> Reservado</div>
+        </div>
+
         <Tabs defaultValue="agenda" className="space-y-6">
           <TabsList className="bg-white/5 p-1 rounded-2xl border border-white/5 w-full md:w-fit overflow-x-auto">
             <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">Agenda Mensal</TabsTrigger>
@@ -923,17 +953,24 @@ async function handleFecharCaixa() {
     <ScrollArea className="h-[600px] pr-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
         {listaSlotsAgendamento.map((slot) => {
-          const isOcupado = slot.status === "reservado";
+          const isReservado = slot.status === "reservado";
+          const isPendente = slot.status === "pendente";
+          const isOcupado = isReservado || isPendente;
           const idAgendamento = `${diaSelecionado.toDateString()}-${slot.inicio}`;
-          const detalhesReserva = agendaStatus[idAgendamento];
+          const detalhesReserva = agendaStatus[idAgendamento] || (slot as any).detalhes;
 
-          // gerarPagamentoPix disponível via hook
+          const getSlotBtnClass = () => {
+            if (isReservado) return "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed";
+            if (isPendente) return "bg-yellow-500/5 border-yellow-500/20 cursor-not-allowed opacity-70";
+            return "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5";
+          };
 
           return (
             <Dialog key={slot.inicio} onOpenChange={(open) => {
               if (!open) {
                 setItensTemp([]);
                 limparPix();
+                setDescontoPixAtivo(false);
               }
             }}>
               <DialogTrigger asChild>
@@ -941,20 +978,23 @@ async function handleFecharCaixa() {
                   disabled={isOcupado}
                   className={cn(
                     "relative group flex flex-col items-center justify-center p-3 rounded-[1.5rem] border transition-all h-24 w-full",
-                    isOcupado 
-                      ? "bg-red-500/5 border-red-500/20 opacity-60 cursor-not-allowed" 
-                      : "bg-[#0c120f] border-white/5 hover:border-[#22c55e] hover:bg-[#22c55e]/5"
+                    getSlotBtnClass()
                   )}
                 >
                   <span className="text-[7px] font-black uppercase text-gray-600 mb-1">{slot.turno}</span>
-                  <span className={cn("text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap", isOcupado ? "text-red-500/50" : "text-white")}>
+                  <span className={cn("text-[11px] font-black italic tracking-tighter leading-none whitespace-nowrap", isReservado ? "text-red-500/50" : isPendente ? "text-yellow-500/50" : "text-white")}>
                     {slot.inicio} - {slot.fim}
                   </span>
                   <div className="mt-2">
-                    {isOcupado ? (
+                    {isReservado ? (
                       <div className="flex flex-col items-center">
-                         <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Ocupado</span>
-                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente || "Reservado"}</p>
+                         <span className="text-[7px] font-black uppercase text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Reservado</span>
+                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente_nome || detalhesReserva?.cliente || "Reservado"}</p>
+                      </div>
+                    ) : isPendente ? (
+                      <div className="flex flex-col items-center">
+                         <span className="text-[7px] font-black uppercase text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full">Pendente</span>
+                         <p className="text-[8px] text-gray-500 mt-1 font-bold truncate w-16 text-center uppercase">{detalhesReserva?.cliente_nome || "Aguardando"}</p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-1">
@@ -1009,15 +1049,24 @@ async function handleFecharCaixa() {
       <span className="text-gray-400 font-bold uppercase">Valor da reserva:</span>
       <span className="text-white font-black">R$ {slot.valor.toFixed(2)}</span>
     </div>
-    <div className="flex justify-between items-center text-sm">
-      <span className="text-[#22c55e] font-bold uppercase">Desconto PIX Online:</span>
-      <span className="text-[#22c55e] font-black">- R$ 10,00</span>
-    </div>
+    {/* Opção de desconto PIX */}
+    <label className="flex items-center gap-3 cursor-pointer bg-[#22c55e]/5 p-3 rounded-xl border border-[#22c55e]/20 hover:bg-[#22c55e]/10 transition-all">
+      <input type="checkbox" checked={descontoPixAtivo} onChange={(e) => setDescontoPixAtivo(e.target.checked)} className="accent-[#22c55e] w-5 h-5" />
+      <div>
+        <p className="text-[#22c55e] font-black text-xs uppercase">Aplicar Desconto PIX Online (-R$ 10,00)</p>
+        <p className="text-[8px] text-gray-500">Desconto exclusivo para pagamento via PIX pelo site</p>
+      </div>
+    </label>
+    {descontoPixAtivo && (
+      <div className="flex justify-between items-center text-sm">
+        <span className="text-[#22c55e] font-bold uppercase">Desconto PIX:</span>
+        <span className="text-[#22c55e] font-black">- R$ 10,00</span>
+      </div>
+    )}
     <div className="border-t border-white/10 pt-2 flex justify-between items-center">
       <span className="text-gray-300 font-bold uppercase text-sm">Total a pagar:</span>
-      <span className="text-[#22c55e] font-black text-xl italic">R$ {Math.max(slot.valor - 10, 0).toFixed(2)}</span>
+      <span className="text-[#22c55e] font-black text-xl italic">R$ {descontoPixAtivo ? Math.max(slot.valor - 10, 0).toFixed(2) : slot.valor.toFixed(2)}</span>
     </div>
-    <p className="text-[8px] text-gray-500 uppercase text-center italic">Pagamento integral com desconto exclusivo para PIX no site</p>
   </div>
 )}
 
