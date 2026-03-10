@@ -435,6 +435,8 @@ const totalCarrinho = useMemo(() => {
     }
   };
 
+  const [descontoPixAtivo, setDescontoPixAtivo] = useState(false);
+
   async function handleAgendar(slot: any, clienteNome: string, turno_id: number) {
   if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
   
@@ -442,17 +444,13 @@ const totalCarrinho = useMemo(() => {
   setLoading(true);
 
   try {
-    if (!verificarDisponibilidade(slot.inicio, duracaoMin)) {
-      throw new Error("Conflito de Horário! Outro jogador já reservou este slot.");
-    }
-
     const horaH = parseInt(slot.inicio.split(":")[0]);
     const valorBase = horaH >= 18 ? 120 : 80;
     const valorReserva = valorBase * (duracaoMin / 60);
     const totalProdutos = itensCarrinho.reduce((acc, item) => acc + item.preco, 0);
     const totalGeral = valorReserva + totalProdutos;
     const DESCONTO_PIX_ONLINE = 10;
-    const valorComDesconto = metodoPgto === 'pix' ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
+    const valorComDesconto = (metodoPgto === 'pix' && descontoPixAtivo) ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
 
     const { data: { user } } = await supabase.auth.getUser();
 
