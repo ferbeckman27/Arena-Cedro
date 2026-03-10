@@ -185,11 +185,15 @@ const AtendenteDashboard = () => {
 
   useEffect(() => { buscarDadosIniciais(); }, []);
 
-  // --- LOGICA DE MANUTENÇÃO ---
+  // --- LOGICA DE MANUTENÇÃO (polling DB a cada 30s) ---
   useEffect(() => {
     const handler = () => { setIsMaintenance(localStorage.getItem("arena_manutencao") === "true"); };
     window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    const interval = setInterval(async () => {
+      const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
+      if (config) setIsMaintenance(config.valor === 'true');
+    }, 30000);
+    return () => { window.removeEventListener("storage", handler); clearInterval(interval); };
   }, []);
 
   const handleToggleMaintenance = async () => {
