@@ -170,7 +170,7 @@ const ClienteDashboard = () => {
   }, [cart, valorApenasReserva]);
 
   const DESCONTO_PIX_ONLINE = 10;
-  const valorComDesconto = metodoPagamento === "pix" ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
+  const valorComDesconto = (metodoPagamento === "pix" && descontoPixAtivo) ? Math.max(totalGeral - DESCONTO_PIX_ONLINE, 0) : totalGeral;
 
   // --- FUNÇÕES ---
   const addToCart = (product: Product) => {
