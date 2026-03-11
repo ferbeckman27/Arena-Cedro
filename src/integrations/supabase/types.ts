@@ -848,6 +848,10 @@ export type Database = {
         Args: { p_funcionario_id: string }
         Returns: undefined
       }
+      set_funcionario_senha: {
+        Args: { p_id: string; p_senha: string }
+        Returns: undefined
+      }
       sp_verificar_disponibilidade: {
         Args: { p_data: string; p_duracao_min: number; p_horario: string }
         Returns: {

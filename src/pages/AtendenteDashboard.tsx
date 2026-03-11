@@ -722,7 +722,7 @@ async function handleFecharCaixa() {
           />
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
-            <span className="text-xl font-black italic uppercase text-white">BEM VINDO ATENDENTE</span>
+            <span className="text-xl font-black italic uppercase text-white">Bem Vindo, {localStorage.getItem("userName") || "Atendente"}</span>
           </div>
         </div>
 
