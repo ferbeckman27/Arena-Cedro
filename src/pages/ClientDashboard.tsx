@@ -368,7 +368,7 @@ const ClienteDashboard = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex flex-col items-center">
             <img src="/media/logo-arena.png" alt="Logo" className="h-40 md:h-48 w-auto object-contain transition-transform hover:scale-105" />
-            <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">BEM VINDO AO PAINEL DO CLIENTE</span>
+            <span className="text-[20px] font-black uppercase text-[#22c55e] tracking-[0.2em]">Bem Vindo, {userData.nome}</span>
           </div>
           <button onClick={handleLogout} className="text-red-500 hover:bg-red-500/10 p-2 rounded-xl transition-all">
             <LogOut size={20} />

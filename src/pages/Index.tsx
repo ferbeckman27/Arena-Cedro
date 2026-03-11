@@ -130,17 +130,20 @@ const censurarTexto = (texto: string) => {
   const [promoData, setPromoData] = useState({ texto: "", link: "" });
 
   useEffect(() => {
-    // Verifica se existe promoção ativa no localStorage
-    const ativa = localStorage.getItem("arena_promo_ativa") === "true";
-    const texto = localStorage.getItem("arena_promo_texto") || "Garanta seu racha hoje!";
-    const link = localStorage.getItem("arena_promo_link") || "#";
-
-    if (ativa) {
-      setPromoData({ texto, link });
-      // Delay de 2 segundos para aparecer (não assustar o cliente logo de cara)
-      const timer = setTimeout(() => setIsOpen(true), 2000);
-      return () => clearTimeout(timer);
-    }
+    const carregarPromo = async () => {
+      const { data } = await supabase.from('configuracoes').select('chave, valor').in('chave', ['promo_ativa', 'promo_texto', 'promo_link']);
+      if (data) {
+        const ativa = data.find(c => c.chave === 'promo_ativa')?.valor === 'true';
+        const texto = data.find(c => c.chave === 'promo_texto')?.valor || 'Garanta seu racha hoje!';
+        const link = data.find(c => c.chave === 'promo_link')?.valor || '#';
+        if (ativa) {
+          setPromoData({ texto, link });
+          const timer = setTimeout(() => setIsOpen(true), 2000);
+          return () => clearTimeout(timer);
+        }
+      }
+    };
+    carregarPromo();
   }, []);
 
   if (!isOpen) return null;
