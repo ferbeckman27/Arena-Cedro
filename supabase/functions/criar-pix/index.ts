@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
         payer: {
           email: email || "cliente@arena.com",
         },
-        date_of_expiration: new Date(Date.now() + 30 * 60000).toISOString(),
+        date_of_expiration: new Date(Date.now() + 8 * 60000).toISOString(),
         external_reference: reserva_id ? `reserva-${reserva_id}` : `arena-${Date.now()}`,
         notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/webhook-mercadopago`,
       }),
