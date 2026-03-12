@@ -821,6 +821,11 @@ export type Database = {
       }
     }
     Functions: {
+      cancelar_reservas_pix_expiradas: { Args: never; Returns: undefined }
+      devolver_estoque_aluguel: {
+        Args: { p_reserva_id: number }
+        Returns: undefined
+      }
       fn_censurar_texto: { Args: { p_texto: string }; Returns: string }
       incrementar_fidelidade: { Args: { cli_id: number }; Returns: undefined }
       login_cliente: {
