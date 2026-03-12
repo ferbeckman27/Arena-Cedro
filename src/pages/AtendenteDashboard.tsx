@@ -765,9 +765,8 @@ const AtendenteDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {listaReservas.filter(r => !r.pago && r.status !== 'cancelada').map(res => {
+                {listaReservas.filter(r => !r.pago && r.status !== 'cancelada').map(res => {
                     const restante = Number(res.valor_total) - Number(res.valor_pago_sinal || 0);
-                    const [formaPgtoSel, setFormaPgtoSel] = useState('dinheiro');
                     return (
                       <TableRow key={res.id} className="border-white/5">
                         <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
@@ -781,13 +780,15 @@ const AtendenteDashboard = () => {
                         <TableCell className="text-sm font-black text-red-500">R$ {restante.toFixed(2)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <select value={formaPgtoSel} onChange={e => setFormaPgtoSel(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white">
+                            <select defaultValue="dinheiro" id={`pgto-${res.id}`} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white">
                               <option value="dinheiro">Dinheiro</option>
                               <option value="pix">PIX</option>
                               <option value="metade">Metade/Metade</option>
                             </select>
-                            <Button size="sm" onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), formaPgtoSel)}
-                              className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
+                            <Button size="sm" onClick={() => {
+                              const sel = (document.getElementById(`pgto-${res.id}`) as HTMLSelectElement)?.value || 'dinheiro';
+                              handleLiquidarReserva(res.id, Number(res.valor_total), sel);
+                            }} className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
                           </div>
                         </TableCell>
                       </TableRow>
