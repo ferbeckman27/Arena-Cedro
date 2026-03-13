@@ -8,17 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { 
   Users, Calendar as LucideCalendar, ShoppingBag, AlertTriangle, 
   LogOut, CheckCircle, XCircle, Star, MessageSquare, Trophy, 
   Bell, ChevronLeft, ChevronRight, Crown, Plus, Search, DollarSign,
-  Package, AlertCircle, BellRing, Trash2, Clock, Copy, Lock, Edit, Ban, RefreshCcw
+  Package, AlertCircle, BellRing, Trash2, Clock, Copy, Lock, Edit, Ban, RefreshCcw, CheckCircle2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { usePixPayment, calcularPrecoReserva } from '@/hooks/usePixPayment';
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
 
