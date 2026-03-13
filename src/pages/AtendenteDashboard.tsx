@@ -541,8 +541,8 @@ const AtendenteDashboard = () => {
                               </div>
                             </div>
 
-                            {/* PIX Section */}
-                            {metodoPgto === "pix" && reservaIdAtual && (
+                            {/* PIX Section - shows after reservation is created */}
+                            {metodoPgto === "pix" && reservaCriada && reservaIdAtual && (
                               <PixPaymentSection
                                 valorTotal={slot.valor + totalCarrinho}
                                 desconto={10}
@@ -552,7 +552,7 @@ const AtendenteDashboard = () => {
                                 isCarregando={isCarregandoPix}
                                 onGerarPixIntegral={handleGerarPixIntegral}
                                 onTimeout={handlePixTimeout}
-                                onConfirmarPagamento={() => { toast({ title: "Pagamento confirmado!" }); carregarReservasFinancas(); }}
+                                onConfirmarPagamento={handlePixConfirmadoAtendente}
                                 timeoutMinutos={8}
                               />
                             )}
