@@ -175,7 +175,7 @@ function AdminDashboard() {
     const { data } = await supabase.from("produtos").select("*").order("nome");
     if (data) {
       setProdutos(data.map((p) => ({
-        id: p.id, nome: p.nome, tipo: p.tipo,
+        id: p.id, nome: p.nome, tipo: (p.tipo || 'venda') as "venda" | "aluguel" | "ambos",
         preco: p.preco_venda ?? p.preco_aluguel ?? 0,
         preco_venda: p.preco_venda, preco_aluguel: p.preco_aluguel,
         estoque: p.quantidade_estoque ?? 0,
