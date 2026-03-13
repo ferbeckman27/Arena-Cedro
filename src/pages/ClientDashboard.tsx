@@ -92,7 +92,7 @@ const ClienteDashboard = () => {
       })));
 
       if (userData.id) {
-        const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', userData.id).single();
+        const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', Number(userData.id)).single();
         if (user) setProgressoFidelidade(user.reservas_concluidas || 0);
 
         const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
