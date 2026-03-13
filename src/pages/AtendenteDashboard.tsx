@@ -234,13 +234,13 @@ const AtendenteDashboard = () => {
 
       if (resError) throw resError;
 
-      // Incrementar fidelidade do cliente
       const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
       if (clienteEncontrado) {
         await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
       }
 
       setReservaIdAtual(reserva.id);
+      setReservaCriada(true);
 
       if (itensCarrinho.length > 0) {
         await supabase.from('itens_reserva').insert(
@@ -253,7 +253,8 @@ const AtendenteDashboard = () => {
 
       if (metodoPgto === 'dinheiro') {
         playTorcida();
-        toast({ title: "Reserva Confirmada!" });
+        setIsTermosAberto(true);
+        setAceitouTermos(false);
       } else {
         playApito();
       }
@@ -267,9 +268,9 @@ const AtendenteDashboard = () => {
     }
   }
 
-  const handleGerarPixIntegral = async (valorComDesconto: number) => {
+  const handleGerarPixIntegral = async (valorOriginal: number) => {
     if (reservaIdAtual) {
-      await gerarPagamentoPix(valorComDesconto, `Reserva Arena Cedro`, reservaIdAtual, undefined, undefined, 'integral');
+      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro`, reservaIdAtual, undefined, undefined, 'integral');
     }
   };
 
@@ -277,8 +278,29 @@ const AtendenteDashboard = () => {
     if (reservaIdAtual) {
       await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', reservaIdAtual);
       setReservaIdAtual(null);
+      setReservaCriada(false);
       limparPix();
       carregarReservasFinancas();
+    }
+  };
+
+  const handlePixConfirmadoAtendente = () => {
+    toast({ title: "Pagamento confirmado!" });
+    setIsTermosAberto(true);
+    setAceitouTermos(false);
+    carregarReservasFinancas();
+  };
+
+  const handleRemarcarAtendente = async () => {
+    if (!remarcarReserva?.id || !remarcarData) return;
+    try {
+      const { error } = await supabase.from('reservas').update({ data_reserva: remarcarData }).eq('id', remarcarReserva.id);
+      if (error) throw error;
+      toast({ title: "Reserva remarcada!", description: `Nova data: ${new Date(remarcarData + 'T00:00:00').toLocaleDateString('pt-BR')}` });
+      setRemarcarModal(false);
+      carregarReservasFinancas();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro", description: e.message });
     }
   };
 
