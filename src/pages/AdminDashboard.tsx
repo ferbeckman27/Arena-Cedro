@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { jsPDF } from "jspdf";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Produto {
   id: number;
@@ -175,7 +175,7 @@ function AdminDashboard() {
     const { data } = await supabase.from("produtos").select("*").order("nome");
     if (data) {
       setProdutos(data.map((p) => ({
-        id: p.id, nome: p.nome, tipo: p.tipo,
+        id: p.id, nome: p.nome, tipo: (p.tipo || 'venda') as "venda" | "aluguel" | "ambos",
         preco: p.preco_venda ?? p.preco_aluguel ?? 0,
         preco_venda: p.preco_venda, preco_aluguel: p.preco_aluguel,
         estoque: p.quantidade_estoque ?? 0,
@@ -294,14 +294,30 @@ function AdminDashboard() {
     }
   };
 
-  const editarFuncionario = async (funcionario: any) => {
-    const novoTelefone = prompt("Editar Telefone:", funcionario.telefone);
-    const novoTurno = prompt("Editar Turno (DIURNO/NOTURNO):", funcionario.turno);
-    if (novoTelefone || novoTurno) {
-      const { error } = await supabase.from("funcionarios").update({ telefone: novoTelefone || funcionario.telefone, turno: novoTurno || funcionario.turno }).eq("id", funcionario.id);
-      if (error) { toast({ variant: "destructive", title: "Erro ao atualizar", description: error.message }); }
-      else { toast({ title: "Dados atualizados com sucesso!" }); carregarDadosIniciais(); }
-    }
+  // Employee edit modal state
+  const [editFuncModal, setEditFuncModal] = useState(false);
+  const [editFuncData, setEditFuncData] = useState<any>(null);
+  const [editFuncForm, setEditFuncForm] = useState({ nome: "", sobrenome: "", email_corporativo: "", telefone: "", turno: "" });
+
+  const editarFuncionario = (funcionario: any) => {
+    setEditFuncData(funcionario);
+    setEditFuncForm({
+      nome: funcionario.nome || "", sobrenome: funcionario.sobrenome || "",
+      email_corporativo: funcionario.email_corporativo || "", telefone: funcionario.telefone || "",
+      turno: funcionario.turno || "",
+    });
+    setEditFuncModal(true);
+  };
+
+  const salvarEdicaoFuncionario = async () => {
+    if (!editFuncData) return;
+    const { error } = await supabase.from("funcionarios").update({
+      nome: editFuncForm.nome, sobrenome: editFuncForm.sobrenome,
+      email_corporativo: editFuncForm.email_corporativo, telefone: editFuncForm.telefone,
+      turno: editFuncForm.turno,
+    }).eq("id", editFuncData.id);
+    if (error) { toast({ variant: "destructive", title: "Erro ao atualizar", description: error.message }); }
+    else { toast({ title: "Dados atualizados!" }); setEditFuncModal(false); carregarDadosIniciais(); }
   };
 
   const funcPasswordValidations = useMemo(() => {
@@ -1022,6 +1038,27 @@ function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* MODAL EDITAR FUNCIONÁRIO */}
+      <Dialog open={editFuncModal} onOpenChange={setEditFuncModal}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
+          <DialogHeader><DialogTitle className="italic uppercase font-black text-[#22c55e]">Editar Funcionário</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-[10px] uppercase text-gray-500">Nome</Label><Input value={editFuncForm.nome} onChange={e => setEditFuncForm(p => ({...p, nome: e.target.value}))} className="bg-white/5 border-white/10 mt-1" /></div>
+              <div><Label className="text-[10px] uppercase text-gray-500">Sobrenome</Label><Input value={editFuncForm.sobrenome} onChange={e => setEditFuncForm(p => ({...p, sobrenome: e.target.value}))} className="bg-white/5 border-white/10 mt-1" /></div>
+            </div>
+            <div><Label className="text-[10px] uppercase text-gray-500">E-mail Corporativo</Label><Input value={editFuncForm.email_corporativo} onChange={e => setEditFuncForm(p => ({...p, email_corporativo: e.target.value}))} className="bg-white/5 border-white/10 mt-1" /></div>
+            <div><Label className="text-[10px] uppercase text-gray-500">Telefone</Label><Input value={editFuncForm.telefone} onChange={e => setEditFuncForm(p => ({...p, telefone: e.target.value}))} className="bg-white/5 border-white/10 mt-1" /></div>
+            <div><Label className="text-[10px] uppercase text-gray-500">Turno</Label>
+              <select value={editFuncForm.turno} onChange={e => setEditFuncForm(p => ({...p, turno: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-lg p-2 mt-1 text-white">
+                <option value="" className="bg-[#0c120f]">—</option><option value="DIURNO" className="bg-[#0c120f]">DIURNO</option><option value="NOTURNO" className="bg-[#0c120f]">NOTURNO</option>
+              </select>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setEditFuncModal(false)}>Cancelar</Button><Button className="bg-[#22c55e] text-black font-black" onClick={salvarEdicaoFuncionario}>Salvar</Button></DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

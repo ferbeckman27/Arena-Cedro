@@ -2,14 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Copy, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface PixPaymentSectionProps {
   valorTotal: number;
-  desconto: number; // R$10 avulsa, R$40 VIP
+  desconto: number;
   tipoReserva: "avulsa" | "fixa";
   pixChaveEstatica: string;
   pixData?: {
@@ -18,7 +17,7 @@ interface PixPaymentSectionProps {
     valorPago: number;
   } | null;
   isCarregando: boolean;
-  onGerarPixIntegral: (valorComDesconto: number) => void;
+  onGerarPixIntegral: (valorOriginal: number) => void;
   onTimeout: () => void;
   onConfirmarPagamento: () => void;
   timeoutMinutos?: number;
@@ -44,7 +43,6 @@ export function PixPaymentSection({
 
   const valorComDesconto = Math.max(valorTotal - desconto, 0);
 
-  // Timer countdown
   useEffect(() => {
     if (!timerAtivo || tempoRestante <= 0) return;
     const interval = setInterval(() => {
@@ -72,7 +70,8 @@ export function PixPaymentSection({
 
   const handleGerarPix = () => {
     if (modoPix === "integral") {
-      onGerarPixIntegral(valorComDesconto);
+      // Pass the ORIGINAL value - the edge function applies the discount
+      onGerarPixIntegral(valorTotal);
     }
     setPixGerado(true);
     iniciarTimer();
@@ -86,7 +85,7 @@ export function PixPaymentSection({
 
   const copiarTexto = (texto: string) => {
     navigator.clipboard.writeText(texto);
-    toast({ title: "Copiado!" });
+    toast({ title: "✅ Copiado para a área de transferência!" });
   };
 
   return (
@@ -135,9 +134,20 @@ export function PixPaymentSection({
             <span className="font-black">- R$ {desconto.toFixed(2)}</span>
           </div>
           <div className="border-t border-white/10 pt-2 flex justify-between">
-            <span className="text-gray-300 font-bold text-sm">Total:</span>
+            <span className="text-gray-300 font-bold text-sm">Total a pagar:</span>
             <span className="text-[#22c55e] font-black text-xl italic">R$ {valorComDesconto.toFixed(2)}</span>
           </div>
+        </div>
+      )}
+
+      {/* Resumo para PIX Livre */}
+      {modoPix === "livre" && !pixGerado && (
+        <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Valor da reserva:</span>
+            <span className="text-white font-bold">R$ {valorTotal.toFixed(2)}</span>
+          </div>
+          <p className="text-[9px] text-yellow-400 font-bold">⚠️ No PIX Livre você digita o valor manualmente no app do banco.</p>
         </div>
       )}
 
@@ -159,22 +169,23 @@ export function PixPaymentSection({
       {modoPix === "livre" && pixGerado && (
         <div className="bg-black/60 rounded-[2rem] border border-[#22c55e]/20 p-6 flex flex-col items-center gap-4">
           <p className="text-xs font-black uppercase text-[#22c55e]">PIX Livre - Escaneie e digite o valor</p>
+          <p className="text-lg font-black text-white">Valor da reserva: R$ {valorTotal.toFixed(2)}</p>
           <div className="bg-white p-3 rounded-xl">
-            <QRCodeSVG value={pixChaveEstatica} size={200} />
+            <QRCodeSVG value={pixChaveEstatica || "pix@arenacedro.com"} size={200} />
           </div>
           <div className="w-full">
             <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Chave PIX (Copia e Cola):</p>
             <div className="flex gap-2">
               <input
                 readOnly
-                value={pixChaveEstatica}
+                value={pixChaveEstatica || "pix@arenacedro.com"}
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white truncate"
               />
               <Button
                 size="sm"
                 variant="outline"
                 className="border-[#22c55e] text-[#22c55e] shrink-0"
-                onClick={() => copiarTexto(pixChaveEstatica)}
+                onClick={() => copiarTexto(pixChaveEstatica || "pix@arenacedro.com")}
               >
                 <Copy size={14} />
               </Button>
@@ -200,8 +211,21 @@ export function PixPaymentSection({
         <div className="bg-black/60 rounded-[2rem] border border-[#22c55e]/20 p-6 flex flex-col items-center gap-4">
           <p className="text-xs font-black uppercase text-[#22c55e]">
             PIX Integral - R$ {pixData.valorPago.toFixed(2)}
-            {desconto > 0 && <span className="text-[10px] ml-2">(desconto R${desconto} aplicado)</span>}
           </p>
+          <div className="bg-black/40 p-3 rounded-xl border border-white/5 w-full space-y-1">
+            <div className="flex justify-between text-[10px]">
+              <span className="text-gray-500">Valor original:</span>
+              <span className="text-white font-bold">R$ {valorTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-[10px] text-[#22c55e]">
+              <span className="font-bold">Desconto aplicado:</span>
+              <span className="font-black">- R$ {desconto.toFixed(2)}</span>
+            </div>
+            <div className="border-t border-white/10 pt-1 flex justify-between text-xs">
+              <span className="text-gray-300 font-bold">Você paga:</span>
+              <span className="text-[#22c55e] font-black text-lg">R$ {pixData.valorPago.toFixed(2)}</span>
+            </div>
+          </div>
           {pixData.qrCodeBase64 && (
             <img
               src={`data:image/png;base64,${pixData.qrCodeBase64}`}
@@ -216,7 +240,7 @@ export function PixPaymentSection({
                 <input
                   readOnly
                   value={pixData.copiaECola}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white truncate"
                 />
                 <Button
                   size="sm"
@@ -229,12 +253,23 @@ export function PixPaymentSection({
               </div>
             </div>
           )}
+          {/* Loading state when pixData hasn't arrived yet */}
+          {!pixData.qrCodeBase64 && !pixData.copiaECola && (
+            <p className="text-yellow-400 text-xs font-bold animate-pulse">Gerando QR Code...</p>
+          )}
           <Button
             onClick={onConfirmarPagamento}
             className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl"
           >
             <CheckCircle2 size={16} className="mr-2" /> Já Paguei ✅
           </Button>
+        </div>
+      )}
+
+      {/* Loading state for integral when waiting for MP response */}
+      {modoPix === "integral" && pixGerado && !pixData && isCarregando && (
+        <div className="bg-black/60 rounded-[2rem] border border-[#22c55e]/20 p-6 flex flex-col items-center gap-4">
+          <p className="text-[#22c55e] font-black text-sm animate-pulse">⏳ Gerando QR Code do Mercado Pago...</p>
         </div>
       )}
 
@@ -248,7 +283,7 @@ export function PixPaymentSection({
           {isCarregando
             ? "Processando..."
             : modoPix === "livre"
-            ? "Gerar QR Code Livre"
+            ? `Gerar QR Code Livre (R$ ${valorTotal.toFixed(2)})`
             : `Gerar PIX - R$ ${valorComDesconto.toFixed(2)}`}
         </Button>
       )}

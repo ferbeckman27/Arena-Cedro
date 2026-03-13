@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { usePixPayment, calcularPrecoReserva } from '@/hooks/usePixPayment';
 import { FidelityCard } from "@/components/dashboard/FidelityCard";
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
@@ -58,6 +58,12 @@ const ClienteDashboard = () => {
   const [reservasFixas, setReservasFixas] = useState<any[]>([]);
   const [pixChaveEstatica, setPixChaveEstatica] = useState("");
   const [reservaIdAtual, setReservaIdAtual] = useState<number | null>(null);
+  const [reservaCriada, setReservaCriada] = useState(false);
+
+  // Remarcação
+  const [remarcarModal, setRemarcarModal] = useState(false);
+  const [remarcarReserva, setRemarcarReserva] = useState<Reserva | null>(null);
+  const [remarcarData, setRemarcarData] = useState("");
 
   const { isCarregandoPix, pixData, gerarPagamentoPix, limparPix } = usePixPayment();
 
@@ -80,13 +86,13 @@ const ClienteDashboard = () => {
 
       const { data: prod } = await supabase.from('produtos').select('*').eq('ativo', true);
       if (prod) setProdutos(prod.map(p => ({
-        id: p.id, nome: p.nome, tipo: p.tipo || 'venda',
+        id: p.id, nome: p.nome, tipo: (p.tipo || 'venda') as any,
         preco_venda: p.preco_venda || 0, preco_aluguel: p.preco_aluguel || 0,
         preco: p.preco_venda || p.preco_aluguel || 0,
       })));
 
       if (userData.id) {
-        const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', userData.id).single();
+        const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', Number(userData.id)).single();
         if (user) setProgressoFidelidade(user.reservas_concluidas || 0);
 
         const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
@@ -110,12 +116,10 @@ const ClienteDashboard = () => {
     carregarReservasOcupadas();
   }, [diaSelecionado]);
 
-  // Polling manutenção + expiração PIX
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'manutencao').single();
       if (config) setEmManutencao(config.valor === 'true');
-      // Limpar reservas expiradas
       await supabase.rpc('cancelar_reservas_pix_expiradas');
     }, 30000);
     return () => clearInterval(interval);
@@ -174,8 +178,8 @@ const ClienteDashboard = () => {
     return slots;
   };
 
-  const handleFinalizePedido = async () => {
-    if (!horarioSelecionado) return;
+  const criarReserva = async (): Promise<number | null> => {
+    if (!horarioSelecionado) return null;
     const mapaBlocos: Record<number, number> = { 30: 1, 60: 2, 90: 3 };
     const hora = parseInt(horarioSelecionado.split(":")[0]);
     const turno_id = hora >= 18 ? 2 : 1;
@@ -191,7 +195,18 @@ const ClienteDashboard = () => {
           turno_id, data_inicio: diaSelecionado.toISOString().split('T')[0], ativo: true
         }]).select().single();
         if (error) throw error;
-        reservaId = fixa?.id;
+        // Also create a reserva entry for the first occurrence
+        const { data: avulsa, error: err2 } = await supabase.from('reservas').insert([{
+          cliente_id: Number(userData.id), cliente_nome: userData.nome,
+          data_reserva: diaSelecionado.toISOString().split('T')[0],
+          horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
+          turno_id, tipo: 'fixa', reserva_fixa_id: fixa?.id,
+          status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada',
+          valor_total: totalGeral, valor_sinal: totalGeral, valor_restante: 0,
+          forma_pagamento: metodoPagamento
+        }]).select().single();
+        if (err2) throw err2;
+        reservaId = avulsa?.id;
       } else {
         const { data: avulsa, error } = await supabase.from('reservas').insert([{
           cliente_id: Number(userData.id), cliente_nome: userData.nome,
@@ -206,7 +221,7 @@ const ClienteDashboard = () => {
         reservaId = avulsa?.id;
       }
 
-      if (cart.length > 0 && reservaId && tipoReserva === 'avulsa') {
+      if (cart.length > 0 && reservaId) {
         await supabase.from('itens_reserva').insert(
           cart.map(item => ({
             reserva_id: reservaId, produto_id: item.id, quantidade: 1,
@@ -223,28 +238,35 @@ const ClienteDashboard = () => {
       }
 
       setReservaIdAtual(reservaId);
-
-      if (metodoPagamento === "dinheiro") {
-        toast({ title: "Reserva Confirmada!", description: `Valor: R$ ${totalGeral.toFixed(2)}. Pague na chegada.` });
-        setIsCheckoutOpen(false);
-        setHorarioSelecionado(null);
-      }
+      setReservaCriada(true);
       setCart([]);
+      return reservaId;
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
       toast({ variant: "destructive", title: "Erro", description: error.message || "Verifique sua conexão." });
+      return null;
     }
   };
 
-  const handleGerarPixIntegral = async (valorComDesconto: number) => {
-    if (!reservaIdAtual && horarioSelecionado) {
-      await handleFinalizePedido();
+  const handleFinalizeDinheiro = async () => {
+    const id = await criarReserva();
+    if (id) {
+      setIsCheckoutOpen(false);
+      setIsConfirmacaoAberta(true);
+      setAceitouTermos(false);
     }
-    if (reservaIdAtual) {
+  };
+
+  const handleGerarPixIntegral = async (valorOriginal: number) => {
+    let resId = reservaIdAtual;
+    if (!reservaCriada) {
+      resId = await criarReserva();
+    }
+    if (resId) {
       await gerarPagamentoPix(
-        valorComDesconto,
+        valorOriginal,
         `Reserva Arena Cedro - ${horarioSelecionado}`,
-        reservaIdAtual, Number(userData.id), userData.email, 'integral'
+        resId, Number(userData.id), userData.email, 'integral'
       );
     }
   };
@@ -253,8 +275,8 @@ const ClienteDashboard = () => {
     if (reservaIdAtual) {
       await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', reservaIdAtual);
       setReservaIdAtual(null);
+      setReservaCriada(false);
       limparPix();
-      // Reload reservas
       const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
       if (data) setListaReservas(data as Reserva[]);
     }
@@ -264,6 +286,31 @@ const ClienteDashboard = () => {
     setIsCheckoutOpen(false);
     setIsConfirmacaoAberta(true);
     setAceitouTermos(false);
+    // Reload slots
+    const recarregar = async () => {
+      const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
+      if (data) setListaReservas(data as Reserva[]);
+    };
+    recarregar();
+  };
+
+  // Remarcação
+  const handleRemarcar = async () => {
+    if (!remarcarReserva?.id || !remarcarData) return;
+    try {
+      const { error } = await supabase.from('reservas').update({
+        data_reserva: remarcarData,
+      }).eq('id', remarcarReserva.id);
+      if (error) throw error;
+      toast({ title: "Reserva remarcada!", description: `Nova data: ${new Date(remarcarData + 'T00:00:00').toLocaleDateString('pt-BR')}` });
+      setRemarcarModal(false);
+      setRemarcarReserva(null);
+      // Reload
+      const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+      if (historico) setHistoricoReservas(historico);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro", description: e.message });
+    }
   };
 
   const getSlotStatus = (slotInicio: string) => {
@@ -273,6 +320,7 @@ const ClienteDashboard = () => {
     );
     if (!reserva) return 'livre';
     if (reserva.status === 'pendente') return 'pendente';
+    if (reserva.status === 'cancelada') return 'livre';
     return 'reservado';
   };
 
@@ -402,7 +450,7 @@ const ClienteDashboard = () => {
                   )}
                 </div>
 
-                <Button disabled={!horarioSelecionado} onClick={() => setIsCheckoutOpen(true)} className="w-full bg-[#22c55e] hover:bg-[#1eb054] text-black font-black uppercase italic h-14 rounded-2xl mt-4 transition-all shadow-[0_10px_20px_rgba(34,197,94,0.2)]">
+                <Button disabled={!horarioSelecionado} onClick={() => { setIsCheckoutOpen(true); setReservaCriada(false); setReservaIdAtual(null); limparPix(); }} className="w-full bg-[#22c55e] hover:bg-[#1eb054] text-black font-black uppercase italic h-14 rounded-2xl mt-4 transition-all shadow-[0_10px_20px_rgba(34,197,94,0.2)]">
                   Fazer Reserva
                 </Button>
               </Card>
@@ -448,7 +496,7 @@ const ClienteDashboard = () => {
               </div>
               <Separator className="bg-white/10 mb-4" />
               <div className="flex justify-between font-black text-2xl text-[#22c55e] mb-6 italic"><span>Total:</span><span>R$ {totalGeral.toFixed(2)}</span></div>
-              <Button onClick={() => setIsCheckoutOpen(true)} className="w-full bg-[#22c55e] text-black font-black italic h-14 rounded-2xl shadow-lg shadow-[#22c55e]/10">Finalizar Pedido</Button>
+              <Button onClick={() => { setIsCheckoutOpen(true); setReservaCriada(false); setReservaIdAtual(null); limparPix(); }} className="w-full bg-[#22c55e] text-black font-black italic h-14 rounded-2xl shadow-lg shadow-[#22c55e]/10">Finalizar Pedido</Button>
             </Card>
           </TabsContent>
 
@@ -516,9 +564,20 @@ const ClienteDashboard = () => {
                               <Badge className={cn("text-[8px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'pendente' ? "bg-yellow-500/20 text-yellow-500" : "bg-red-500/20 text-red-500")}>{r.pago ? 'PAGO' : r.status === 'pendente' ? 'PENDENTE' : (r.status || 'PENDENTE').toUpperCase()}</Badge>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right space-y-1">
                             <p className="font-black text-[#22c55e]">R$ {Number(r.valor_total || 0).toFixed(2)}</p>
                             <p className="text-[9px] text-gray-500 uppercase">{r.forma_pagamento || '—'}</p>
+                            {/* Botão Remarcar */}
+                            {(r.status === 'confirmada' || r.pago) && r.status !== 'cancelada' && (
+                              <Button size="sm" variant="outline" className="border-blue-500/20 text-blue-400 rounded-xl text-[8px] h-6 px-2"
+                                onClick={() => {
+                                  setRemarcarReserva(r);
+                                  setRemarcarData("");
+                                  setRemarcarModal(true);
+                                }}>
+                                <RefreshCcw size={10} className="mr-1" /> Remarcar
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -532,7 +591,7 @@ const ClienteDashboard = () => {
       </main>
 
       {/* MODAL DE CHECKOUT */}
-      <Dialog open={isCheckoutOpen} onOpenChange={(open) => { setIsCheckoutOpen(open); if (!open) { limparPix(); setReservaIdAtual(null); } }}>
+      <Dialog open={isCheckoutOpen} onOpenChange={(open) => { setIsCheckoutOpen(open); if (!open) { limparPix(); if (!reservaCriada) { setReservaIdAtual(null); } } }}>
         <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[480px] rounded-[3rem] p-8 outline-none backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black italic uppercase text-[#22c55e] flex items-center gap-3"><ShoppingCart size={24} /> Checkout</DialogTitle>
@@ -561,6 +620,9 @@ const ClienteDashboard = () => {
                 <span className="text-gray-400">Total:</span>
                 <span className="text-[#22c55e] text-2xl">R$ {totalGeral.toFixed(2)}</span>
               </div>
+              {tipoReserva === 'fixa' && (
+                <p className="text-[9px] text-purple-400 font-bold italic">📅 Reserva Fixa/VIP — desconto de R$40 no PIX integral</p>
+              )}
             </div>
 
             {/* Seleção de Pagamento */}
@@ -597,23 +659,22 @@ const ClienteDashboard = () => {
 
             {/* Dinheiro */}
             {metodoPagamento === "dinheiro" && (
-              <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center">
-                <p className="text-xs font-black uppercase italic text-gray-300">Reserva pré-confirmada!</p>
-                <p className="text-[10px] text-[#22c55e] font-bold uppercase mt-1">Apresente seu nome na recepção.</p>
-              </div>
-            )}
-
-            {/* Botão Finalizar (dinheiro apenas) */}
-            {metodoPagamento === "dinheiro" && (
-              <Button onClick={handleFinalizePedido} className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl">
-                Finalizar Agendamento
-              </Button>
+              <>
+                <div className="bg-black/40 p-6 rounded-[2rem] border border-white/5 text-center">
+                  <p className="text-xs font-black uppercase italic text-gray-300">Reserva pré-confirmada!</p>
+                  <p className="text-[10px] text-[#22c55e] font-bold uppercase mt-1">Apresente seu nome na recepção e pague na chegada.</p>
+                  <p className="text-lg font-black text-white mt-2">Valor: R$ {totalGeral.toFixed(2)}</p>
+                </div>
+                <Button onClick={handleFinalizeDinheiro} className="w-full bg-[#22c55e] text-black font-black uppercase italic h-16 rounded-2xl text-lg shadow-xl">
+                  Finalizar Agendamento
+                </Button>
+              </>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* MODAL PÓS-PAGAMENTO */}
+      {/* MODAL PÓS-PAGAMENTO - TERMOS */}
       <Dialog open={isConfirmacaoAberta} onOpenChange={(open) => { if (!open && aceitouTermos) { setIsConfirmacaoAberta(false); setHorarioSelecionado(null); } }}>
         <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[480px] rounded-[3rem] p-8 outline-none backdrop-blur-xl">
           <DialogHeader>
@@ -622,7 +683,7 @@ const ClienteDashboard = () => {
           <div className="space-y-5">
             <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-2xl p-5">
               <p className="text-xs font-bold text-white leading-relaxed uppercase">
-                SUA RESERVA ESTÁ CONFIRMADA E PAGA. SE HOUVER CANCELAMENTO ATÉ 24 HORAS ANTES DO INÍCIO DO JOGO, DEVERÁ COMUNICAR IMEDIATAMENTE EM NOSSO CANAL DIRETO NO WHATSAPP (98 99991-0535), SOLICITANDO REMARCAÇÃO PARA NO MÁXIMO SEMANA SEGUINTE, E MESMO TURNO (DIURNO P/ DIURNO, NOTURNO P/ NOTURNO). APÓS 24 HORAS NÃO HAVERÁ RESSARCIMENTO E NEM REMARCAÇÃO.
+                SUA RESERVA ESTÁ CONFIRMADA. SE HOUVER CANCELAMENTO ATÉ 24 HORAS ANTES DO INÍCIO DO JOGO, DEVERÁ COMUNICAR IMEDIATAMENTE EM NOSSO CANAL DIRETO NO WHATSAPP (98 99991-0535), SOLICITANDO REMARCAÇÃO PARA NO MÁXIMO SEMANA SEGUINTE, E MESMO TURNO (DIURNO P/ DIURNO, NOTURNO P/ NOTURNO). APÓS 24 HORAS NÃO HAVERÁ RESSARCIMENTO E NEM REMARCAÇÃO.
               </p>
             </div>
             <a href="/regras-arena.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-[#22c55e] text-sm font-black uppercase underline hover:text-white transition-colors">📄 Ver Regras da Arena Cedro</a>
@@ -630,11 +691,38 @@ const ClienteDashboard = () => {
               <input type="checkbox" checked={aceitouTermos} onChange={(e) => setAceitouTermos(e.target.checked)} className="mt-1 accent-[#22c55e] w-5 h-5" />
               <span className="text-xs font-bold text-gray-300 uppercase leading-relaxed">Estou ciente e concordo com os termos e regras da Arena Cedro.</span>
             </label>
-            <Button disabled={!aceitouTermos} onClick={() => { setIsConfirmacaoAberta(false); setHorarioSelecionado(null); toast({ title: "✅ Tudo certo!", description: "Sua reserva está confirmada. Bom jogo!" }); }}
+            <Button disabled={!aceitouTermos} onClick={() => { setIsConfirmacaoAberta(false); setHorarioSelecionado(null); setReservaCriada(false); toast({ title: "✅ Tudo certo!", description: "Sua reserva está confirmada. Bom jogo!" }); }}
               className="w-full bg-[#22c55e] text-black font-black uppercase italic h-14 rounded-2xl disabled:opacity-30 transition-all">
               Confirmar e Fechar
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL REMARCAÇÃO */}
+      <Dialog open={remarcarModal} onOpenChange={setRemarcarModal}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[400px] rounded-[2rem] p-8 outline-none">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black italic uppercase text-[#22c55e] flex items-center gap-2"><RefreshCcw size={20} /> Remarcar Reserva</DialogTitle>
+          </DialogHeader>
+          {remarcarReserva && (
+            <div className="space-y-4 pt-4">
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Reserva atual</p>
+                <p className="font-black text-white">{new Date(remarcarReserva.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} — {remarcarReserva.horario_inicio}</p>
+              </div>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-xl">
+                <p className="text-[9px] text-yellow-300 font-bold">⚠️ A remarcação mantém o mesmo horário. Escolha apenas a nova data (mesmo turno: diurno→diurno, noturno→noturno). Máximo: semana seguinte.</p>
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase text-gray-500 font-bold">Nova Data</Label>
+                <Input type="date" value={remarcarData} onChange={e => setRemarcarData(e.target.value)} className="bg-white/5 border-white/10 mt-1 text-white" />
+              </div>
+              <Button disabled={!remarcarData} onClick={handleRemarcar} className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl">
+                Confirmar Remarcação
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

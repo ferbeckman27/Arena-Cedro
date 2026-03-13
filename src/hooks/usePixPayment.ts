@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface PixResponse {
@@ -24,7 +24,6 @@ export function calcularPrecoReserva(duracaoMinutos: number, horaInicio: number)
   const turno = horaInicio >= 18 ? 'noturno' : 'diurno';
   const precos = PRECOS[duracaoMinutos];
   if (!precos) {
-    // Fallback proporcional
     const base = turno === 'noturno' ? 140 : 100;
     return (base * duracaoMinutos) / 60;
   }
