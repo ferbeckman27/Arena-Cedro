@@ -44,6 +44,13 @@ const AtendenteDashboard = () => {
   const [totalComissao, setTotalComissao] = useState(0);
   const [pixChaveEstatica, setPixChaveEstatica] = useState("");
   const [reservaIdAtual, setReservaIdAtual] = useState<number | null>(null);
+  const [reservaCriada, setReservaCriada] = useState(false);
+  const [isTermosAberto, setIsTermosAberto] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  // Remarcação
+  const [remarcarModal, setRemarcarModal] = useState(false);
+  const [remarcarReserva, setRemarcarReserva] = useState<any>(null);
+  const [remarcarData, setRemarcarData] = useState("");
 
   // VIP edit states
   const [editandoVipId, setEditandoVipId] = useState<number | null>(null);
