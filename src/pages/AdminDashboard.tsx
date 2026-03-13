@@ -294,14 +294,30 @@ function AdminDashboard() {
     }
   };
 
-  const editarFuncionario = async (funcionario: any) => {
-    const novoTelefone = prompt("Editar Telefone:", funcionario.telefone);
-    const novoTurno = prompt("Editar Turno (DIURNO/NOTURNO):", funcionario.turno);
-    if (novoTelefone || novoTurno) {
-      const { error } = await supabase.from("funcionarios").update({ telefone: novoTelefone || funcionario.telefone, turno: novoTurno || funcionario.turno }).eq("id", funcionario.id);
-      if (error) { toast({ variant: "destructive", title: "Erro ao atualizar", description: error.message }); }
-      else { toast({ title: "Dados atualizados com sucesso!" }); carregarDadosIniciais(); }
-    }
+  // Employee edit modal state
+  const [editFuncModal, setEditFuncModal] = useState(false);
+  const [editFuncData, setEditFuncData] = useState<any>(null);
+  const [editFuncForm, setEditFuncForm] = useState({ nome: "", sobrenome: "", email_corporativo: "", telefone: "", turno: "" });
+
+  const editarFuncionario = (funcionario: any) => {
+    setEditFuncData(funcionario);
+    setEditFuncForm({
+      nome: funcionario.nome || "", sobrenome: funcionario.sobrenome || "",
+      email_corporativo: funcionario.email_corporativo || "", telefone: funcionario.telefone || "",
+      turno: funcionario.turno || "",
+    });
+    setEditFuncModal(true);
+  };
+
+  const salvarEdicaoFuncionario = async () => {
+    if (!editFuncData) return;
+    const { error } = await supabase.from("funcionarios").update({
+      nome: editFuncForm.nome, sobrenome: editFuncForm.sobrenome,
+      email_corporativo: editFuncForm.email_corporativo, telefone: editFuncForm.telefone,
+      turno: editFuncForm.turno,
+    }).eq("id", editFuncData.id);
+    if (error) { toast({ variant: "destructive", title: "Erro ao atualizar", description: error.message }); }
+    else { toast({ title: "Dados atualizados!" }); setEditFuncModal(false); carregarDadosIniciais(); }
   };
 
   const funcPasswordValidations = useMemo(() => {

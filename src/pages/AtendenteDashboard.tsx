@@ -858,6 +858,46 @@ const AtendenteDashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* MODAL TERMOS PÓS-PAGAMENTO */}
+      <Dialog open={isTermosAberto} onOpenChange={(open) => { if (!open && aceitouTermos) setIsTermosAberto(false); }}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[480px] rounded-[2rem] p-8 outline-none">
+          <DialogHeader><DialogTitle className="text-lg font-black italic uppercase text-[#22c55e] flex items-center gap-2"><CheckCircle2 size={20} /> Reserva Confirmada</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-2xl p-4">
+              <p className="text-[10px] font-bold text-white leading-relaxed uppercase">
+                RESERVA CONFIRMADA. CANCELAMENTO ATÉ 24H ANTES: COMUNICAR VIA WHATSAPP (98 99991-0535). REMARCAÇÃO MÁXIMO SEMANA SEGUINTE, MESMO TURNO. APÓS 24H NÃO HAVERÁ RESSARCIMENTO.
+              </p>
+            </div>
+            <a href="/regras-arena.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-[#22c55e] text-xs font-black uppercase underline">📄 Regras da Arena</a>
+            <label className="flex items-start gap-3 cursor-pointer bg-white/5 p-3 rounded-2xl border border-white/10">
+              <input type="checkbox" checked={aceitouTermos} onChange={e => setAceitouTermos(e.target.checked)} className="mt-1 accent-[#22c55e] w-5 h-5" />
+              <span className="text-[10px] font-bold text-gray-300 uppercase">Concordo com os termos e regras da Arena Cedro.</span>
+            </label>
+            <Button disabled={!aceitouTermos} onClick={() => { setIsTermosAberto(false); setReservaCriada(false); toast({ title: "✅ Reserva finalizada!" }); }} className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl disabled:opacity-30">Confirmar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL REMARCAÇÃO */}
+      <Dialog open={remarcarModal} onOpenChange={setRemarcarModal}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[400px] rounded-[2rem] p-8 outline-none">
+          <DialogHeader><DialogTitle className="text-lg font-black italic uppercase text-[#22c55e] flex items-center gap-2"><RefreshCcw size={18} /> Remarcar Reserva</DialogTitle></DialogHeader>
+          {remarcarReserva && (
+            <div className="space-y-4 pt-2">
+              <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Atual</p>
+                <p className="font-black text-white text-sm">{new Date(remarcarReserva.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} — {remarcarReserva.horario_inicio?.slice(0,5)}</p>
+              </div>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-xl">
+                <p className="text-[9px] text-yellow-300 font-bold">⚠️ Mesmo horário, mesmo turno. Máximo: semana seguinte.</p>
+              </div>
+              <div><Label className="text-[10px] uppercase text-gray-500 font-bold">Nova Data</Label><Input type="date" value={remarcarData} onChange={e => setRemarcarData(e.target.value)} className="bg-white/5 border-white/10 mt-1 text-white" /></div>
+              <Button disabled={!remarcarData} onClick={handleRemarcarAtendente} className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl">Remarcar</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
