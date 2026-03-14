@@ -11,7 +11,7 @@ import {
 import heroArena from "@/assets/hero-arena.jpg";
 import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 const gerarSlotsAgenda = (duracaoSelecionada: number) => {
   const slotsBase = [
