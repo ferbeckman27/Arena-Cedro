@@ -557,6 +557,7 @@ const AtendenteDashboard = () => {
                                 pixData={pixData}
                                 isCarregando={isCarregandoPix}
                                 onGerarPixIntegral={handleGerarPixIntegral}
+                                onGerarPixLivre={handleGerarPixLivre}
                                 onTimeout={handlePixTimeout}
                                 onConfirmarPagamento={handlePixConfirmadoAtendente}
                                 timeoutMinutos={8}
