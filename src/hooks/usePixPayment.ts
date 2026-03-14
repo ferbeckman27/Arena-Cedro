@@ -41,7 +41,8 @@ export function usePixPayment() {
     reservaId?: number,
     clienteId?: number,
     email?: string,
-    tipoPagamento?: string
+    tipoPagamento?: string,
+    descontoValor?: number
   ): Promise<PixResponse | null> => {
     setIsCarregandoPix(true);
     setPixData(null);
@@ -55,6 +56,7 @@ export function usePixPayment() {
           cliente_id: clienteId,
           email: email || 'cliente@arena.com',
           tipo_pagamento: tipoPagamento || 'integral',
+          desconto_valor: descontoValor ?? 0,
         },
       });
 
