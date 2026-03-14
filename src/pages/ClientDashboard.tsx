@@ -297,16 +297,18 @@ const ClienteDashboard = () => {
     }
   };
 
-  const handlePixConfirmado = () => {
+  const handlePixConfirmado = async () => {
+    // Incrementar fidelidade ao confirmar PIX
+    if (userData.id) {
+      await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
+      setProgressoFidelidade(prev => prev + 1);
+    }
     setIsCheckoutOpen(false);
     setIsConfirmacaoAberta(true);
     setAceitouTermos(false);
     // Reload slots
-    const recarregar = async () => {
-      const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
-      if (data) setListaReservas(data as Reserva[]);
-    };
-    recarregar();
+    const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
+    if (data) setListaReservas(data as Reserva[]);
   };
 
   // Remarcação
