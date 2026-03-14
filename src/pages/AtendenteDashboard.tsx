@@ -268,9 +268,15 @@ const AtendenteDashboard = () => {
     }
   }
 
-  const handleGerarPixIntegral = async (valorOriginal: number) => {
+  const handleGerarPixIntegral = async (valorOriginal: number, descontoValor: number) => {
     if (reservaIdAtual) {
-      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro`, reservaIdAtual, undefined, undefined, 'integral');
+      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro`, reservaIdAtual, undefined, undefined, 'integral', descontoValor);
+    }
+  };
+
+  const handleGerarPixLivre = async (valorOriginal: number) => {
+    if (reservaIdAtual) {
+      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro (PIX Livre)`, reservaIdAtual, undefined, undefined, 'livre', 0);
     }
   };
 

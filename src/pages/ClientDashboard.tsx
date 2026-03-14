@@ -668,6 +668,7 @@ const ClienteDashboard = () => {
                 pixData={pixData}
                 isCarregando={isCarregandoPix}
                 onGerarPixIntegral={handleGerarPixIntegral}
+                onGerarPixLivre={handleGerarPixLivre}
                 onTimeout={handlePixTimeout}
                 onConfirmarPagamento={handlePixConfirmado}
                 timeoutMinutos={8}
