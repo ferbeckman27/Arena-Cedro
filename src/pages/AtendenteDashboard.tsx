@@ -234,10 +234,7 @@ const AtendenteDashboard = () => {
 
       if (resError) throw resError;
 
-      const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
-      if (clienteEncontrado) {
-        await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
-      }
+      // Fidelidade será incrementada apenas na confirmação do pagamento
 
       setReservaIdAtual(reserva.id);
       setReservaCriada(true);
