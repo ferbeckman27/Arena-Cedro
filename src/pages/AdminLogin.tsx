@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowLeft, CheckCircle2, Circle, KeyRound } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
