@@ -231,11 +231,7 @@ const ClienteDashboard = () => {
         );
       }
 
-      // Incrementar fidelidade
-      if (userData.id) {
-        await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
-        setProgressoFidelidade(prev => prev + 1);
-      }
+      // Fidelidade só será incrementada após confirmação de pagamento
 
       setReservaIdAtual(reservaId);
       setReservaCriada(true);
