@@ -292,7 +292,14 @@ const AtendenteDashboard = () => {
     }
   };
 
-  const handlePixConfirmadoAtendente = () => {
+  const handlePixConfirmadoAtendente = async () => {
+    // Incrementar fidelidade ao confirmar pagamento PIX
+    if (reservaIdAtual) {
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', reservaIdAtual).single();
+      if (reserva?.cliente_id) {
+        await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
+      }
+    }
     toast({ title: "Pagamento confirmado!" });
     setIsTermosAberto(true);
     setAceitouTermos(false);
