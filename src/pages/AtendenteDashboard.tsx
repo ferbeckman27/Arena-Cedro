@@ -249,6 +249,11 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
+        // Incrementar fidelidade ao confirmar pagamento presencial
+        const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
+        if (clienteEncontrado) {
+          await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
+        }
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
