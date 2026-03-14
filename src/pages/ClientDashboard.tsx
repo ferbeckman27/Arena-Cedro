@@ -253,7 +253,7 @@ const ClienteDashboard = () => {
     }
   };
 
-  const handleGerarPixIntegral = async (valorOriginal: number) => {
+  const handleGerarPixIntegral = async (valorOriginal: number, descontoValor: number) => {
     let resId = reservaIdAtual;
     if (!reservaCriada) {
       resId = await criarReserva();
@@ -261,8 +261,22 @@ const ClienteDashboard = () => {
     if (resId) {
       await gerarPagamentoPix(
         valorOriginal,
-        `Reserva Arena Cedro - ${horarioSelecionado}`,
-        resId, Number(userData.id), userData.email, 'integral'
+        `Reserva Arena Cedro - ${horarioSelecionado} (desconto R$${descontoValor})`,
+        resId, Number(userData.id), userData.email, 'integral', descontoValor
+      );
+    }
+  };
+
+  const handleGerarPixLivre = async (valorOriginal: number) => {
+    let resId = reservaIdAtual;
+    if (!reservaCriada) {
+      resId = await criarReserva();
+    }
+    if (resId) {
+      await gerarPagamentoPix(
+        valorOriginal,
+        `Reserva Arena Cedro - ${horarioSelecionado} (PIX Livre)`,
+        resId, Number(userData.id), userData.email, 'livre', 0
       );
     }
   };
