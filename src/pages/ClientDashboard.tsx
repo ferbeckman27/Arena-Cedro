@@ -231,11 +231,7 @@ const ClienteDashboard = () => {
         );
       }
 
-      // Incrementar fidelidade
-      if (userData.id) {
-        await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
-        setProgressoFidelidade(prev => prev + 1);
-      }
+      // Fidelidade só será incrementada após confirmação de pagamento
 
       setReservaIdAtual(reservaId);
       setReservaCriada(true);
@@ -251,13 +247,18 @@ const ClienteDashboard = () => {
   const handleFinalizeDinheiro = async () => {
     const id = await criarReserva();
     if (id) {
+      // Incrementar fidelidade ao confirmar pagamento presencial
+      if (userData.id) {
+        await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
+        setProgressoFidelidade(prev => prev + 1);
+      }
       setIsCheckoutOpen(false);
       setIsConfirmacaoAberta(true);
       setAceitouTermos(false);
     }
   };
 
-  const handleGerarPixIntegral = async (valorOriginal: number) => {
+  const handleGerarPixIntegral = async (valorOriginal: number, descontoValor: number) => {
     let resId = reservaIdAtual;
     if (!reservaCriada) {
       resId = await criarReserva();
@@ -265,8 +266,22 @@ const ClienteDashboard = () => {
     if (resId) {
       await gerarPagamentoPix(
         valorOriginal,
-        `Reserva Arena Cedro - ${horarioSelecionado}`,
-        resId, Number(userData.id), userData.email, 'integral'
+        `Reserva Arena Cedro - ${horarioSelecionado} (desconto R$${descontoValor})`,
+        resId, Number(userData.id), userData.email, 'integral', descontoValor
+      );
+    }
+  };
+
+  const handleGerarPixLivre = async (valorOriginal: number) => {
+    let resId = reservaIdAtual;
+    if (!reservaCriada) {
+      resId = await criarReserva();
+    }
+    if (resId) {
+      await gerarPagamentoPix(
+        valorOriginal,
+        `Reserva Arena Cedro - ${horarioSelecionado} (PIX Livre)`,
+        resId, Number(userData.id), userData.email, 'livre', 0
       );
     }
   };
@@ -282,16 +297,18 @@ const ClienteDashboard = () => {
     }
   };
 
-  const handlePixConfirmado = () => {
+  const handlePixConfirmado = async () => {
+    // Incrementar fidelidade ao confirmar PIX
+    if (userData.id) {
+      await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
+      setProgressoFidelidade(prev => prev + 1);
+    }
     setIsCheckoutOpen(false);
     setIsConfirmacaoAberta(true);
     setAceitouTermos(false);
     // Reload slots
-    const recarregar = async () => {
-      const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
-      if (data) setListaReservas(data as Reserva[]);
-    };
-    recarregar();
+    const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
+    if (data) setListaReservas(data as Reserva[]);
   };
 
   // Remarcação
@@ -651,6 +668,7 @@ const ClienteDashboard = () => {
                 pixData={pixData}
                 isCarregando={isCarregandoPix}
                 onGerarPixIntegral={handleGerarPixIntegral}
+                onGerarPixLivre={handleGerarPixLivre}
                 onTimeout={handlePixTimeout}
                 onConfirmarPagamento={handlePixConfirmado}
                 timeoutMinutos={8}

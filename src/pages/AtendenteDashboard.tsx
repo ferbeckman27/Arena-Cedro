@@ -234,10 +234,7 @@ const AtendenteDashboard = () => {
 
       if (resError) throw resError;
 
-      const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
-      if (clienteEncontrado) {
-        await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
-      }
+      // Fidelidade será incrementada apenas na confirmação do pagamento
 
       setReservaIdAtual(reserva.id);
       setReservaCriada(true);
@@ -252,6 +249,11 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
+        // Incrementar fidelidade ao confirmar pagamento presencial
+        const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
+        if (clienteEncontrado) {
+          await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
+        }
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
@@ -268,9 +270,15 @@ const AtendenteDashboard = () => {
     }
   }
 
-  const handleGerarPixIntegral = async (valorOriginal: number) => {
+  const handleGerarPixIntegral = async (valorOriginal: number, descontoValor: number) => {
     if (reservaIdAtual) {
-      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro`, reservaIdAtual, undefined, undefined, 'integral');
+      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro`, reservaIdAtual, undefined, undefined, 'integral', descontoValor);
+    }
+  };
+
+  const handleGerarPixLivre = async (valorOriginal: number) => {
+    if (reservaIdAtual) {
+      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro (PIX Livre)`, reservaIdAtual, undefined, undefined, 'livre', 0);
     }
   };
 
@@ -284,7 +292,14 @@ const AtendenteDashboard = () => {
     }
   };
 
-  const handlePixConfirmadoAtendente = () => {
+  const handlePixConfirmadoAtendente = async () => {
+    // Incrementar fidelidade ao confirmar pagamento PIX
+    if (reservaIdAtual) {
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', reservaIdAtual).single();
+      if (reserva?.cliente_id) {
+        await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
+      }
+    }
     toast({ title: "Pagamento confirmado!" });
     setIsTermosAberto(true);
     setAceitouTermos(false);
@@ -306,11 +321,16 @@ const AtendenteDashboard = () => {
 
   const handleLiquidarReserva = async (id: number, total: number, metodo: string) => {
     try {
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', id).single();
       const { error } = await supabase.from('reservas').update({
         pago: true, valor_pago_sinal: total, data_pagamento: new Date().toISOString(),
         forma_pagamento: metodo, status: 'confirmada'
       }).eq('id', id);
       if (error) throw error;
+      // Incrementar fidelidade ao dar baixa
+      if (reserva?.cliente_id) {
+        await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
+      }
       toast({ title: "Pagamento Confirmado" });
       carregarReservasFinancas();
     } catch (e: any) {
@@ -551,6 +571,7 @@ const AtendenteDashboard = () => {
                                 pixData={pixData}
                                 isCarregando={isCarregandoPix}
                                 onGerarPixIntegral={handleGerarPixIntegral}
+                                onGerarPixLivre={handleGerarPixLivre}
                                 onTimeout={handlePixTimeout}
                                 onConfirmarPagamento={handlePixConfirmadoAtendente}
                                 timeoutMinutos={8}

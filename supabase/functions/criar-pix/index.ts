@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { valor, email, descricao, reserva_id, cliente_id, tipo_pagamento } =
+    const { valor, email, descricao, reserva_id, cliente_id, tipo_pagamento, desconto_valor } =
       await req.json();
 
     const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
@@ -23,10 +23,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Valor integral com desconto de R$10 para pagamento online
-    const DESCONTO_ONLINE = 10;
     const valorOriginal = Number(valor);
-    const valorComDesconto = Math.max(valorOriginal - DESCONTO_ONLINE, 0);
+    // Use desconto_valor from client (0 for PIX Livre, 10 for avulsa integral, 40 for VIP integral)
+    const desconto = typeof desconto_valor === 'number' ? desconto_valor : 0;
+    const valorComDesconto = Math.max(valorOriginal - desconto, 0);
+
+    // Descrição dinâmica
+    const descricaoFinal = desconto > 0
+      ? descricao || `Reserva Arena Cedro - Pagamento com desconto R$${desconto}`
+      : descricao || "Reserva Arena Cedro - Pagamento PIX";
 
     // Cria pagamento PIX no Mercado Pago
     const mpResponse = await fetch("https://api.mercadopago.com/v1/payments", {
@@ -37,8 +42,8 @@ Deno.serve(async (req) => {
         "X-Idempotency-Key": `arena-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       },
       body: JSON.stringify({
-        transaction_amount: valorComDesconto,
-        description: descricao || "Reserva Arena Cedro - Pagamento Integral (desconto R$10)",
+        transaction_amount: valorComDesconto > 0 ? valorComDesconto : valorOriginal,
+        description: descricaoFinal,
         payment_method_id: "pix",
         installments: 1,
         payer: {
@@ -60,6 +65,7 @@ Deno.serve(async (req) => {
     }
 
     const mpData = await mpResponse.json();
+    const valorFinalPago = valorComDesconto > 0 ? valorComDesconto : valorOriginal;
 
     // Salva o pagamento no banco
     if (reserva_id) {
@@ -68,21 +74,19 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      // Atualiza a reserva com pagamento integral
       await supabase
         .from("reservas")
         .update({
-          valor_sinal: valorComDesconto,
+          valor_sinal: valorFinalPago,
           valor_restante: 0,
           valor_total: valorOriginal,
         })
         .eq("id", reserva_id);
 
-      // Insere o registro de pagamento
       await supabase.from("pagamentos").insert([
         {
           reserva_id: reserva_id,
-          valor: valorComDesconto,
+          valor: valorFinalPago,
           status: "pendente",
           tipo: tipo_pagamento || "integral",
           forma_pagamento: "pix",
@@ -104,9 +108,9 @@ Deno.serve(async (req) => {
           mpData.point_of_interaction?.transaction_data?.qr_code_base64 || "",
         ticketUrl:
           mpData.point_of_interaction?.transaction_data?.ticket_url || "",
-        valorPago: valorComDesconto,
+        valorPago: valorFinalPago,
         valorOriginal: valorOriginal,
-        desconto: DESCONTO_ONLINE,
+        desconto: desconto,
         valorRestante: 0,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
