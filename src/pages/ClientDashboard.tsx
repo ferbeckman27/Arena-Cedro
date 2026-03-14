@@ -247,6 +247,11 @@ const ClienteDashboard = () => {
   const handleFinalizeDinheiro = async () => {
     const id = await criarReserva();
     if (id) {
+      // Incrementar fidelidade ao confirmar pagamento presencial
+      if (userData.id) {
+        await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
+        setProgressoFidelidade(prev => prev + 1);
+      }
       setIsCheckoutOpen(false);
       setIsConfirmacaoAberta(true);
       setAceitouTermos(false);
