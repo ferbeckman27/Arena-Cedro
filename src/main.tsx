@@ -2,5 +2,5 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Force clean rebuild v2
+// Force clean rebuild v3
 createRoot(document.getElementById("root")!).render(<App />);
