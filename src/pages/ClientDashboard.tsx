@@ -132,8 +132,12 @@ const ClienteDashboard = () => {
   }, [horarioSelecionado, selectedDuration]);
 
   const totalGeral = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (item.preco || 0), 0) + valorApenasReserva;
-  }, [cart, valorApenasReserva]);
+    const produtosTotal = cart.reduce((acc, item) => acc + (item.preco || 0), 0);
+    if (tipoReserva === 'pacote') {
+      return valorApenasReserva * quantidadeJogosPacote + produtosTotal;
+    }
+    return produtosTotal + valorApenasReserva;
+  }, [cart, valorApenasReserva, tipoReserva]);
 
   const descontoAtual = tipoReserva === 'pacote' ? 40 : 10;
   const quantidadeJogosPacote = 4;
