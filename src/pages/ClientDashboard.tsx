@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import {
   Clock, ChevronLeft, ChevronRight, ShoppingCart, LogOut, Star, Package,
   AlertTriangle, CreditCard, User, CalendarCheck, History, RefreshCcw,
-  Banknote, Crown, CheckCircle2,
+  Banknote, Crown, CheckCircle2, Trash2, XCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
