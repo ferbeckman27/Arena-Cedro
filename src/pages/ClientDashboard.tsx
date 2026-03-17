@@ -791,6 +791,40 @@ const ClienteDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* MODAL CANCELAMENTO */}
+      <Dialog open={cancelarModal} onOpenChange={setCancelarModal}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[440px] rounded-[2rem] p-8 outline-none">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black italic uppercase text-red-400 flex items-center gap-2"><XCircle size={20} /> Cancelar Reserva</DialogTitle>
+          </DialogHeader>
+          {cancelarReserva && (
+            <div className="space-y-4 pt-4">
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Reserva</p>
+                <p className="font-black text-white">{new Date(cancelarReserva.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} — {cancelarReserva.horario_inicio}</p>
+              </div>
+              <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl space-y-2">
+                <p className="text-xs font-black text-red-400 uppercase">⚠️ Política de Cancelamento/Remarcação:</p>
+                <ul className="text-[10px] text-red-300 leading-relaxed space-y-1 list-disc pl-4">
+                  <li>Cancelamento até <strong>24 horas antes</strong> do início do jogo.</li>
+                  <li>Comunicar via WhatsApp <strong>(98) 99991-0535</strong>.</li>
+                  <li>Remarcação apenas para a <strong>semana seguinte</strong>, mesmo turno.</li>
+                  <li>Após 24h: <strong>sem ressarcimento ou remarcação</strong>.</li>
+                </ul>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => setCancelarModal(false)} className="border-white/10 text-gray-400 rounded-xl">
+                  Voltar
+                </Button>
+                <Button onClick={handleCancelarReserva} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase rounded-xl">
+                  Confirmar Cancelamento
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
