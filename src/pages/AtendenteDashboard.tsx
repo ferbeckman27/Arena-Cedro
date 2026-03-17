@@ -812,7 +812,7 @@ const AtendenteDashboard = () => {
                 <TableHeader className="bg-white/5">
                   <TableRow className="border-white/5 text-[10px] font-black uppercase text-gray-400">
                     <TableHead>Atleta</TableHead><TableHead>Data/Hora</TableHead><TableHead>Tipo</TableHead>
-                    <TableHead>Total</TableHead><TableHead className="text-red-500">Restante</TableHead><TableHead className="text-right">Ação</TableHead>
+                    <TableHead>Total</TableHead><TableHead className="text-red-500">Pago / Restante</TableHead><TableHead className="text-right">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
