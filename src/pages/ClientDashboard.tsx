@@ -350,8 +350,6 @@ const ClienteDashboard = () => {
     }
   };
 
-  const [cancelarModal, setCancelarModal] = useState(false);
-  const [cancelarReserva, setCancelarReserva] = useState<Reserva | null>(null);
 
   const handleCancelarReserva = async () => {
     if (!cancelarReserva?.id) return;
