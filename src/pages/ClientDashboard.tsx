@@ -49,7 +49,7 @@ const ClienteDashboard = () => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [produtos, setProdutos] = useState<Product[]>([]);
   const [progressoFidelidade, setProgressoFidelidade] = useState(0);
-  const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'fixa'>('avulsa');
+  const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'pacote'>('avulsa');
   const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
