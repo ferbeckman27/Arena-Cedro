@@ -469,7 +469,7 @@ const AtendenteDashboard = () => {
           <TabsList className="bg-white/5 p-1 rounded-2xl border border-white/5 w-full md:w-fit overflow-x-auto">
             <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">Agenda</TabsTrigger>
             <TabsTrigger value="clientes" className="px-6 font-bold uppercase italic">Clientes</TabsTrigger>
-            <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">VIPs/Fixos</TabsTrigger>
+            <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">Pacotes</TabsTrigger>
             <TabsTrigger value="produtos" className="font-black italic uppercase px-6 bg-[#22c55e]/10 text-[#22c55e]">Produtos</TabsTrigger>
             <TabsTrigger value="alertas" className="font-black italic uppercase px-6">Alertas</TabsTrigger>
             <TabsTrigger value="financeiro" className="font-black italic uppercase px-6">Financeiro</TabsTrigger>
@@ -693,7 +693,7 @@ const AtendenteDashboard = () => {
           {/* VIP - Editar / Cancelar */}
           <TabsContent value="vip">
             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
-              <h3 className="text-2xl font-black italic uppercase flex items-center gap-3 mb-6"><Crown className="text-[#22c55e]" /> Horários Fixos (Mensalistas)</h3>
+              <h3 className="text-2xl font-black italic uppercase flex items-center gap-3 mb-6"><Crown className="text-[#22c55e]" /> Pacotes com Desconto</h3>
               <div className="space-y-4">
                 {mensalistas.map(m => (
                   <div key={m.id} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -812,25 +812,31 @@ const AtendenteDashboard = () => {
                 <TableHeader className="bg-white/5">
                   <TableRow className="border-white/5 text-[10px] font-black uppercase text-gray-400">
                     <TableHead>Atleta</TableHead><TableHead>Data/Hora</TableHead><TableHead>Tipo</TableHead>
-                    <TableHead>Total</TableHead><TableHead className="text-red-500">Restante</TableHead><TableHead className="text-right">Ação</TableHead>
+                    <TableHead>Total</TableHead><TableHead className="text-red-500">Pago / Restante</TableHead><TableHead className="text-right">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                 {listaReservas.filter(r => !r.pago && r.status !== 'cancelada').map(res => {
-                    const restante = Number(res.valor_total) - Number(res.valor_pago_sinal || 0);
+                    const pago = Number(res.valor_pago_sinal || 0);
+                    const restante = Number(res.valor_total) - pago;
                     return (
                       <TableRow key={res.id} className="border-white/5">
                         <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
                         <TableCell className="text-[11px]">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} {res.horario_inicio?.slice(0,5)}</TableCell>
                         <TableCell>
-                          <Badge className={cn("text-[8px] font-black border-none", res.reserva_fixa_id ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
-                            {res.reserva_fixa_id ? "FIXA" : "AVULSA"}
+                          <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                            {res.tipo === 'pacote' ? "PACOTE" : "AVULSA"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs font-bold">R$ {Number(res.valor_total).toFixed(2)}</TableCell>
-                        <TableCell className="text-sm font-black text-red-500">R$ {restante.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {pago > 0 && <p className="text-[9px] text-[#22c55e] font-bold">Pago: R$ {pago.toFixed(2)}</p>}
+                            <p className="text-sm font-black text-red-500">Falta: R$ {restante.toFixed(2)}</p>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center gap-2 justify-end">
+                          <div className="flex items-center gap-2 justify-end flex-wrap">
                             <select defaultValue="dinheiro" id={`pgto-${res.id}`} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white">
                               <option value="dinheiro">Dinheiro</option>
                               <option value="pix">PIX</option>
@@ -840,6 +846,13 @@ const AtendenteDashboard = () => {
                               const sel = (document.getElementById(`pgto-${res.id}`) as HTMLSelectElement)?.value || 'dinheiro';
                               handleLiquidarReserva(res.id, Number(res.valor_total), sel);
                             }} className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
+                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[9px] h-8"
+                              onClick={async () => {
+                                if (!confirm("Cancelar esta reserva?")) return;
+                                await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', res.id);
+                                toast({ title: "Reserva cancelada." });
+                                carregarReservasFinancas();
+                              }}>Cancelar</Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -857,17 +870,28 @@ const AtendenteDashboard = () => {
               <Table>
                 <TableBody>
                   {listaReservas.filter(r => r.pago).slice(0, 20).map(res => (
-                    <TableRow key={res.id} className="border-white/5 opacity-60">
+                    <TableRow key={res.id} className="border-white/5 opacity-70">
                       <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
                       <TableCell className="text-gray-500 text-xs">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} | {res.horario_inicio?.slice(0,5)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
                           <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
                           <Badge className="text-[8px] bg-white/5">{res.forma_pagamento}</Badge>
-                          {/* Botão devolver estoque aluguel */}
+                          <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                            {res.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}
+                          </Badge>
                           <Button variant="ghost" size="sm" className="text-purple-400 hover:bg-purple-500/10 rounded-xl text-[9px]"
                             onClick={() => handleDevolverEstoque(res.id)} title="Devolver itens alugados">
                             <RefreshCcw size={12} className="mr-1" /> Devolver
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10 rounded-xl text-[9px]"
+                            onClick={async () => {
+                              if (!confirm("Excluir reserva paga?")) return;
+                              await supabase.from('reservas').delete().eq('id', res.id);
+                              toast({ title: "Reserva excluída." });
+                              carregarReservasFinancas();
+                            }}>
+                            <Trash2 size={12} className="mr-1" /> Excluir
                           </Button>
                         </div>
                       </TableCell>

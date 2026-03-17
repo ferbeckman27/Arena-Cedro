@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +9,7 @@ import { cn } from "@/lib/utils";
 interface PixPaymentSectionProps {
   valorTotal: number;
   desconto: number;
-  tipoReserva: "avulsa" | "fixa";
+  tipoReserva: "avulsa" | "pacote";
   pixChaveEstatica: string;
   pixData?: {
     qrCodeBase64: string;
@@ -19,10 +20,11 @@ interface PixPaymentSectionProps {
   } | null;
   isCarregando: boolean;
   onGerarPixIntegral: (valorOriginal: number, descontoValor: number) => void;
-  onGerarPixLivre: (valorOriginal: number) => void;
+  onGerarPixLivre: (valorDigitado: number) => void;
   onTimeout: () => void;
   onConfirmarPagamento: () => void;
   timeoutMinutos?: number;
+  quantidadeJogos?: number;
 }
 
 export function PixPaymentSection({
@@ -37,12 +39,14 @@ export function PixPaymentSection({
   onTimeout,
   onConfirmarPagamento,
   timeoutMinutos = 8,
+  quantidadeJogos = 1,
 }: PixPaymentSectionProps) {
   const { toast } = useToast();
-  const [modoPix, setModoPix] = useState<"livre" | "integral">("integral");
+  const [modoPix, setModoPix] = useState<"livre" | "integral">(tipoReserva === "pacote" ? "integral" : "livre");
   const [pixGerado, setPixGerado] = useState(false);
   const [tempoRestante, setTempoRestante] = useState(0);
   const [timerAtivo, setTimerAtivo] = useState(false);
+  const [valorLivre, setValorLivre] = useState("");
 
   const valorComDesconto = Math.max(valorTotal - desconto, 0);
 
@@ -75,8 +79,16 @@ export function PixPaymentSection({
     if (modoPix === "integral") {
       onGerarPixIntegral(valorTotal, desconto);
     } else {
-      // PIX Livre: gera via MP com valor cheio, sem desconto
-      onGerarPixLivre(valorTotal);
+      const val = parseFloat(valorLivre);
+      if (!val || val <= 0) {
+        toast({ variant: "destructive", title: "Digite um valor válido para adiantar." });
+        return;
+      }
+      if (val > valorTotal) {
+        toast({ variant: "destructive", title: "Valor não pode ser maior que o total da reserva." });
+        return;
+      }
+      onGerarPixLivre(val);
     }
     setPixGerado(true);
     iniciarTimer();
@@ -107,8 +119,8 @@ export function PixPaymentSection({
                 : "border-white/5 hover:border-white/20"
             )}
           >
-            <p className="text-[10px] font-black uppercase text-[#22c55e]">PIX Livre</p>
-            <p className="text-[8px] text-gray-500 mt-1">Valor cheio, sem desconto</p>
+            <p className="text-[10px] font-black uppercase text-[#22c55e]">PIX Adiantamento</p>
+            <p className="text-[8px] text-gray-500 mt-1">Você escolhe o valor a adiantar</p>
           </button>
           <button
             onClick={() => setModoPix("integral")}
@@ -127,7 +139,7 @@ export function PixPaymentSection({
         </div>
       )}
 
-      {/* Resumo de valores para integral */}
+      {/* Resumo PIX Integral */}
       {modoPix === "integral" && !pixGerado && (
         <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-2">
           <div className="flex justify-between text-sm">
@@ -135,7 +147,9 @@ export function PixPaymentSection({
             <span className="text-white font-bold">R$ {valorTotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm text-[#22c55e]">
-            <span className="font-bold">Desconto PIX {tipoReserva === "fixa" ? "(4 jogos x R$10)" : "online"}:</span>
+            <span className="font-bold">
+              Desconto PIX {tipoReserva === "pacote" ? `(${quantidadeJogos} jogos x R$10)` : "online"}:
+            </span>
             <span className="font-black">- R$ {desconto.toFixed(2)}</span>
           </div>
           <div className="border-t border-white/10 pt-2 flex justify-between">
@@ -145,14 +159,39 @@ export function PixPaymentSection({
         </div>
       )}
 
-      {/* Resumo para PIX Livre */}
+      {/* Resumo PIX Livre / Adiantamento */}
       {modoPix === "livre" && !pixGerado && (
-        <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-2">
+        <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-3">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Valor da reserva (sem desconto):</span>
+            <span className="text-gray-400">Valor total da reserva:</span>
             <span className="text-white font-bold">R$ {valorTotal.toFixed(2)}</span>
           </div>
-          <p className="text-[9px] text-yellow-400 font-bold">⚠️ PIX Livre: valor cheio sem desconto. QR Code gerado pelo Mercado Pago.</p>
+          <div>
+            <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">
+              Quanto deseja adiantar? (R$)
+            </label>
+            <Input
+              type="number"
+              min="1"
+              max={valorTotal}
+              step="0.01"
+              placeholder="Ex: 50.00"
+              value={valorLivre}
+              onChange={(e) => setValorLivre(e.target.value)}
+              className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
+            />
+          </div>
+          {valorLivre && parseFloat(valorLivre) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-yellow-400 font-bold">Restante (pagar na arena):</span>
+              <span className="text-yellow-400 font-black">
+                R$ {Math.max(valorTotal - parseFloat(valorLivre), 0).toFixed(2)}
+              </span>
+            </div>
+          )}
+          <p className="text-[9px] text-yellow-400 font-bold">
+            ⚠️ O valor restante deverá ser pago no caixa da arena antes do jogo.
+          </p>
         </div>
       )}
 
@@ -170,13 +209,13 @@ export function PixPaymentSection({
         </div>
       )}
 
-      {/* QR Code do Mercado Pago (ambos os modos usam MP agora) */}
+      {/* QR Code do Mercado Pago */}
       {pixGerado && pixData && (
         <div className="bg-black/60 rounded-[2rem] border border-[#22c55e]/20 p-6 flex flex-col items-center gap-4">
           <p className="text-xs font-black uppercase text-[#22c55e]">
             {modoPix === "integral"
               ? `PIX Integral — R$ ${pixData.valorPago.toFixed(2)}`
-              : `PIX Livre — R$ ${pixData.valorPago.toFixed(2)}`}
+              : `PIX Adiantamento — R$ ${pixData.valorPago.toFixed(2)}`}
           </p>
 
           {/* Resumo de valores */}
@@ -192,9 +231,15 @@ export function PixPaymentSection({
               </div>
             )}
             <div className="border-t border-white/10 pt-1 flex justify-between text-xs">
-              <span className="text-gray-300 font-bold">Você paga:</span>
+              <span className="text-gray-300 font-bold">Valor do PIX:</span>
               <span className="text-[#22c55e] font-black text-lg">R$ {pixData.valorPago.toFixed(2)}</span>
             </div>
+            {modoPix === "livre" && (
+              <div className="flex justify-between text-[10px] text-yellow-400">
+                <span className="font-bold">Restante (pagar na arena):</span>
+                <span className="font-black">R$ {Math.max((pixData.valorOriginal || valorTotal) - pixData.valorPago, 0).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           {/* QR Code Image */}
@@ -242,14 +287,14 @@ export function PixPaymentSection({
         </div>
       )}
 
-      {/* Loading state when waiting for MP response */}
+      {/* Loading state */}
       {pixGerado && !pixData && isCarregando && (
         <div className="bg-black/60 rounded-[2rem] border border-[#22c55e]/20 p-6 flex flex-col items-center gap-4">
-          <p className="text-[#22c55e] font-black text-sm animate-pulse">⏳ Gerando QR Code do Mercado Pago...</p>
+          <p className="text-[#22c55e] font-black text-sm animate-pulse">⏳ Gerando QR Code...</p>
         </div>
       )}
 
-      {/* Error state - PIX gerado mas sem dados e não carregando */}
+      {/* Error state */}
       {pixGerado && !pixData && !isCarregando && (
         <div className="bg-black/60 rounded-[2rem] border border-red-500/20 p-6 flex flex-col items-center gap-4">
           <p className="text-red-400 font-black text-sm">❌ Erro ao gerar PIX. Tente novamente.</p>
@@ -262,14 +307,14 @@ export function PixPaymentSection({
       {/* Botão Gerar */}
       {!pixGerado && (
         <Button
-          disabled={isCarregando}
+          disabled={isCarregando || (modoPix === "livre" && (!valorLivre || parseFloat(valorLivre) <= 0))}
           onClick={handleGerarPix}
           className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
         >
           {isCarregando
             ? "Processando..."
             : modoPix === "livre"
-            ? `Gerar PIX Livre — R$ ${valorTotal.toFixed(2)}`
+            ? `Gerar PIX — R$ ${valorLivre ? parseFloat(valorLivre).toFixed(2) : "0.00"}`
             : `Gerar PIX Integral — R$ ${valorComDesconto.toFixed(2)}`}
         </Button>
       )}

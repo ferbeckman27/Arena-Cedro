@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import {
   Clock, ChevronLeft, ChevronRight, ShoppingCart, LogOut, Star, Package,
   AlertTriangle, CreditCard, User, CalendarCheck, History, RefreshCcw,
-  Banknote, Crown, CheckCircle2,
+  Banknote, Crown, CheckCircle2, Trash2, XCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -49,7 +49,7 @@ const ClienteDashboard = () => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [produtos, setProdutos] = useState<Product[]>([]);
   const [progressoFidelidade, setProgressoFidelidade] = useState(0);
-  const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'fixa'>('avulsa');
+  const [tipoReserva, setTipoReserva] = useState<'avulsa' | 'pacote'>('avulsa');
   const [isConfirmacaoAberta, setIsConfirmacaoAberta] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [review, setReview] = useState({ nome: "", estrelas: 5, texto: "" });
@@ -64,6 +64,9 @@ const ClienteDashboard = () => {
   const [remarcarModal, setRemarcarModal] = useState(false);
   const [remarcarReserva, setRemarcarReserva] = useState<Reserva | null>(null);
   const [remarcarData, setRemarcarData] = useState("");
+  // Cancelamento
+  const [cancelarModal, setCancelarModal] = useState(false);
+  const [cancelarReserva, setCancelarReserva] = useState<Reserva | null>(null);
 
   const { isCarregandoPix, pixData, gerarPagamentoPix, limparPix } = usePixPayment();
 
@@ -131,11 +134,16 @@ const ClienteDashboard = () => {
     return calcularPrecoReserva(selectedDuration, parseInt(horarioSelecionado.split(":")[0]));
   }, [horarioSelecionado, selectedDuration]);
 
-  const totalGeral = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (item.preco || 0), 0) + valorApenasReserva;
-  }, [cart, valorApenasReserva]);
+  const descontoAtual = tipoReserva === 'pacote' ? 40 : 10;
+  const quantidadeJogosPacote = 4;
 
-  const descontoAtual = tipoReserva === 'fixa' ? 40 : 10;
+  const totalGeral = useMemo(() => {
+    const produtosTotal = cart.reduce((acc, item) => acc + (item.preco || 0), 0);
+    if (tipoReserva === 'pacote') {
+      return valorApenasReserva * quantidadeJogosPacote + produtosTotal;
+    }
+    return produtosTotal + valorApenasReserva;
+  }, [cart, valorApenasReserva, tipoReserva]);
 
   // --- FUNÇÕES ---
   const addToCart = (product: Product) => {
@@ -187,25 +195,20 @@ const ClienteDashboard = () => {
     try {
       let reservaId = null;
 
-      if (tipoReserva === 'fixa') {
-        const diaSemanaId = diaSelecionado.getDay() + 1;
-        const { data: fixa, error } = await supabase.from('reservas_fixas').insert([{
-          cliente_id: Number(userData.id), dia_semana_id: diaSemanaId,
-          horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
-          turno_id, data_inicio: diaSelecionado.toISOString().split('T')[0], ativo: true
-        }]).select().single();
-        if (error) throw error;
-        // Also create a reserva entry for the first occurrence
-        const { data: avulsa, error: err2 } = await supabase.from('reservas').insert([{
+      if (tipoReserva === 'pacote') {
+        // Pacote: 4 jogos com desconto
+        const valorPacote = valorApenasReserva * quantidadeJogosPacote;
+        const { data: avulsa, error } = await supabase.from('reservas').insert([{
           cliente_id: Number(userData.id), cliente_nome: userData.nome,
           data_reserva: diaSelecionado.toISOString().split('T')[0],
           horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
-          turno_id, tipo: 'fixa', reserva_fixa_id: fixa?.id,
+          turno_id, tipo: 'pacote',
           status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada',
-          valor_total: totalGeral, valor_sinal: totalGeral, valor_restante: 0,
-          forma_pagamento: metodoPagamento
+          valor_total: valorPacote, valor_sinal: 0, valor_restante: valorPacote,
+          forma_pagamento: metodoPagamento,
+          observacoes: `Pacote ${quantidadeJogosPacote} jogos`
         }]).select().single();
-        if (err2) throw err2;
+        if (error) throw error;
         reservaId = avulsa?.id;
       } else {
         const { data: avulsa, error } = await supabase.from('reservas').insert([{
@@ -214,7 +217,7 @@ const ClienteDashboard = () => {
           horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
           turno_id, tipo: 'avulsa',
           status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada',
-          valor_total: totalGeral, valor_sinal: totalGeral, valor_restante: 0,
+          valor_total: totalGeral, valor_sinal: 0, valor_restante: totalGeral,
           forma_pagamento: metodoPagamento
         }]).select().single();
         if (error) throw error;
@@ -272,16 +275,21 @@ const ClienteDashboard = () => {
     }
   };
 
-  const handleGerarPixLivre = async (valorOriginal: number) => {
+  const handleGerarPixLivre = async (valorDigitado: number) => {
     let resId = reservaIdAtual;
     if (!reservaCriada) {
       resId = await criarReserva();
     }
     if (resId) {
+      // Update reserva with the advance amount
+      await supabase.from('reservas').update({
+        valor_sinal: valorDigitado,
+        valor_restante: totalGeral - valorDigitado,
+      }).eq('id', resId);
       await gerarPagamentoPix(
-        valorOriginal,
-        `Reserva Arena Cedro - ${horarioSelecionado} (PIX Livre)`,
-        resId, Number(userData.id), userData.email, 'livre', 0
+        valorDigitado,
+        `Reserva Arena Cedro - ${horarioSelecionado} (Adiantamento)`,
+        resId, Number(userData.id), userData.email, 'adiantamento', 0
       );
     }
   };
@@ -323,6 +331,33 @@ const ClienteDashboard = () => {
       setRemarcarModal(false);
       setRemarcarReserva(null);
       // Reload
+      const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+      if (historico) setHistoricoReservas(historico);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro", description: e.message });
+    }
+  };
+
+  const handleExcluirReserva = async (reservaId: number) => {
+    if (!confirm("Tem certeza que deseja excluir esta reserva do histórico?")) return;
+    try {
+      await supabase.from('reservas').delete().eq('id', reservaId);
+      toast({ title: "Reserva excluída do histórico." });
+      const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+      if (historico) setHistoricoReservas(historico);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro", description: e.message });
+    }
+  };
+
+
+  const handleCancelarReserva = async () => {
+    if (!cancelarReserva?.id) return;
+    try {
+      await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', cancelarReserva.id);
+      toast({ title: "Reserva cancelada.", description: "Confira as regras de remarcação/cancelamento." });
+      setCancelarModal(false);
+      setCancelarReserva(null);
       const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
       if (historico) setHistoricoReservas(historico);
     } catch (e: any) {
@@ -458,11 +493,11 @@ const ClienteDashboard = () => {
                   <label className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest ml-1">Tipo de Agendamento</label>
                   <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
                     <button type="button" onClick={() => setTipoReserva('avulsa')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReserva === 'avulsa' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>⚽ Avulsa</button>
-                    <button type="button" onClick={() => setTipoReserva('fixa')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReserva === 'fixa' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>📅 Fixa/VIP</button>
+                    <button type="button" onClick={() => setTipoReserva('pacote')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReserva === 'pacote' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>📦 Pacote 4 Jogos</button>
                   </div>
-                  {tipoReserva === 'fixa' && (
+                  {tipoReserva === 'pacote' && (
                     <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-3 rounded-xl">
-                      <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">✨ Reserva Fixa: 4 jogos com desconto de R$40 (R$10/jogo)</p>
+                      <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">✨ Pacote 4 jogos: desconto de R$10 por jogo (R$40 total). Pagamento antecipado PIX ou dinheiro.</p>
                     </div>
                   )}
                 </div>
@@ -577,25 +612,38 @@ const ClienteDashboard = () => {
                           <div>
                             <p className="font-black text-xs uppercase text-white italic">{new Date(r.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} — {r.horario_inicio}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge className={cn("text-[8px] font-black border-none", r.tipo === 'fixa' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>{r.tipo === 'fixa' ? 'FIXA' : 'AVULSA'}</Badge>
-                              <Badge className={cn("text-[8px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'pendente' ? "bg-yellow-500/20 text-yellow-500" : "bg-red-500/20 text-red-500")}>{r.pago ? 'PAGO' : r.status === 'pendente' ? 'PENDENTE' : (r.status || 'PENDENTE').toUpperCase()}</Badge>
+                              <Badge className={cn("text-[8px] font-black border-none", r.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>{r.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}</Badge>
+                              <Badge className={cn("text-[8px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'pendente' ? "bg-yellow-500/20 text-yellow-500" : r.status === 'cancelada' ? "bg-red-500/20 text-red-500" : "bg-yellow-500/20 text-yellow-500")}>{r.pago ? 'PAGO' : (r.status || 'PENDENTE').toUpperCase()}</Badge>
                             </div>
                           </div>
                           <div className="text-right space-y-1">
                             <p className="font-black text-[#22c55e]">R$ {Number(r.valor_total || 0).toFixed(2)}</p>
                             <p className="text-[9px] text-gray-500 uppercase">{r.forma_pagamento || '—'}</p>
-                            {/* Botão Remarcar */}
-                            {(r.status === 'confirmada' || r.pago) && r.status !== 'cancelada' && (
-                              <Button size="sm" variant="outline" className="border-blue-500/20 text-blue-400 rounded-xl text-[8px] h-6 px-2"
-                                onClick={() => {
-                                  setRemarcarReserva(r);
-                                  setRemarcarData("");
-                                  setRemarcarModal(true);
-                                }}>
-                                <RefreshCcw size={10} className="mr-1" /> Remarcar
-                              </Button>
-                            )}
                           </div>
+                        </div>
+                        {/* Botões de ação */}
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                          {/* Remarcar */}
+                          {(r.status === 'confirmada' || r.pago) && r.status !== 'cancelada' && (
+                            <Button size="sm" variant="outline" className="border-blue-500/20 text-blue-400 rounded-xl text-[8px] h-7 px-2"
+                              onClick={() => { setRemarcarReserva(r); setRemarcarData(""); setRemarcarModal(true); }}>
+                              <RefreshCcw size={10} className="mr-1" /> Remarcar
+                            </Button>
+                          )}
+                          {/* Cancelar - mostra política */}
+                          {r.status !== 'cancelada' && !r.pago && (
+                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[8px] h-7 px-2"
+                              onClick={() => { setCancelarReserva(r); setCancelarModal(true); }}>
+                              <XCircle size={10} className="mr-1" /> Cancelar
+                            </Button>
+                          )}
+                          {/* Excluir - só se pagamento concluído */}
+                          {r.pago && (
+                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[8px] h-7 px-2"
+                              onClick={() => handleExcluirReserva(r.id!)}>
+                              <Trash2 size={10} className="mr-1" /> Excluir
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -637,8 +685,8 @@ const ClienteDashboard = () => {
                 <span className="text-gray-400">Total:</span>
                 <span className="text-[#22c55e] text-2xl">R$ {totalGeral.toFixed(2)}</span>
               </div>
-              {tipoReserva === 'fixa' && (
-                <p className="text-[9px] text-purple-400 font-bold italic">📅 Reserva Fixa/VIP — desconto de R$40 no PIX integral</p>
+              {tipoReserva === 'pacote' && (
+                <p className="text-[9px] text-purple-400 font-bold italic">📦 Pacote 4 jogos — desconto de R$40 no PIX integral</p>
               )}
             </div>
 
@@ -672,6 +720,7 @@ const ClienteDashboard = () => {
                 onTimeout={handlePixTimeout}
                 onConfirmarPagamento={handlePixConfirmado}
                 timeoutMinutos={8}
+                quantidadeJogos={tipoReserva === 'pacote' ? quantidadeJogosPacote : 1}
               />
             )}
 
@@ -739,6 +788,40 @@ const ClienteDashboard = () => {
               <Button disabled={!remarcarData} onClick={handleRemarcar} className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl">
                 Confirmar Remarcação
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL CANCELAMENTO */}
+      <Dialog open={cancelarModal} onOpenChange={setCancelarModal}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[440px] rounded-[2rem] p-8 outline-none">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black italic uppercase text-red-400 flex items-center gap-2"><XCircle size={20} /> Cancelar Reserva</DialogTitle>
+          </DialogHeader>
+          {cancelarReserva && (
+            <div className="space-y-4 pt-4">
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Reserva</p>
+                <p className="font-black text-white">{new Date(cancelarReserva.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} — {cancelarReserva.horario_inicio}</p>
+              </div>
+              <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl space-y-2">
+                <p className="text-xs font-black text-red-400 uppercase">⚠️ Política de Cancelamento/Remarcação:</p>
+                <ul className="text-[10px] text-red-300 leading-relaxed space-y-1 list-disc pl-4">
+                  <li>Cancelamento até <strong>24 horas antes</strong> do início do jogo.</li>
+                  <li>Comunicar via WhatsApp <strong>(98) 99991-0535</strong>.</li>
+                  <li>Remarcação apenas para a <strong>semana seguinte</strong>, mesmo turno.</li>
+                  <li>Após 24h: <strong>sem ressarcimento ou remarcação</strong>.</li>
+                </ul>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => setCancelarModal(false)} className="border-white/10 text-gray-400 rounded-xl">
+                  Voltar
+                </Button>
+                <Button onClick={handleCancelarReserva} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase rounded-xl">
+                  Confirmar Cancelamento
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
