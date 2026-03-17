@@ -64,6 +64,9 @@ const ClienteDashboard = () => {
   const [remarcarModal, setRemarcarModal] = useState(false);
   const [remarcarReserva, setRemarcarReserva] = useState<Reserva | null>(null);
   const [remarcarData, setRemarcarData] = useState("");
+  // Cancelamento
+  const [cancelarModal, setCancelarModal] = useState(false);
+  const [cancelarReserva, setCancelarReserva] = useState<Reserva | null>(null);
 
   const { isCarregandoPix, pixData, gerarPagamentoPix, limparPix } = usePixPayment();
 
