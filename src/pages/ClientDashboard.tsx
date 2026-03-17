@@ -633,8 +633,8 @@ const ClienteDashboard = () => {
                 <span className="text-gray-400">Total:</span>
                 <span className="text-[#22c55e] text-2xl">R$ {totalGeral.toFixed(2)}</span>
               </div>
-              {tipoReserva === 'fixa' && (
-                <p className="text-[9px] text-purple-400 font-bold italic">📅 Reserva Fixa/VIP — desconto de R$40 no PIX integral</p>
+              {tipoReserva === 'pacote' && (
+                <p className="text-[9px] text-purple-400 font-bold italic">📦 Pacote 4 jogos — desconto de R$40 no PIX integral</p>
               )}
             </div>
 
