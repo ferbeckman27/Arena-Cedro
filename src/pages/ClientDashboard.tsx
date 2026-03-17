@@ -188,25 +188,20 @@ const ClienteDashboard = () => {
     try {
       let reservaId = null;
 
-      if (tipoReserva === 'fixa') {
-        const diaSemanaId = diaSelecionado.getDay() + 1;
-        const { data: fixa, error } = await supabase.from('reservas_fixas').insert([{
-          cliente_id: Number(userData.id), dia_semana_id: diaSemanaId,
-          horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
-          turno_id, data_inicio: diaSelecionado.toISOString().split('T')[0], ativo: true
-        }]).select().single();
-        if (error) throw error;
-        // Also create a reserva entry for the first occurrence
-        const { data: avulsa, error: err2 } = await supabase.from('reservas').insert([{
+      if (tipoReserva === 'pacote') {
+        // Pacote: 4 jogos com desconto
+        const valorPacote = valorApenasReserva * quantidadeJogosPacote;
+        const { data: avulsa, error } = await supabase.from('reservas').insert([{
           cliente_id: Number(userData.id), cliente_nome: userData.nome,
           data_reserva: diaSelecionado.toISOString().split('T')[0],
           horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
-          turno_id, tipo: 'fixa', reserva_fixa_id: fixa?.id,
+          turno_id, tipo: 'pacote',
           status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada',
-          valor_total: totalGeral, valor_sinal: totalGeral, valor_restante: 0,
-          forma_pagamento: metodoPagamento
+          valor_total: valorPacote, valor_sinal: 0, valor_restante: valorPacote,
+          forma_pagamento: metodoPagamento,
+          observacoes: `Pacote ${quantidadeJogosPacote} jogos`
         }]).select().single();
-        if (err2) throw err2;
+        if (error) throw error;
         reservaId = avulsa?.id;
       } else {
         const { data: avulsa, error } = await supabase.from('reservas').insert([{
@@ -215,7 +210,7 @@ const ClienteDashboard = () => {
           horario_inicio: horarioSelecionado, bloco_id: mapaBlocos[selectedDuration],
           turno_id, tipo: 'avulsa',
           status: metodoPagamento === 'pix' ? 'pendente' : 'confirmada',
-          valor_total: totalGeral, valor_sinal: totalGeral, valor_restante: 0,
+          valor_total: totalGeral, valor_sinal: 0, valor_restante: totalGeral,
           forma_pagamento: metodoPagamento
         }]).select().single();
         if (error) throw error;
