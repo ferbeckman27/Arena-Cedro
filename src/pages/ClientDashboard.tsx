@@ -365,6 +365,7 @@ const ClienteDashboard = () => {
     }
   };
 
+  const getSlotStatus = (slotInicio: string) => {
     const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
     const reserva = (listaReservas || []).find((res: any) =>
       String(res.horario_inicio) === String(slotInicio) && String(res.data_reserva) === dataStr
