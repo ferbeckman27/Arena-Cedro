@@ -469,7 +469,7 @@ const AtendenteDashboard = () => {
           <TabsList className="bg-white/5 p-1 rounded-2xl border border-white/5 w-full md:w-fit overflow-x-auto">
             <TabsTrigger value="agenda" className="px-6 font-bold uppercase italic">Agenda</TabsTrigger>
             <TabsTrigger value="clientes" className="px-6 font-bold uppercase italic">Clientes</TabsTrigger>
-            <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">VIPs/Fixos</TabsTrigger>
+            <TabsTrigger value="vip" className="px-6 font-bold uppercase italic">Pacotes</TabsTrigger>
             <TabsTrigger value="produtos" className="font-black italic uppercase px-6 bg-[#22c55e]/10 text-[#22c55e]">Produtos</TabsTrigger>
             <TabsTrigger value="alertas" className="font-black italic uppercase px-6">Alertas</TabsTrigger>
             <TabsTrigger value="financeiro" className="font-black italic uppercase px-6">Financeiro</TabsTrigger>
