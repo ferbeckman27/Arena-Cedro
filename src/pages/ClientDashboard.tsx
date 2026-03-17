@@ -610,25 +610,38 @@ const ClienteDashboard = () => {
                           <div>
                             <p className="font-black text-xs uppercase text-white italic">{new Date(r.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} — {r.horario_inicio}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge className={cn("text-[8px] font-black border-none", r.tipo === 'fixa' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>{r.tipo === 'fixa' ? 'FIXA' : 'AVULSA'}</Badge>
-                              <Badge className={cn("text-[8px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'pendente' ? "bg-yellow-500/20 text-yellow-500" : "bg-red-500/20 text-red-500")}>{r.pago ? 'PAGO' : r.status === 'pendente' ? 'PENDENTE' : (r.status || 'PENDENTE').toUpperCase()}</Badge>
+                              <Badge className={cn("text-[8px] font-black border-none", r.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>{r.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}</Badge>
+                              <Badge className={cn("text-[8px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'pendente' ? "bg-yellow-500/20 text-yellow-500" : r.status === 'cancelada' ? "bg-red-500/20 text-red-500" : "bg-yellow-500/20 text-yellow-500")}>{r.pago ? 'PAGO' : (r.status || 'PENDENTE').toUpperCase()}</Badge>
                             </div>
                           </div>
                           <div className="text-right space-y-1">
                             <p className="font-black text-[#22c55e]">R$ {Number(r.valor_total || 0).toFixed(2)}</p>
                             <p className="text-[9px] text-gray-500 uppercase">{r.forma_pagamento || '—'}</p>
-                            {/* Botão Remarcar */}
-                            {(r.status === 'confirmada' || r.pago) && r.status !== 'cancelada' && (
-                              <Button size="sm" variant="outline" className="border-blue-500/20 text-blue-400 rounded-xl text-[8px] h-6 px-2"
-                                onClick={() => {
-                                  setRemarcarReserva(r);
-                                  setRemarcarData("");
-                                  setRemarcarModal(true);
-                                }}>
-                                <RefreshCcw size={10} className="mr-1" /> Remarcar
-                              </Button>
-                            )}
                           </div>
+                        </div>
+                        {/* Botões de ação */}
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                          {/* Remarcar */}
+                          {(r.status === 'confirmada' || r.pago) && r.status !== 'cancelada' && (
+                            <Button size="sm" variant="outline" className="border-blue-500/20 text-blue-400 rounded-xl text-[8px] h-7 px-2"
+                              onClick={() => { setRemarcarReserva(r); setRemarcarData(""); setRemarcarModal(true); }}>
+                              <RefreshCcw size={10} className="mr-1" /> Remarcar
+                            </Button>
+                          )}
+                          {/* Cancelar - mostra política */}
+                          {r.status !== 'cancelada' && !r.pago && (
+                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[8px] h-7 px-2"
+                              onClick={() => { setCancelarReserva(r); setCancelarModal(true); }}>
+                              <XCircle size={10} className="mr-1" /> Cancelar
+                            </Button>
+                          )}
+                          {/* Excluir - só se pagamento concluído */}
+                          {r.pago && (
+                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[8px] h-7 px-2"
+                              onClick={() => handleExcluirReserva(r.id!)}>
+                              <Trash2 size={10} className="mr-1" /> Excluir
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
