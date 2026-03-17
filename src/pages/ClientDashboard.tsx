@@ -134,6 +134,9 @@ const ClienteDashboard = () => {
     return calcularPrecoReserva(selectedDuration, parseInt(horarioSelecionado.split(":")[0]));
   }, [horarioSelecionado, selectedDuration]);
 
+  const descontoAtual = tipoReserva === 'pacote' ? 40 : 10;
+  const quantidadeJogosPacote = 4;
+
   const totalGeral = useMemo(() => {
     const produtosTotal = cart.reduce((acc, item) => acc + (item.preco || 0), 0);
     if (tipoReserva === 'pacote') {
@@ -141,9 +144,6 @@ const ClienteDashboard = () => {
     }
     return produtosTotal + valorApenasReserva;
   }, [cart, valorApenasReserva, tipoReserva]);
-
-  const descontoAtual = tipoReserva === 'pacote' ? 40 : 10;
-  const quantidadeJogosPacote = 4;
 
   // --- FUNÇÕES ---
   const addToCart = (product: Product) => {
