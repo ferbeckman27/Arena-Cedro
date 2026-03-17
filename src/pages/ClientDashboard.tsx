@@ -335,7 +335,35 @@ const ClienteDashboard = () => {
     }
   };
 
-  const getSlotStatus = (slotInicio: string) => {
+  const handleExcluirReserva = async (reservaId: number) => {
+    if (!confirm("Tem certeza que deseja excluir esta reserva do histórico?")) return;
+    try {
+      await supabase.from('reservas').delete().eq('id', reservaId);
+      toast({ title: "Reserva excluída do histórico." });
+      const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+      if (historico) setHistoricoReservas(historico);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro", description: e.message });
+    }
+  };
+
+  const [cancelarModal, setCancelarModal] = useState(false);
+  const [cancelarReserva, setCancelarReserva] = useState<Reserva | null>(null);
+
+  const handleCancelarReserva = async () => {
+    if (!cancelarReserva?.id) return;
+    try {
+      await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', cancelarReserva.id);
+      toast({ title: "Reserva cancelada.", description: "Confira as regras de remarcação/cancelamento." });
+      setCancelarModal(false);
+      setCancelarReserva(null);
+      const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+      if (historico) setHistoricoReservas(historico);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro", description: e.message });
+    }
+  };
+
     const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
     const reserva = (listaReservas || []).find((res: any) =>
       String(res.horario_inicio) === String(slotInicio) && String(res.data_reserva) === dataStr
