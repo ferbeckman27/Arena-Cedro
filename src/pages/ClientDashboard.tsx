@@ -677,6 +677,7 @@ const ClienteDashboard = () => {
                 onTimeout={handlePixTimeout}
                 onConfirmarPagamento={handlePixConfirmado}
                 timeoutMinutos={8}
+                quantidadeJogos={tipoReserva === 'pacote' ? quantidadeJogosPacote : 1}
               />
             )}
 
