@@ -817,20 +817,26 @@ const AtendenteDashboard = () => {
                 </TableHeader>
                 <TableBody>
                 {listaReservas.filter(r => !r.pago && r.status !== 'cancelada').map(res => {
-                    const restante = Number(res.valor_total) - Number(res.valor_pago_sinal || 0);
+                    const pago = Number(res.valor_pago_sinal || 0);
+                    const restante = Number(res.valor_total) - pago;
                     return (
                       <TableRow key={res.id} className="border-white/5">
                         <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
                         <TableCell className="text-[11px]">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} {res.horario_inicio?.slice(0,5)}</TableCell>
                         <TableCell>
-                          <Badge className={cn("text-[8px] font-black border-none", res.reserva_fixa_id ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
-                            {res.reserva_fixa_id ? "FIXA" : "AVULSA"}
+                          <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                            {res.tipo === 'pacote' ? "PACOTE" : "AVULSA"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs font-bold">R$ {Number(res.valor_total).toFixed(2)}</TableCell>
-                        <TableCell className="text-sm font-black text-red-500">R$ {restante.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {pago > 0 && <p className="text-[9px] text-[#22c55e] font-bold">Pago: R$ {pago.toFixed(2)}</p>}
+                            <p className="text-sm font-black text-red-500">Falta: R$ {restante.toFixed(2)}</p>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center gap-2 justify-end">
+                          <div className="flex items-center gap-2 justify-end flex-wrap">
                             <select defaultValue="dinheiro" id={`pgto-${res.id}`} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white">
                               <option value="dinheiro">Dinheiro</option>
                               <option value="pix">PIX</option>
@@ -840,6 +846,13 @@ const AtendenteDashboard = () => {
                               const sel = (document.getElementById(`pgto-${res.id}`) as HTMLSelectElement)?.value || 'dinheiro';
                               handleLiquidarReserva(res.id, Number(res.valor_total), sel);
                             }} className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
+                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[9px] h-8"
+                              onClick={async () => {
+                                if (!confirm("Cancelar esta reserva?")) return;
+                                await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', res.id);
+                                toast({ title: "Reserva cancelada." });
+                                carregarReservasFinancas();
+                              }}>Cancelar</Button>
                           </div>
                         </TableCell>
                       </TableRow>
