@@ -272,16 +272,21 @@ const ClienteDashboard = () => {
     }
   };
 
-  const handleGerarPixLivre = async (valorOriginal: number) => {
+  const handleGerarPixLivre = async (valorDigitado: number) => {
     let resId = reservaIdAtual;
     if (!reservaCriada) {
       resId = await criarReserva();
     }
     if (resId) {
+      // Update reserva with the advance amount
+      await supabase.from('reservas').update({
+        valor_sinal: valorDigitado,
+        valor_restante: totalGeral - valorDigitado,
+      }).eq('id', resId);
       await gerarPagamentoPix(
-        valorOriginal,
-        `Reserva Arena Cedro - ${horarioSelecionado} (PIX Livre)`,
-        resId, Number(userData.id), userData.email, 'livre', 0
+        valorDigitado,
+        `Reserva Arena Cedro - ${horarioSelecionado} (Adiantamento)`,
+        resId, Number(userData.id), userData.email, 'adiantamento', 0
       );
     }
   };
