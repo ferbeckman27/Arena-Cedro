@@ -454,11 +454,11 @@ const ClienteDashboard = () => {
                   <label className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest ml-1">Tipo de Agendamento</label>
                   <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
                     <button type="button" onClick={() => setTipoReserva('avulsa')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReserva === 'avulsa' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>⚽ Avulsa</button>
-                    <button type="button" onClick={() => setTipoReserva('fixa')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReserva === 'fixa' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>📅 Fixa/VIP</button>
+                    <button type="button" onClick={() => setTipoReserva('pacote')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReserva === 'pacote' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>📦 Pacote 4 Jogos</button>
                   </div>
-                  {tipoReserva === 'fixa' && (
+                  {tipoReserva === 'pacote' && (
                     <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-3 rounded-xl">
-                      <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">✨ Reserva Fixa: 4 jogos com desconto de R$40 (R$10/jogo)</p>
+                      <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">✨ Pacote 4 jogos: desconto de R$10 por jogo (R$40 total). Pagamento antecipado PIX ou dinheiro.</p>
                     </div>
                   )}
                 </div>
