@@ -693,7 +693,7 @@ const AtendenteDashboard = () => {
           {/* VIP - Editar / Cancelar */}
           <TabsContent value="vip">
             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
-              <h3 className="text-2xl font-black italic uppercase flex items-center gap-3 mb-6"><Crown className="text-[#22c55e]" /> Horários Fixos (Mensalistas)</h3>
+              <h3 className="text-2xl font-black italic uppercase flex items-center gap-3 mb-6"><Crown className="text-[#22c55e]" /> Pacotes com Desconto</h3>
               <div className="space-y-4">
                 {mensalistas.map(m => (
                   <div key={m.id} className="p-6 bg-white/5 border border-white/10 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
