@@ -135,7 +135,8 @@ const ClienteDashboard = () => {
     return cart.reduce((acc, item) => acc + (item.preco || 0), 0) + valorApenasReserva;
   }, [cart, valorApenasReserva]);
 
-  const descontoAtual = tipoReserva === 'fixa' ? 40 : 10;
+  const descontoAtual = tipoReserva === 'pacote' ? 40 : 10;
+  const quantidadeJogosPacote = 4;
 
   // --- FUNÇÕES ---
   const addToCart = (product: Product) => {
