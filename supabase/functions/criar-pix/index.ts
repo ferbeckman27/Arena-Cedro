@@ -24,9 +24,10 @@ Deno.serve(async (req) => {
     }
 
     const valorOriginal = Number(valor);
-    // Use desconto_valor from client (0 for PIX Livre, 10 for avulsa integral, 40 for VIP integral)
-    const desconto = typeof desconto_valor === 'number' ? desconto_valor : 0;
-    const valorComDesconto = Math.max(valorOriginal - desconto, 0);
+    // For adiantamento type, valor IS the amount to charge (no discount calc needed)
+    // For integral type, apply desconto_valor
+    const desconto = tipo_pagamento === 'adiantamento' ? 0 : (typeof desconto_valor === 'number' ? desconto_valor : 0);
+    const valorComDesconto = tipo_pagamento === 'adiantamento' ? valorOriginal : Math.max(valorOriginal - desconto, 0);
 
     // Descrição dinâmica
     const descricaoFinal = desconto > 0
