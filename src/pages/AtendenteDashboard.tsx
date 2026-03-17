@@ -870,17 +870,28 @@ const AtendenteDashboard = () => {
               <Table>
                 <TableBody>
                   {listaReservas.filter(r => r.pago).slice(0, 20).map(res => (
-                    <TableRow key={res.id} className="border-white/5 opacity-60">
+                    <TableRow key={res.id} className="border-white/5 opacity-70">
                       <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
                       <TableCell className="text-gray-500 text-xs">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} | {res.horario_inicio?.slice(0,5)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
                           <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
                           <Badge className="text-[8px] bg-white/5">{res.forma_pagamento}</Badge>
-                          {/* Botão devolver estoque aluguel */}
+                          <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                            {res.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}
+                          </Badge>
                           <Button variant="ghost" size="sm" className="text-purple-400 hover:bg-purple-500/10 rounded-xl text-[9px]"
                             onClick={() => handleDevolverEstoque(res.id)} title="Devolver itens alugados">
                             <RefreshCcw size={12} className="mr-1" /> Devolver
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10 rounded-xl text-[9px]"
+                            onClick={async () => {
+                              if (!confirm("Excluir reserva paga?")) return;
+                              await supabase.from('reservas').delete().eq('id', res.id);
+                              toast({ title: "Reserva excluída." });
+                              carregarReservasFinancas();
+                            }}>
+                            <Trash2 size={12} className="mr-1" /> Excluir
                           </Button>
                         </div>
                       </TableCell>
