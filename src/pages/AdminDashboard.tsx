@@ -894,7 +894,7 @@ function AdminDashboard() {
 
                 {/* Fechamentos de caixa por funcionário */}
                 <h3 className="text-sm font-black uppercase text-gray-400 mb-4">Caixas Fechados</h3>
-                <FechamentosCaixaTabela caixaData={caixaData} listaEquipe={listaEquipe} />
+                <FechamentosCaixaList />
               </Card>
 
               {/* COMISSÕES com nome + turno */}
