@@ -108,6 +108,7 @@ function AdminDashboard() {
 
   const [caixaData, setCaixaData] = useState(hoje.toISOString().slice(0, 10));
   const [dadosCaixa, setDadosCaixa] = useState({ pix: 0, dinheiro: 0, totalRecebido: 0, totalAReceber: 0 });
+  const [fechamentosCaixa, setFechamentosCaixa] = useState<any[]>([]);
 
   const playApito = () => { const audio = new Audio("/sound/apito.mp3"); audio.volume = 0.5; audio.play().catch(() => {}); };
 
@@ -204,6 +205,10 @@ function AdminDashboard() {
     const pix = pagas.filter(r => r.forma_pagamento === "pix").reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
     const dinheiro = pagas.filter(r => r.forma_pagamento === "dinheiro" || r.forma_pagamento === "local").reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
     setDadosCaixa({ pix, dinheiro, totalRecebido: pix + dinheiro, totalAReceber: pendentes.reduce((acc, r) => acc + Number(r.valor_restante || r.valor_total || 0), 0) });
+
+    // Fechamentos de caixa
+    const { data: fechamentos } = await supabase.from("fechamentos_caixa").select("*").order("data", { ascending: false }).limit(20);
+    setFechamentosCaixa(fechamentos || []);
   };
 
   const diasMes = useMemo<(Date | null)[]>(() => {
@@ -365,15 +370,14 @@ function AdminDashboard() {
 
   const baixarPdfSintetico = async () => {
     try {
-      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago").gte("data_reserva", sinteticoInicio).lte("data_reserva", sinteticoFim);
-      const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
-      const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total), 0);
-      const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total), 0);
-      const { data: pagProdutos } = await supabase.from("pagamentos").select("valor").eq("tipo", "produto").eq("status", "pago");
-      const totalProdutos = pagProdutos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
-      const faturamentoTotal = totalAvulsas + totalVIP + totalProdutos;
-      const { data: funcs } = await supabase.from("funcionarios").select("total_acessos");
-      const acessosTotal = funcs?.reduce((acc, f) => acc + (f.total_acessos || 0), 0) || 0;
+      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago, forma_pagamento").gte("data_reserva", sinteticoInicio).lte("data_reserva", sinteticoFim);
+      const reservasPagas = reservas?.filter(r => r.pago || r.status === "confirmada") || [];
+      const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalPacotes = reservasPagas.filter(r => r.tipo === "pacote").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalPix = reservasPagas.filter(r => r.forma_pagamento === 'pix').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalDinheiro = reservasPagas.filter(r => r.forma_pagamento === 'dinheiro').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const faturamentoTotal = totalAvulsas + totalPacotes + totalVIP;
       const d1 = new Date(sinteticoInicio); const d2 = new Date(sinteticoFim);
       const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
       const doc = new jsPDF();
@@ -382,29 +386,32 @@ function AdminDashboard() {
       doc.text(`Data de emissão: ${new Date().toLocaleDateString("pt-BR")}`, 20, 32);
       doc.text(`Período: ${new Date(sinteticoInicio).toLocaleDateString("pt-BR")} a ${new Date(sinteticoFim).toLocaleDateString("pt-BR")}`, 20, 38);
       doc.setDrawColor(200); doc.line(20, 42, 190, 42); doc.setFontSize(12); doc.setTextColor(0);
-      doc.text(`Faturamento Horas Avulsas:`, 20, 55); doc.text(`R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 140, 55);
-      doc.text(`Faturamento Contratos VIP:`, 20, 65); doc.text(`R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 140, 65);
-      doc.text(`Venda de Produtos:`, 20, 75); doc.text(`R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 140, 75);
-      doc.line(20, 85, 190, 85); doc.setFontSize(14); doc.setFont(undefined!, "bold");
-      doc.text(`FATURAMENTO TOTAL:`, 20, 98); doc.text(`R$ ${faturamentoTotal.toFixed(2).replace(".", ",")}`, 120, 98);
+      doc.text(`Faturamento Avulsas:`, 20, 55); doc.text(`R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 140, 55);
+      doc.text(`Faturamento Pacotes:`, 20, 65); doc.text(`R$ ${totalPacotes.toFixed(2).replace(".", ",")}`, 140, 65);
+      doc.text(`Faturamento VIP/Fixas:`, 20, 75); doc.text(`R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 140, 75);
+      doc.line(20, 82, 190, 82); doc.setFontSize(14); doc.setFont(undefined!, "bold");
+      doc.text(`FATURAMENTO TOTAL:`, 20, 95); doc.text(`R$ ${faturamentoTotal.toFixed(2).replace(".", ",")}`, 120, 95);
       doc.setFontSize(12); doc.setFont(undefined!, "normal");
       doc.text(`Jogos Pagos: ${reservasPagas.length}`, 20, 112);
       doc.text(`Média Diária: R$ ${(faturamentoTotal / diasPeriodo).toFixed(2).replace(".", ",")}`, 20, 122);
-      doc.text(`Total de Acessos (equipe): ${acessosTotal}`, 20, 132);
+      doc.text(`Receita PIX: R$ ${totalPix.toFixed(2).replace(".", ",")}`, 20, 135);
+      doc.text(`Receita Dinheiro: R$ ${totalDinheiro.toFixed(2).replace(".", ",")}`, 20, 145);
       doc.save(`Sintetico_Arena_Cedro_${new Date().toLocaleDateString("pt-BR")}.pdf`);
+      toast({ title: "PDF Sintético baixado!" });
     } catch (error) { toast({ variant: "destructive", title: "Erro ao gerar relatório." }); }
   };
 
   const baixarPdfAnalitico = async () => {
     try {
-      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago, comissao_valor").gte("data_reserva", analiticoInicio).lte("data_reserva", analiticoFim);
-      const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
+      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago, comissao_valor, forma_pagamento").gte("data_reserva", analiticoInicio).lte("data_reserva", analiticoFim);
+      const reservasPagas = reservas?.filter(r => r.pago || r.status === "confirmada") || [];
       const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalPacotes = reservasPagas.filter(r => r.tipo === "pacote").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
       const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
       const comissoes = reservasPagas.reduce((acc, cur) => acc + Number(cur.comissao_valor || 0), 0);
-      const { data: pagProdutos } = await supabase.from("pagamentos").select("valor").eq("tipo", "produto").eq("status", "pago");
-      const totalProdutos = pagProdutos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
-      const faturamentoBruto = totalAvulsas + totalVIP + totalProdutos;
+      const totalPix = reservasPagas.filter(r => r.forma_pagamento === 'pix').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalDinheiro = reservasPagas.filter(r => r.forma_pagamento === 'dinheiro').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const faturamentoBruto = totalAvulsas + totalPacotes + totalVIP;
       const saldoLiquido = faturamentoBruto - comissoes;
       const d1 = new Date(analiticoInicio); const d2 = new Date(analiticoFim);
       const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
@@ -414,15 +421,19 @@ function AdminDashboard() {
       doc.setFontSize(10); doc.setFont(undefined!, "normal"); doc.setTextColor(100);
       doc.text(`Período: ${new Date(analiticoInicio).toLocaleDateString("pt-BR")} a ${new Date(analiticoFim).toLocaleDateString("pt-BR")}`, 20, 28);
       doc.setDrawColor(200); doc.line(20, 32, 190, 32); doc.setFontSize(12); doc.setTextColor(0);
-      doc.text(`Horas Avulsas: R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 20, 45);
-      doc.text(`Contratos VIP: R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 20, 55);
-      doc.text(`Venda de Produtos: R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 20, 65);
-      doc.line(20, 72, 190, 72);
-      doc.text(`Comissão Atendentes (5%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 82);
-      doc.text(`Taxa de Ocupação: ${taxaOcupacao.toFixed(1)}%`, 20, 95);
+      doc.text(`Avulsas: R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 20, 45);
+      doc.text(`Pacotes: R$ ${totalPacotes.toFixed(2).replace(".", ",")}`, 20, 55);
+      doc.text(`VIP/Fixas: R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 20, 65);
+      doc.text(`Receita PIX: R$ ${totalPix.toFixed(2).replace(".", ",")}`, 20, 78);
+      doc.text(`Receita Dinheiro: R$ ${totalDinheiro.toFixed(2).replace(".", ",")}`, 20, 88);
+      doc.line(20, 95, 190, 95);
+      doc.text(`Comissão Atendentes (5%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 105);
+      doc.text(`Taxa de Ocupação: ${taxaOcupacao.toFixed(1)}%`, 20, 115);
+      doc.text(`Jogos Pagos: ${reservasPagas.length}`, 20, 125);
       doc.setFont(undefined!, "bold"); doc.setFontSize(14);
-      doc.text(`SALDO LÍQUIDO: R$ ${saldoLiquido.toFixed(2).replace(".", ",")}`, 20, 110);
+      doc.text(`SALDO LÍQUIDO: R$ ${saldoLiquido.toFixed(2).replace(".", ",")}`, 20, 140);
       doc.save(`Analitico_Arena_Cedro_${new Date().toLocaleDateString("pt-BR")}.pdf`);
+      toast({ title: "PDF Analítico baixado!" });
     } catch (error) { toast({ variant: "destructive", title: "Erro ao gerar relatório." }); }
   };
 
@@ -885,11 +896,33 @@ function AdminDashboard() {
                   <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2"><DollarSign className="text-[#22c55e]" /> Caixa do Dia</h2>
                   <div className="flex items-center gap-2"><Label className="text-[10px] uppercase text-gray-500 font-bold">Data:</Label><Input type="date" value={caixaData} onChange={e => setCaixaData(e.target.value)} className="bg-white/5 border-white/10 text-white w-44" /></div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="p-5 bg-white/5 rounded-2xl border border-white/5"><p className="text-[10px] text-gray-500 font-bold uppercase">Pgto Pix</p><p className="text-2xl font-black text-blue-400">{formatarMoeda(dadosCaixa.pix)}</p></div>
                   <div className="p-5 bg-white/5 rounded-2xl border border-white/5"><p className="text-[10px] text-gray-500 font-bold uppercase">Pgto Dinheiro</p><p className="text-2xl font-black text-green-400">{formatarMoeda(dadosCaixa.dinheiro)}</p></div>
                   <div className="p-5 bg-[#22c55e]/5 rounded-2xl border border-[#22c55e]/20"><p className="text-[10px] text-[#22c55e] font-bold uppercase">Total Recebido</p><p className="text-2xl font-black text-[#22c55e]">{formatarMoeda(dadosCaixa.totalRecebido)}</p></div>
                   <div className="p-5 bg-red-500/5 rounded-2xl border border-red-500/20"><p className="text-[10px] text-red-500 font-bold uppercase">Total a Receber</p><p className="text-2xl font-black text-red-400">{formatarMoeda(dadosCaixa.totalAReceber)}</p></div>
+                </div>
+
+                {/* Fechamentos de caixa por funcionário */}
+                <h3 className="text-sm font-black uppercase text-gray-400 mb-4">Caixas Fechados</h3>
+                <div className="space-y-2">
+                  {fechamentosCaixa.map((fc: any, i: number) => {
+                    const funcNome = listaEquipe.find((f: any) => f.id === fc.fechado_por);
+                    return (
+                      <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                        <div>
+                          <p className="font-black text-white text-sm">{new Date(fc.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold">{funcNome ? `${funcNome.nome} ${funcNome.sobrenome || ''}` : 'N/A'}</p>
+                        </div>
+                        <div className="flex gap-4 text-right">
+                          <div><p className="text-[9px] text-gray-500 uppercase font-bold">PIX</p><p className="text-sm font-black text-blue-400">{formatarMoeda(fc.valor_pix || 0)}</p></div>
+                          <div><p className="text-[9px] text-gray-500 uppercase font-bold">Dinheiro</p><p className="text-sm font-black text-green-400">{formatarMoeda(fc.valor_dinheiro || 0)}</p></div>
+                          <div><p className="text-[9px] text-gray-500 uppercase font-bold">Total</p><p className="text-sm font-black text-[#22c55e]">{formatarMoeda((fc.valor_pix || 0) + (fc.valor_dinheiro || 0))}</p></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {fechamentosCaixa.length === 0 && <p className="text-gray-600 italic text-sm">Nenhum caixa fechado encontrado.</p>}
                 </div>
               </Card>
 
