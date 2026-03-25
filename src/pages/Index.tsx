@@ -474,16 +474,26 @@ const censurarTexto = (texto: string) => {
     </div>
     </div>
 
-    {/* Grid de Depoimentos */}
+    {/* Grid de Depoimentos - From DB approved */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-      {[
-        { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente. O sistema de reserva pelo site é o melhor da cidade.", estrelas: 5 },
-        { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado. Os coletes estão sempre limpos e a cerveja gelada!", estrelas: 5 },
-        { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total para marcar o horário do pessoal do trabalho.", estrelas: 5 }
+      {comentarios.length > 0 ? comentarios.map((review: any, i: number) => (
+        <div key={review.id || i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
+          <div className="flex gap-1 mb-4 text-[#22c55e]">
+            {Array.from({ length: review.estrelas || 5 }).map((_: any, s: number) => (
+              <Star key={s} size={14} fill="currentColor" />
+            ))}
+          </div>
+          <p className="text-gray-300 italic mb-6">"{review.comentario}"</p>
+          <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.autor}</p>
+        </div>
+      )) : [
+        { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente.", estrelas: 5 },
+        { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado.", estrelas: 5 },
+        { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total.", estrelas: 5 }
       ].map((review, i) => (
         <div key={i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
           <div className="flex gap-1 mb-4 text-[#22c55e]">
-            {Array.from({ length: review.estrelas }).map((_, s) => (
+            {Array.from({ length: review.estrelas }).map((_: any, s: number) => (
               <Star key={s} size={14} fill="currentColor" />
             ))}
           </div>
