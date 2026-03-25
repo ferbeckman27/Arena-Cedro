@@ -108,6 +108,7 @@ function AdminDashboard() {
 
   const [caixaData, setCaixaData] = useState(hoje.toISOString().slice(0, 10));
   const [dadosCaixa, setDadosCaixa] = useState({ pix: 0, dinheiro: 0, totalRecebido: 0, totalAReceber: 0 });
+  const [fechamentosCaixa, setFechamentosCaixa] = useState<any[]>([]);
 
   const playApito = () => { const audio = new Audio("/sound/apito.mp3"); audio.volume = 0.5; audio.play().catch(() => {}); };
 
