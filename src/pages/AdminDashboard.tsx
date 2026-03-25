@@ -403,14 +403,15 @@ function AdminDashboard() {
 
   const baixarPdfAnalitico = async () => {
     try {
-      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago, comissao_valor").gte("data_reserva", analiticoInicio).lte("data_reserva", analiticoFim);
-      const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
+      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago, comissao_valor, forma_pagamento").gte("data_reserva", analiticoInicio).lte("data_reserva", analiticoFim);
+      const reservasPagas = reservas?.filter(r => r.pago || r.status === "confirmada") || [];
       const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalPacotes = reservasPagas.filter(r => r.tipo === "pacote").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
       const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
       const comissoes = reservasPagas.reduce((acc, cur) => acc + Number(cur.comissao_valor || 0), 0);
-      const { data: pagProdutos } = await supabase.from("pagamentos").select("valor").eq("tipo", "produto").eq("status", "pago");
-      const totalProdutos = pagProdutos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
-      const faturamentoBruto = totalAvulsas + totalVIP + totalProdutos;
+      const totalPix = reservasPagas.filter(r => r.forma_pagamento === 'pix').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalDinheiro = reservasPagas.filter(r => r.forma_pagamento === 'dinheiro').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const faturamentoBruto = totalAvulsas + totalPacotes + totalVIP;
       const saldoLiquido = faturamentoBruto - comissoes;
       const d1 = new Date(analiticoInicio); const d2 = new Date(analiticoFim);
       const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
@@ -420,15 +421,19 @@ function AdminDashboard() {
       doc.setFontSize(10); doc.setFont(undefined!, "normal"); doc.setTextColor(100);
       doc.text(`Período: ${new Date(analiticoInicio).toLocaleDateString("pt-BR")} a ${new Date(analiticoFim).toLocaleDateString("pt-BR")}`, 20, 28);
       doc.setDrawColor(200); doc.line(20, 32, 190, 32); doc.setFontSize(12); doc.setTextColor(0);
-      doc.text(`Horas Avulsas: R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 20, 45);
-      doc.text(`Contratos VIP: R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 20, 55);
-      doc.text(`Venda de Produtos: R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 20, 65);
-      doc.line(20, 72, 190, 72);
-      doc.text(`Comissão Atendentes (5%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 82);
-      doc.text(`Taxa de Ocupação: ${taxaOcupacao.toFixed(1)}%`, 20, 95);
+      doc.text(`Avulsas: R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 20, 45);
+      doc.text(`Pacotes: R$ ${totalPacotes.toFixed(2).replace(".", ",")}`, 20, 55);
+      doc.text(`VIP/Fixas: R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 20, 65);
+      doc.text(`Receita PIX: R$ ${totalPix.toFixed(2).replace(".", ",")}`, 20, 78);
+      doc.text(`Receita Dinheiro: R$ ${totalDinheiro.toFixed(2).replace(".", ",")}`, 20, 88);
+      doc.line(20, 95, 190, 95);
+      doc.text(`Comissão Atendentes (5%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 105);
+      doc.text(`Taxa de Ocupação: ${taxaOcupacao.toFixed(1)}%`, 20, 115);
+      doc.text(`Jogos Pagos: ${reservasPagas.length}`, 20, 125);
       doc.setFont(undefined!, "bold"); doc.setFontSize(14);
-      doc.text(`SALDO LÍQUIDO: R$ ${saldoLiquido.toFixed(2).replace(".", ",")}`, 20, 110);
+      doc.text(`SALDO LÍQUIDO: R$ ${saldoLiquido.toFixed(2).replace(".", ",")}`, 20, 140);
       doc.save(`Analitico_Arena_Cedro_${new Date().toLocaleDateString("pt-BR")}.pdf`);
+      toast({ title: "PDF Analítico baixado!" });
     } catch (error) { toast({ variant: "destructive", title: "Erro ao gerar relatório." }); }
   };
 
