@@ -205,6 +205,10 @@ function AdminDashboard() {
     const pix = pagas.filter(r => r.forma_pagamento === "pix").reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
     const dinheiro = pagas.filter(r => r.forma_pagamento === "dinheiro" || r.forma_pagamento === "local").reduce((acc, r) => acc + Number(r.valor_total || 0), 0);
     setDadosCaixa({ pix, dinheiro, totalRecebido: pix + dinheiro, totalAReceber: pendentes.reduce((acc, r) => acc + Number(r.valor_restante || r.valor_total || 0), 0) });
+
+    // Fechamentos de caixa
+    const { data: fechamentos } = await supabase.from("fechamentos_caixa").select("*").order("data", { ascending: false }).limit(20);
+    setFechamentosCaixa(fechamentos || []);
   };
 
   const diasMes = useMemo<(Date | null)[]>(() => {
