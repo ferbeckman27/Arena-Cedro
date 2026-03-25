@@ -103,8 +103,9 @@ const censurarTexto = (texto: string) => {
       const { data, error } = await supabase
         .from('depoimentos')
         .select('*')
-        .eq('aprovado', true) // Filtro de aprovação
-        .order('data_publicacao', { ascending: false }); // Mais recentes primeiro
+        .eq('aprovado', true)
+        .order('data_publicacao', { ascending: false })
+        .limit(6);
 
       if (error) throw error;
 
