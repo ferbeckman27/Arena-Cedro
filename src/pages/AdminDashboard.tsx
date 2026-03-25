@@ -885,12 +885,16 @@ function AdminDashboard() {
                   <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2"><DollarSign className="text-[#22c55e]" /> Caixa do Dia</h2>
                   <div className="flex items-center gap-2"><Label className="text-[10px] uppercase text-gray-500 font-bold">Data:</Label><Input type="date" value={caixaData} onChange={e => setCaixaData(e.target.value)} className="bg-white/5 border-white/10 text-white w-44" /></div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="p-5 bg-white/5 rounded-2xl border border-white/5"><p className="text-[10px] text-gray-500 font-bold uppercase">Pgto Pix</p><p className="text-2xl font-black text-blue-400">{formatarMoeda(dadosCaixa.pix)}</p></div>
                   <div className="p-5 bg-white/5 rounded-2xl border border-white/5"><p className="text-[10px] text-gray-500 font-bold uppercase">Pgto Dinheiro</p><p className="text-2xl font-black text-green-400">{formatarMoeda(dadosCaixa.dinheiro)}</p></div>
                   <div className="p-5 bg-[#22c55e]/5 rounded-2xl border border-[#22c55e]/20"><p className="text-[10px] text-[#22c55e] font-bold uppercase">Total Recebido</p><p className="text-2xl font-black text-[#22c55e]">{formatarMoeda(dadosCaixa.totalRecebido)}</p></div>
                   <div className="p-5 bg-red-500/5 rounded-2xl border border-red-500/20"><p className="text-[10px] text-red-500 font-bold uppercase">Total a Receber</p><p className="text-2xl font-black text-red-400">{formatarMoeda(dadosCaixa.totalAReceber)}</p></div>
                 </div>
+
+                {/* Fechamentos de caixa por funcionário */}
+                <h3 className="text-sm font-black uppercase text-gray-400 mb-4">Caixas Fechados</h3>
+                <FechamentosCaixaTabela caixaData={caixaData} listaEquipe={listaEquipe} />
               </Card>
 
               {/* COMISSÕES com nome + turno */}
