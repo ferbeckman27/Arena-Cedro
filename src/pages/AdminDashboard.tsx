@@ -370,15 +370,14 @@ function AdminDashboard() {
 
   const baixarPdfSintetico = async () => {
     try {
-      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago").gte("data_reserva", sinteticoInicio).lte("data_reserva", sinteticoFim);
-      const reservasPagas = reservas?.filter(r => r.status === "confirmada" || r.pago) || [];
-      const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total), 0);
-      const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total), 0);
-      const { data: pagProdutos } = await supabase.from("pagamentos").select("valor").eq("tipo", "produto").eq("status", "pago");
-      const totalProdutos = pagProdutos?.reduce((acc, cur) => acc + Number(cur.valor), 0) || 0;
-      const faturamentoTotal = totalAvulsas + totalVIP + totalProdutos;
-      const { data: funcs } = await supabase.from("funcionarios").select("total_acessos");
-      const acessosTotal = funcs?.reduce((acc, f) => acc + (f.total_acessos || 0), 0) || 0;
+      const { data: reservas } = await supabase.from("reservas").select("valor_total, tipo, status, pago, forma_pagamento").gte("data_reserva", sinteticoInicio).lte("data_reserva", sinteticoFim);
+      const reservasPagas = reservas?.filter(r => r.pago || r.status === "confirmada") || [];
+      const totalAvulsas = reservasPagas.filter(r => r.tipo === "avulsa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalPacotes = reservasPagas.filter(r => r.tipo === "pacote").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalVIP = reservasPagas.filter(r => r.tipo === "VIP" || r.tipo === "fixa").reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalPix = reservasPagas.filter(r => r.forma_pagamento === 'pix').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const totalDinheiro = reservasPagas.filter(r => r.forma_pagamento === 'dinheiro').reduce((acc, cur) => acc + Number(cur.valor_total || 0), 0);
+      const faturamentoTotal = totalAvulsas + totalPacotes + totalVIP;
       const d1 = new Date(sinteticoInicio); const d2 = new Date(sinteticoFim);
       const diasPeriodo = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1);
       const doc = new jsPDF();
@@ -387,16 +386,18 @@ function AdminDashboard() {
       doc.text(`Data de emissão: ${new Date().toLocaleDateString("pt-BR")}`, 20, 32);
       doc.text(`Período: ${new Date(sinteticoInicio).toLocaleDateString("pt-BR")} a ${new Date(sinteticoFim).toLocaleDateString("pt-BR")}`, 20, 38);
       doc.setDrawColor(200); doc.line(20, 42, 190, 42); doc.setFontSize(12); doc.setTextColor(0);
-      doc.text(`Faturamento Horas Avulsas:`, 20, 55); doc.text(`R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 140, 55);
-      doc.text(`Faturamento Contratos VIP:`, 20, 65); doc.text(`R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 140, 65);
-      doc.text(`Venda de Produtos:`, 20, 75); doc.text(`R$ ${totalProdutos.toFixed(2).replace(".", ",")}`, 140, 75);
-      doc.line(20, 85, 190, 85); doc.setFontSize(14); doc.setFont(undefined!, "bold");
-      doc.text(`FATURAMENTO TOTAL:`, 20, 98); doc.text(`R$ ${faturamentoTotal.toFixed(2).replace(".", ",")}`, 120, 98);
+      doc.text(`Faturamento Avulsas:`, 20, 55); doc.text(`R$ ${totalAvulsas.toFixed(2).replace(".", ",")}`, 140, 55);
+      doc.text(`Faturamento Pacotes:`, 20, 65); doc.text(`R$ ${totalPacotes.toFixed(2).replace(".", ",")}`, 140, 65);
+      doc.text(`Faturamento VIP/Fixas:`, 20, 75); doc.text(`R$ ${totalVIP.toFixed(2).replace(".", ",")}`, 140, 75);
+      doc.line(20, 82, 190, 82); doc.setFontSize(14); doc.setFont(undefined!, "bold");
+      doc.text(`FATURAMENTO TOTAL:`, 20, 95); doc.text(`R$ ${faturamentoTotal.toFixed(2).replace(".", ",")}`, 120, 95);
       doc.setFontSize(12); doc.setFont(undefined!, "normal");
       doc.text(`Jogos Pagos: ${reservasPagas.length}`, 20, 112);
       doc.text(`Média Diária: R$ ${(faturamentoTotal / diasPeriodo).toFixed(2).replace(".", ",")}`, 20, 122);
-      doc.text(`Total de Acessos (equipe): ${acessosTotal}`, 20, 132);
+      doc.text(`Receita PIX: R$ ${totalPix.toFixed(2).replace(".", ",")}`, 20, 135);
+      doc.text(`Receita Dinheiro: R$ ${totalDinheiro.toFixed(2).replace(".", ",")}`, 20, 145);
       doc.save(`Sintetico_Arena_Cedro_${new Date().toLocaleDateString("pt-BR")}.pdf`);
+      toast({ title: "PDF Sintético baixado!" });
     } catch (error) { toast({ variant: "destructive", title: "Erro ao gerar relatório." }); }
   };
 
