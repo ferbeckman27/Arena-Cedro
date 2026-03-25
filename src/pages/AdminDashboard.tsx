@@ -894,7 +894,25 @@ function AdminDashboard() {
 
                 {/* Fechamentos de caixa por funcionário */}
                 <h3 className="text-sm font-black uppercase text-gray-400 mb-4">Caixas Fechados</h3>
-                <FechamentosCaixaList />
+                <div className="space-y-2">
+                  {fechamentosCaixa.map((fc: any, i: number) => {
+                    const funcNome = listaEquipe.find((f: any) => f.id === fc.fechado_por);
+                    return (
+                      <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                        <div>
+                          <p className="font-black text-white text-sm">{new Date(fc.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold">{funcNome ? `${funcNome.nome} ${funcNome.sobrenome || ''}` : 'N/A'}</p>
+                        </div>
+                        <div className="flex gap-4 text-right">
+                          <div><p className="text-[9px] text-gray-500 uppercase font-bold">PIX</p><p className="text-sm font-black text-blue-400">{formatarMoeda(fc.valor_pix || 0)}</p></div>
+                          <div><p className="text-[9px] text-gray-500 uppercase font-bold">Dinheiro</p><p className="text-sm font-black text-green-400">{formatarMoeda(fc.valor_dinheiro || 0)}</p></div>
+                          <div><p className="text-[9px] text-gray-500 uppercase font-bold">Total</p><p className="text-sm font-black text-[#22c55e]">{formatarMoeda((fc.valor_pix || 0) + (fc.valor_dinheiro || 0))}</p></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {fechamentosCaixa.length === 0 && <p className="text-gray-600 italic text-sm">Nenhum caixa fechado encontrado.</p>}
+                </div>
               </Card>
 
               {/* COMISSÕES com nome + turno */}
