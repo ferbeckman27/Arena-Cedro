@@ -117,7 +117,7 @@ const censurarTexto = (texto: string) => {
         autor: censurarTexto(d.nome_exibicao || "Anônimo") 
       }));
 
-      setComentarios(formatados.slice(0, 3));
+      setComentarios(formatados);
     } catch (err) {
       console.error("Erro ao carregar depoimentos reais:", err);
     }
