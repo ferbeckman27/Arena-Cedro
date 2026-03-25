@@ -88,24 +88,19 @@ const AdminLogin = () => {
   // --- FORGOT PASSWORD ---
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!forgotEmail.includes("@")) {
+      return toast({ variant: "destructive", title: "E-mail inválido", description: "Digite um e-mail corporativo válido." });
+    }
     if (!passwordValidations.isValid) {
-      return toast({
-        variant: "destructive",
-        title: "Senha Inválida",
-        description: "Sua senha não atende aos requisitos.",
-      });
+      return toast({ variant: "destructive", title: "Senha Inválida", description: "Sua senha não atende aos requisitos." });
     }
     if (newPassword !== confirmPassword) {
-      return toast({
-        variant: "destructive",
-        title: "Senhas diferentes",
-        description: "A confirmação de senha não confere.",
-      });
+      return toast({ variant: "destructive", title: "Senhas diferentes", description: "A confirmação de senha não confere." });
     }
 
     setLoading(true);
     try {
-      // Find the user in funcionarios by email
+      // Find the employee by email
       const { data: func } = await supabase
         .from("funcionarios")
         .select("id")
@@ -113,39 +108,13 @@ const AdminLogin = () => {
         .single();
 
       if (!func) {
-        toast({
-          variant: "destructive",
-          title: "E-mail não encontrado",
-          description: "Nenhum funcionário com este e-mail.",
-        });
+        toast({ variant: "destructive", title: "E-mail não encontrado", description: "Nenhum funcionário com este e-mail." });
         setLoading(false);
         return;
       }
 
-      // Update password in Supabase Auth via admin (we use the user's own session or RPC)
-      // Since we can't use admin API from client, we update via supabase auth
-      // The employee must know their current credentials - for security we update via auth
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-
-      if (error) {
-        // If not logged in, try signing in first then updating
-        const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
-          email: forgotEmail.trim(),
-          password: password || newPassword, // fallback
-        });
-
-        if (signInError) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Para redefinir a senha, entre em contato com o administrador.",
-          });
-          setLoading(false);
-          return;
-        }
-
-        await supabase.auth.updateUser({ password: newPassword });
-      }
+      // Update password via RPC (hashed with pgcrypto)
+      await supabase.rpc("set_funcionario_senha", { p_id: func.id, p_senha: newPassword });
 
       toast({ title: "Senha alterada!", description: "Use sua nova senha para acessar o sistema." });
       setShowForgotPassword(false);
