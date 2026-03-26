@@ -185,7 +185,20 @@ const AtendenteDashboard = () => {
     const slotsCalculados = gerarSlotsAgenda(Number(duracao));
     const dataFormatada = diaSelecionado.toLocaleDateString('sv-SE');
     return slotsCalculados.map(slot => {
-      const reservaEncontrada = listaReservas?.find(r => r.horario_inicio === slot.inicio && r.data_reserva === dataFormatada);
+      // Check both direct reservas and package reservas (same weekday recurrence)
+      const reservaEncontrada = listaReservas?.find(r => {
+        if (r.data_reserva === dataFormatada && r.horario_inicio === slot.inicio && r.status !== 'cancelada') return true;
+        // Package: check if same weekday within 4 weeks
+        if (r.tipo === 'pacote' && r.horario_inicio === slot.inicio && r.status !== 'cancelada') {
+          const reservaDate = new Date(r.data_reserva + 'T00:00:00');
+          const slotDate = new Date(dataFormatada + 'T00:00:00');
+          if (reservaDate.getDay() === slotDate.getDay()) {
+            const diffDays = Math.abs((slotDate.getTime() - reservaDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays > 0 && diffDays <= 28 && diffDays % 7 === 0) return true;
+          }
+        }
+        return false;
+      });
       let slotStatus = "livre";
       if (reservaEncontrada) {
         slotStatus = reservaEncontrada.pago ? "reservado" : (reservaEncontrada.status === "pendente" ? "pendente" : "reservado");
@@ -293,10 +306,10 @@ const AtendenteDashboard = () => {
   };
 
   const handlePixConfirmadoAtendente = async () => {
-    // Incrementar fidelidade ao confirmar pagamento PIX
+    // Incrementar fidelidade apenas se pagamento integral (sem valor restante)
     if (reservaIdAtual) {
-      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', reservaIdAtual).single();
-      if (reserva?.cliente_id) {
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id, valor_restante').eq('id', reservaIdAtual).single();
+      if (reserva?.cliente_id && Number(reserva.valor_restante || 0) <= 0) {
         await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
       }
     }
@@ -304,6 +317,7 @@ const AtendenteDashboard = () => {
     setIsTermosAberto(true);
     setAceitouTermos(false);
     carregarReservasFinancas();
+    buscarDadosIniciais();
   };
 
   const handleRemarcarAtendente = async () => {
@@ -321,18 +335,19 @@ const AtendenteDashboard = () => {
 
   const handleLiquidarReserva = async (id: number, total: number, metodo: string) => {
     try {
-      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', id).single();
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id, valor_pago_sinal, valor_total').eq('id', id).single();
       const { error } = await supabase.from('reservas').update({
-        pago: true, valor_pago_sinal: total, data_pagamento: new Date().toISOString(),
+        pago: true, valor_pago_sinal: total, valor_restante: 0, data_pagamento: new Date().toISOString(),
         forma_pagamento: metodo, status: 'confirmada'
       }).eq('id', id);
       if (error) throw error;
-      // Incrementar fidelidade ao dar baixa
+      // Incrementar fidelidade APENAS na baixa completa (pagamento total quitado)
       if (reserva?.cliente_id) {
         await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
       }
       toast({ title: "Pagamento Confirmado" });
       carregarReservasFinancas();
+      buscarDadosIniciais();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message });
     }
@@ -646,7 +661,7 @@ const AtendenteDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* CLIENTES com fidelidade */}
+          {/* CLIENTES com cores/fidelidade */}
           <TabsContent value="clientes">
             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
               <div className="flex justify-between items-center gap-4 mb-8">
@@ -661,17 +676,26 @@ const AtendenteDashboard = () => {
                   const total = Number(c.reservas_concluidas || 0);
                   const progresso = total % 10;
                   const temPremio = total > 0 && total % 10 === 0;
+                  // Status color based on reservations
+                  const reservasCliente = listaReservas.filter(r => r.clientes?.nome?.toLowerCase() === c.nome.toLowerCase());
+                  const temPendente = reservasCliente.some(r => !r.pago && r.status !== 'cancelada');
+                  const temAtrasada = reservasCliente.some(r => !r.pago && r.status !== 'cancelada' && new Date(r.data_reserva + 'T00:00:00') < new Date());
+                  const statusColor = temAtrasada ? 'border-red-500/40 bg-red-500/5' : temPendente ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-[#22c55e]/20 bg-[#22c55e]/5';
+                  const statusBadge = temAtrasada ? { text: 'EM ATRASO', cls: 'bg-red-500/20 text-red-400' } : temPendente ? { text: 'PENDENTE', cls: 'bg-yellow-500/20 text-yellow-400' } : { text: 'EM DIA', cls: 'bg-[#22c55e]/20 text-[#22c55e]' };
                   return (
-                    <div key={c.id} className="p-6 rounded-[2rem] border bg-white/5 border-white/10">
+                    <div key={c.id} className={cn("p-6 rounded-[2rem] border-2 transition-all", statusColor)}>
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-full bg-white/5 border border-white/10 text-[#22c55e]"><Users size={20} /></div>
+                          <div className={cn("p-3 rounded-full border", temAtrasada ? "bg-red-500/10 border-red-500/20 text-red-400" : temPendente ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" : "bg-[#22c55e]/10 border-[#22c55e]/20 text-[#22c55e]")}><Users size={20} /></div>
                           <div>
                             <p className="font-black uppercase italic text-white">{c.nome}</p>
                             <p className="text-[10px] text-gray-500 font-bold">{c.telefone}</p>
                           </div>
                         </div>
-                        {c.isVip && <Badge className="bg-[#22c55e] text-black font-black text-[9px]">VIP</Badge>}
+                        <div className="flex flex-col items-end gap-1">
+                          {c.isVip && <Badge className="bg-[#22c55e] text-black font-black text-[9px]">VIP</Badge>}
+                          <Badge className={cn("text-[8px] font-black border-none", statusBadge.cls)}>{statusBadge.text}</Badge>
+                        </div>
                       </div>
                       <div className="mb-4 space-y-2">
                         <div className="flex justify-between items-end">
@@ -683,6 +707,20 @@ const AtendenteDashboard = () => {
                         </div>
                         {temPremio && <p className="text-[8px] text-yellow-500 font-black uppercase text-center">Próximo jogo é cortesia!</p>}
                       </div>
+                      {/* Reservas recentes deste cliente */}
+                      {reservasCliente.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
+                          <p className="text-[8px] font-black text-gray-600 uppercase">Últimas reservas</p>
+                          {reservasCliente.slice(0, 3).map(r => (
+                            <div key={r.id} className="flex justify-between items-center text-[9px]">
+                              <span className="text-gray-400">{new Date(r.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} {r.horario_inicio?.slice(0,5)}</span>
+                              <Badge className={cn("text-[7px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'cancelada' ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400")}>
+                                {r.pago ? 'PAGO' : (r.status || 'PENDENTE').toUpperCase()}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -802,7 +840,7 @@ const AtendenteDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* FINANCEIRO - DADOS REAIS */}
+          {/* FINANCEIRO - DADOS REAIS SEM DUPLICATAS */}
           <TabsContent value="financeiro" className="space-y-8">
             <Card className="bg-[#0c120f] border-orange-500/20 rounded-[2.5rem] overflow-hidden">
               <div className="bg-[#facc15] p-4 flex items-center gap-2 text-black font-black uppercase text-sm italic">
@@ -816,7 +854,16 @@ const AtendenteDashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                {listaReservas.filter(r => !r.pago && r.status !== 'cancelada').map(res => {
+                {(() => {
+                  // Deduplicar: agrupar por cliente_nome + data_reserva + horario para não repetir
+                  const pendentes = listaReservas.filter(r => !r.pago && r.status !== 'cancelada');
+                  const vistos = new Set<string>();
+                  return pendentes.filter(res => {
+                    const chave = `${res.clientes?.nome || 'x'}-${res.data_reserva}-${res.horario_inicio}`;
+                    if (vistos.has(chave)) return false;
+                    vistos.add(chave);
+                    return true;
+                  }).map(res => {
                     const pago = Number(res.valor_pago_sinal || 0);
                     const restante = Number(res.valor_total) - pago;
                     return (
@@ -836,28 +883,41 @@ const AtendenteDashboard = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center gap-2 justify-end flex-wrap">
-                            <select defaultValue="dinheiro" id={`pgto-${res.id}`} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white">
-                              <option value="dinheiro">Dinheiro</option>
-                              <option value="pix">PIX</option>
-                              <option value="metade">Metade/Metade</option>
-                            </select>
-                            <Button size="sm" onClick={() => {
-                              const sel = (document.getElementById(`pgto-${res.id}`) as HTMLSelectElement)?.value || 'dinheiro';
-                              handleLiquidarReserva(res.id, Number(res.valor_total), sel);
-                            }} className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
-                            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 rounded-xl text-[9px] h-8"
-                              onClick={async () => {
-                                if (!confirm("Cancelar esta reserva?")) return;
-                                await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', res.id);
-                                toast({ title: "Reserva cancelada." });
-                                carregarReservasFinancas();
-                              }}>Cancelar</Button>
-                          </div>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button size="sm" className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-sm outline-none">
+                              <DialogHeader><DialogTitle className="italic uppercase font-black flex items-center gap-2"><DollarSign className="text-[#22c55e]" size={18} /> Forma de Pagamento</DialogTitle></DialogHeader>
+                              <div className="space-y-3 pt-4">
+                                <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Valor restante</p>
+                                  <p className="text-2xl font-black text-red-500">R$ {restante.toFixed(2)}</p>
+                                </div>
+                                <Button onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), 'dinheiro')} className="w-full bg-yellow-500 text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
+                                  💵 Dinheiro
+                                </Button>
+                                <Button onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), 'pix')} className="w-full bg-[#22c55e] text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
+                                  📱 PIX
+                                </Button>
+                                <Button onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), 'metade')} variant="outline" className="w-full border-white/10 text-white font-black uppercase rounded-xl h-12 flex items-center gap-2">
+                                  💰 Metade Dinheiro + Metade PIX
+                                </Button>
+                                <Button variant="outline" className="w-full border-red-500/20 text-red-400 rounded-xl text-[9px] h-8"
+                                  onClick={async () => {
+                                    if (!confirm("Cancelar esta reserva?")) return;
+                                    await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', res.id);
+                                    toast({ title: "Reserva cancelada." });
+                                    carregarReservasFinancas();
+                                  }}>Cancelar Reserva</Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  });
+                })()}
                 </TableBody>
               </Table>
             </Card>
@@ -869,34 +929,34 @@ const AtendenteDashboard = () => {
               </div>
               <Table>
                 <TableBody>
-                  {listaReservas.filter(r => r.pago).slice(0, 20).map(res => (
-                    <TableRow key={res.id} className="border-white/5 opacity-70">
-                      <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
-                      <TableCell className="text-gray-500 text-xs">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} | {res.horario_inicio?.slice(0,5)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
-                          <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
-                          <Badge className="text-[8px] bg-white/5">{res.forma_pagamento}</Badge>
-                          <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
-                            {res.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}
-                          </Badge>
-                          <Button variant="ghost" size="sm" className="text-purple-400 hover:bg-purple-500/10 rounded-xl text-[9px]"
-                            onClick={() => handleDevolverEstoque(res.id)} title="Devolver itens alugados">
-                            <RefreshCcw size={12} className="mr-1" /> Devolver
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-red-400 hover:bg-red-500/10 rounded-xl text-[9px]"
-                            onClick={async () => {
-                              if (!confirm("Excluir reserva paga?")) return;
-                              await supabase.from('reservas').delete().eq('id', res.id);
-                              toast({ title: "Reserva excluída." });
-                              carregarReservasFinancas();
-                            }}>
-                            <Trash2 size={12} className="mr-1" /> Excluir
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {(() => {
+                    const pagas = listaReservas.filter(r => r.pago);
+                    const vistos = new Set<string>();
+                    return pagas.filter(res => {
+                      const chave = `${res.clientes?.nome || 'x'}-${res.data_reserva}-${res.horario_inicio}`;
+                      if (vistos.has(chave)) return false;
+                      vistos.add(chave);
+                      return true;
+                    }).slice(0, 20).map(res => (
+                      <TableRow key={res.id} className="border-white/5 opacity-70">
+                        <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
+                        <TableCell className="text-gray-500 text-xs">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} | {res.horario_inicio?.slice(0,5)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
+                            <Badge className="text-[8px] bg-white/5">{res.forma_pagamento}</Badge>
+                            <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                              {res.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}
+                            </Badge>
+                            <Button variant="ghost" size="sm" className="text-purple-400 hover:bg-purple-500/10 rounded-xl text-[9px]"
+                              onClick={() => handleDevolverEstoque(res.id)} title="Devolver itens alugados">
+                              <RefreshCcw size={12} className="mr-1" /> Devolver
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </Card>
