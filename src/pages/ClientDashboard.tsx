@@ -113,7 +113,11 @@ const ClienteDashboard = () => {
 
   useEffect(() => {
     const carregarReservasOcupadas = async () => {
-      const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
+      // Load reservas for selected day AND all package reservas to detect recurring slots
+      const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
+      const { data } = await supabase.from('reservas')
+        .select('horario_inicio, data_reserva, status, cliente_nome, id, tipo, pago, valor_total, valor_restante')
+        .or(`data_reserva.eq.${dataStr},tipo.eq.pacote`);
       if (data) setListaReservas(data as Reserva[]);
     };
     carregarReservasOcupadas();
