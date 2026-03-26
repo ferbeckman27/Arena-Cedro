@@ -321,18 +321,19 @@ const AtendenteDashboard = () => {
 
   const handleLiquidarReserva = async (id: number, total: number, metodo: string) => {
     try {
-      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', id).single();
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id, valor_pago_sinal, valor_total').eq('id', id).single();
       const { error } = await supabase.from('reservas').update({
-        pago: true, valor_pago_sinal: total, data_pagamento: new Date().toISOString(),
+        pago: true, valor_pago_sinal: total, valor_restante: 0, data_pagamento: new Date().toISOString(),
         forma_pagamento: metodo, status: 'confirmada'
       }).eq('id', id);
       if (error) throw error;
-      // Incrementar fidelidade ao dar baixa
+      // Incrementar fidelidade APENAS na baixa completa (pagamento total quitado)
       if (reserva?.cliente_id) {
         await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
       }
       toast({ title: "Pagamento Confirmado" });
       carregarReservasFinancas();
+      buscarDadosIniciais();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message });
     }
