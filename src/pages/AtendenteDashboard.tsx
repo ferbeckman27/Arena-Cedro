@@ -565,26 +565,80 @@ const AtendenteDashboard = () => {
                           </DialogHeader>
                           <div className="space-y-4 pt-4">
                             <Input placeholder="Nome do Atleta" className="bg-white/5 border-white/10 h-14 rounded-xl text-white" id={`atleta-${slot.inicio}`} />
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-[10px] font-bold uppercase text-gray-400">Pagamento</label>
-                                <select value={metodoPgto} onChange={e => setMetodoPgto(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white outline-none">
-                                  <option value="dinheiro" className="bg-[#0c120f]">Dinheiro</option>
-                                  <option value="pix" className="bg-[#0c120f]">PIX</option>
-                                </select>
+
+                            {/* Tipo de Reserva */}
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest">Tipo de Agendamento</label>
+                              <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
+                                <button type="button" onClick={() => setTipoReservaAtendente('avulsa')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReservaAtendente === 'avulsa' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>⚽ Avulsa</button>
+                                <button type="button" onClick={() => setTipoReservaAtendente('pacote')} className={cn("py-3 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2", tipoReservaAtendente === 'pacote' ? "bg-[#22c55e] text-black shadow-lg" : "text-gray-500 hover:text-white")}>📦 Pacote 4 Jogos</button>
                               </div>
-                              <div>
-                                <label className="text-[10px] font-bold uppercase text-gray-400">Duração</label>
-                                <div className="h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-sm font-black text-[#22c55e]">{duracao} MIN</div>
-                              </div>
+                              {tipoReservaAtendente === 'pacote' && (
+                                <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-3 rounded-xl">
+                                  <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">✨ Pacote 4 jogos: desconto de R$10 por jogo (R$40 total). Pagamento antecipado PIX ou dinheiro.</p>
+                                </div>
+                              )}
                             </div>
 
-                            {/* PIX Section - shows after reservation is created */}
+                            {/* Duração */}
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-gray-400">Duração</label>
+                              <div className="h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-sm font-black text-[#22c55e]">{duracao} MIN</div>
+                            </div>
+
+                            {/* Resumo de valores */}
+                            {(() => {
+                              const valorReserva = slot.valor;
+                              const qtdJogos = tipoReservaAtendente === 'pacote' ? 4 : 1;
+                              const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                              const descontoAtual = tipoReservaAtendente === 'pacote' ? 40 : 10;
+                              const totalComProdutos = valorBase + totalCarrinho;
+                              return (
+                                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-400">{tipoReservaAtendente === 'pacote' ? `Quadra (${qtdJogos}x R$${valorReserva.toFixed(0)})` : `Quadra (${slot.inicio})`}:</span>
+                                    <span className="text-white font-bold">R$ {valorBase.toFixed(2)}</span>
+                                  </div>
+                                  {totalCarrinho > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-gray-400">Produtos:</span>
+                                      <span className="text-white font-bold">R$ {totalCarrinho.toFixed(2)}</span>
+                                    </div>
+                                  )}
+                                  <div className="border-t border-white/10 pt-2 flex justify-between font-black text-lg italic">
+                                    <span className="text-gray-400">Total:</span>
+                                    <span className="text-[#22c55e]">R$ {totalComProdutos.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Método de Pagamento */}
+                            <RadioGroup value={metodoPgto} onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro")} className="grid grid-cols-2 gap-4">
+                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                                <RadioGroupItem value="pix" id={`pix-${slot.inicio}`} className="sr-only" />
+                                <Label htmlFor={`pix-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
+                                  <CreditCard size={20} className={metodoPgto === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
+                                </Label>
+                              </div>
+                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                                <RadioGroupItem value="dinheiro" id={`dinheiro-${slot.inicio}`} className="sr-only" />
+                                <Label htmlFor={`dinheiro-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
+                                  <Banknote size={20} className={metodoPgto === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> DINHEIRO
+                                </Label>
+                              </div>
+                            </RadioGroup>
+
+                            {/* PIX Section */}
                             {metodoPgto === "pix" && reservaCriada && reservaIdAtual && (
                               <PixPaymentSection
-                                valorTotal={slot.valor + totalCarrinho}
-                                desconto={10}
-                                tipoReserva="avulsa"
+                                valorTotal={(() => {
+                                  const valorReserva = slot.valor;
+                                  const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                                  return valorBase + totalCarrinho;
+                                })()}
+                                desconto={tipoReservaAtendente === 'pacote' ? 40 : 10}
+                                tipoReserva={tipoReservaAtendente}
                                 pixChaveEstatica={pixChaveEstatica}
                                 pixData={pixData}
                                 isCarregando={isCarregandoPix}
@@ -593,7 +647,21 @@ const AtendenteDashboard = () => {
                                 onTimeout={handlePixTimeout}
                                 onConfirmarPagamento={handlePixConfirmadoAtendente}
                                 timeoutMinutos={8}
+                                quantidadeJogos={tipoReservaAtendente === 'pacote' ? 4 : 1}
                               />
+                            )}
+
+                            {/* Dinheiro confirmation */}
+                            {metodoPgto === "dinheiro" && reservaCriada && (
+                              <div className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center space-y-2">
+                                <p className="text-xs font-black uppercase italic text-gray-300">Reserva pré-confirmada!</p>
+                                <p className="text-[10px] text-[#22c55e] font-bold uppercase">Pagamento será realizado no caixa.</p>
+                                <p className="text-lg font-black text-white">Valor: R$ {(() => {
+                                  const valorReserva = slot.valor;
+                                  const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                                  return (valorBase + totalCarrinho).toFixed(2);
+                                })()}</p>
+                              </div>
                             )}
 
                             {/* Produtos */}
