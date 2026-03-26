@@ -370,12 +370,25 @@ const ClienteDashboard = () => {
 
   const getSlotStatus = (slotInicio: string) => {
     const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
-    const reserva = (listaReservas || []).find((res: any) =>
-      String(res.horario_inicio) === String(slotInicio) && String(res.data_reserva) === dataStr
+    // Check direct reservation
+    let reserva = (listaReservas || []).find((res: any) =>
+      String(res.horario_inicio) === String(slotInicio) && String(res.data_reserva) === dataStr && res.status !== 'cancelada'
     );
+    // Also check package reservations (same weekday within 4 weeks)
+    if (!reserva) {
+      reserva = (listaReservas || []).find((res: any) => {
+        if (res.tipo !== 'pacote' || String(res.horario_inicio) !== String(slotInicio) || res.status === 'cancelada') return false;
+        const reservaDate = new Date(res.data_reserva + 'T00:00:00');
+        const slotDate = new Date(dataStr + 'T00:00:00');
+        if (reservaDate.getDay() === slotDate.getDay()) {
+          const diffDays = Math.abs((slotDate.getTime() - reservaDate.getTime()) / (1000 * 60 * 60 * 24));
+          return diffDays > 0 && diffDays <= 28 && diffDays % 7 === 0;
+        }
+        return false;
+      });
+    }
     if (!reserva) return 'livre';
     if (reserva.status === 'pendente') return 'pendente';
-    if (reserva.status === 'cancelada') return 'livre';
     return 'reservado';
   };
 
