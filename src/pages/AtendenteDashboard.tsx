@@ -293,10 +293,10 @@ const AtendenteDashboard = () => {
   };
 
   const handlePixConfirmadoAtendente = async () => {
-    // Incrementar fidelidade ao confirmar pagamento PIX
+    // Incrementar fidelidade apenas se pagamento integral (sem valor restante)
     if (reservaIdAtual) {
-      const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', reservaIdAtual).single();
-      if (reserva?.cliente_id) {
+      const { data: reserva } = await supabase.from('reservas').select('cliente_id, valor_restante').eq('id', reservaIdAtual).single();
+      if (reserva?.cliente_id && Number(reserva.valor_restante || 0) <= 0) {
         await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
       }
     }
@@ -304,6 +304,7 @@ const AtendenteDashboard = () => {
     setIsTermosAberto(true);
     setAceitouTermos(false);
     carregarReservasFinancas();
+    buscarDadosIniciais();
   };
 
   const handleRemarcarAtendente = async () => {
