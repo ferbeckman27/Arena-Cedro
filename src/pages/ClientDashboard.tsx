@@ -250,11 +250,8 @@ const ClienteDashboard = () => {
   const handleFinalizeDinheiro = async () => {
     const id = await criarReserva();
     if (id) {
-      // Incrementar fidelidade ao confirmar pagamento presencial
-      if (userData.id) {
-        await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
-        setProgressoFidelidade(prev => prev + 1);
-      }
+      // Fidelidade será incrementada pelo atendente ao confirmar pagamento completo no caixa
+      // Pagamento presencial = reserva confirmada, mas fidelidade só conta quando valor TOTAL é pago
       setIsCheckoutOpen(false);
       setIsConfirmacaoAberta(true);
       setAceitouTermos(false);
