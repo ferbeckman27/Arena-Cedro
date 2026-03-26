@@ -303,15 +303,21 @@ const ClienteDashboard = () => {
   };
 
   const handlePixConfirmado = async () => {
-    // Incrementar fidelidade ao confirmar PIX
-    if (userData.id) {
-      await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
-      setProgressoFidelidade(prev => prev + 1);
+    // Fidelidade só conta quando pagamento é COMPLETO (integral)
+    // Para adiantamento parcial, fidelidade será incrementada pelo atendente na baixa final
+    if (userData.id && metodoPagamento === 'pix') {
+      // Verificar se foi pagamento integral (não adiantamento parcial)
+      if (reservaIdAtual) {
+        const { data: res } = await supabase.from('reservas').select('valor_restante').eq('id', reservaIdAtual).single();
+        if (res && Number(res.valor_restante || 0) <= 0) {
+          await supabase.rpc('incrementar_fidelidade', { cli_id: Number(userData.id) });
+          setProgressoFidelidade(prev => prev + 1);
+        }
+      }
     }
     setIsCheckoutOpen(false);
     setIsConfirmacaoAberta(true);
     setAceitouTermos(false);
-    // Reload slots
     const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
     if (data) setListaReservas(data as Reserva[]);
   };
