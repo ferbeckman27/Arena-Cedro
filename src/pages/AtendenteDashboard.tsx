@@ -646,7 +646,7 @@ const AtendenteDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* CLIENTES com fidelidade */}
+          {/* CLIENTES com cores/fidelidade */}
           <TabsContent value="clientes">
             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
               <div className="flex justify-between items-center gap-4 mb-8">
@@ -661,17 +661,26 @@ const AtendenteDashboard = () => {
                   const total = Number(c.reservas_concluidas || 0);
                   const progresso = total % 10;
                   const temPremio = total > 0 && total % 10 === 0;
+                  // Status color based on reservations
+                  const reservasCliente = listaReservas.filter(r => r.clientes?.nome?.toLowerCase() === c.nome.toLowerCase());
+                  const temPendente = reservasCliente.some(r => !r.pago && r.status !== 'cancelada');
+                  const temAtrasada = reservasCliente.some(r => !r.pago && r.status !== 'cancelada' && new Date(r.data_reserva + 'T00:00:00') < new Date());
+                  const statusColor = temAtrasada ? 'border-red-500/40 bg-red-500/5' : temPendente ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-[#22c55e]/20 bg-[#22c55e]/5';
+                  const statusBadge = temAtrasada ? { text: 'EM ATRASO', cls: 'bg-red-500/20 text-red-400' } : temPendente ? { text: 'PENDENTE', cls: 'bg-yellow-500/20 text-yellow-400' } : { text: 'EM DIA', cls: 'bg-[#22c55e]/20 text-[#22c55e]' };
                   return (
-                    <div key={c.id} className="p-6 rounded-[2rem] border bg-white/5 border-white/10">
+                    <div key={c.id} className={cn("p-6 rounded-[2rem] border-2 transition-all", statusColor)}>
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-full bg-white/5 border border-white/10 text-[#22c55e]"><Users size={20} /></div>
+                          <div className={cn("p-3 rounded-full border", temAtrasada ? "bg-red-500/10 border-red-500/20 text-red-400" : temPendente ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" : "bg-[#22c55e]/10 border-[#22c55e]/20 text-[#22c55e]")}><Users size={20} /></div>
                           <div>
                             <p className="font-black uppercase italic text-white">{c.nome}</p>
                             <p className="text-[10px] text-gray-500 font-bold">{c.telefone}</p>
                           </div>
                         </div>
-                        {c.isVip && <Badge className="bg-[#22c55e] text-black font-black text-[9px]">VIP</Badge>}
+                        <div className="flex flex-col items-end gap-1">
+                          {c.isVip && <Badge className="bg-[#22c55e] text-black font-black text-[9px]">VIP</Badge>}
+                          <Badge className={cn("text-[8px] font-black border-none", statusBadge.cls)}>{statusBadge.text}</Badge>
+                        </div>
                       </div>
                       <div className="mb-4 space-y-2">
                         <div className="flex justify-between items-end">
@@ -683,6 +692,20 @@ const AtendenteDashboard = () => {
                         </div>
                         {temPremio && <p className="text-[8px] text-yellow-500 font-black uppercase text-center">Próximo jogo é cortesia!</p>}
                       </div>
+                      {/* Reservas recentes deste cliente */}
+                      {reservasCliente.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
+                          <p className="text-[8px] font-black text-gray-600 uppercase">Últimas reservas</p>
+                          {reservasCliente.slice(0, 3).map(r => (
+                            <div key={r.id} className="flex justify-between items-center text-[9px]">
+                              <span className="text-gray-400">{new Date(r.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} {r.horario_inicio?.slice(0,5)}</span>
+                              <Badge className={cn("text-[7px] font-black border-none", r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === 'cancelada' ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400")}>
+                                {r.pago ? 'PAGO' : (r.status || 'PENDENTE').toUpperCase()}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
