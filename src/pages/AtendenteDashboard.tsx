@@ -185,7 +185,20 @@ const AtendenteDashboard = () => {
     const slotsCalculados = gerarSlotsAgenda(Number(duracao));
     const dataFormatada = diaSelecionado.toLocaleDateString('sv-SE');
     return slotsCalculados.map(slot => {
-      const reservaEncontrada = listaReservas?.find(r => r.horario_inicio === slot.inicio && r.data_reserva === dataFormatada);
+      // Check both direct reservas and package reservas (same weekday recurrence)
+      const reservaEncontrada = listaReservas?.find(r => {
+        if (r.data_reserva === dataFormatada && r.horario_inicio === slot.inicio && r.status !== 'cancelada') return true;
+        // Package: check if same weekday within 4 weeks
+        if (r.tipo === 'pacote' && r.horario_inicio === slot.inicio && r.status !== 'cancelada') {
+          const reservaDate = new Date(r.data_reserva + 'T00:00:00');
+          const slotDate = new Date(dataFormatada + 'T00:00:00');
+          if (reservaDate.getDay() === slotDate.getDay()) {
+            const diffDays = Math.abs((slotDate.getTime() - reservaDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays > 0 && diffDays <= 28 && diffDays % 7 === 0) return true;
+          }
+        }
+        return false;
+      });
       let slotStatus = "livre";
       if (reservaEncontrada) {
         slotStatus = reservaEncontrada.pago ? "reservado" : (reservaEncontrada.status === "pendente" ? "pendente" : "reservado");
