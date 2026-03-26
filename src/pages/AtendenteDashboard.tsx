@@ -37,7 +37,8 @@ const AtendenteDashboard = () => {
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [filtroNome, setFiltroNome] = useState("");
   const [duracao, setDuracao] = useState<string>("60");
-  const [metodoPgto, setMetodoPgto] = useState<string>("dinheiro");
+  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro">("dinheiro");
+  const [tipoReservaAtendente, setTipoReservaAtendente] = useState<'avulsa' | 'pacote'>('avulsa');
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
   const [novoAlertaForm, setNovoAlertaForm] = useState({ cliente_id: "", tipo: "neutra" as "positiva" | "negativa" | "neutra", observacao: "" });
