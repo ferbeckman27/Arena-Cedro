@@ -230,10 +230,11 @@ const AtendenteDashboard = () => {
     setLoading(true);
     try {
       const horaH = parseInt(slot.inicio || slot, 10);
-      const valorBase = horaH >= 18 ? 140 : 100;
-      const valorReserva = (valorBase * duracaoMin) / 60;
+      const valorBaseHora = horaH >= 18 ? 140 : 100;
+      const valorReserva = (valorBaseHora * duracaoMin) / 60;
       const totalProdutos = itensCarrinho.reduce((acc: number, item: any) => acc + item.preco, 0);
-      const totalGeral = valorReserva + totalProdutos;
+      const valorTotalReserva = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+      const totalGeral = valorTotalReserva + totalProdutos;
 
       const { data: { user } } = await supabase.auth.getUser();
       const slotInicio = typeof slot === 'string' ? slot : slot.inicio;
@@ -243,9 +244,11 @@ const AtendenteDashboard = () => {
         cliente_nome: clienteNome, data_reserva: diaSelecionado.toLocaleDateString('sv-SE'),
         horario_inicio: slotInicio, horario_fim: slotFim, duracao: duracaoMin,
         valor_total: totalGeral, forma_pagamento: metodoPgto,
+        tipo: tipoReservaAtendente,
         funcionario_id: user?.id, atendente_id: user?.id,
         pago: metodoPgto === 'dinheiro', status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
-        turno_id
+        turno_id,
+        observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
       }]).select().single();
 
       if (resError) throw resError;
