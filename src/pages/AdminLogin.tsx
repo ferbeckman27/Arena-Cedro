@@ -301,7 +301,7 @@ const AdminLogin = () => {
                   <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Requisitos de Segurança:</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { ok: passwordValidations.hasExactLength, label: "Exatamente 8+ caracteres" },
+                      { ok: passwordValidations.hasExactLength, label: "8+ caracteres" },
                       { ok: passwordValidations.hasUpperCase, label: "Letra maiúscula" },
                       { ok: passwordValidations.hasLowerCase, label: "Letra minúscula" },
                       { ok: passwordValidations.hasSpecialChar, label: "Caractere especial" },
