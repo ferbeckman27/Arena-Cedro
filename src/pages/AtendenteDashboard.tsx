@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,14 +50,18 @@ const AtendenteDashboard = () => {
   const [reservaCriada, setReservaCriada] = useState(false);
   const [isTermosAberto, setIsTermosAberto] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
-  // Remarcação
   const [remarcarModal, setRemarcarModal] = useState(false);
   const [remarcarReserva, setRemarcarReserva] = useState<any>(null);
   const [remarcarData, setRemarcarData] = useState("");
-
-  // VIP edit states
   const [editandoVipId, setEditandoVipId] = useState<number | null>(null);
   const [editVipForm, setEditVipForm] = useState({ dia: "", horario: "", metodoPgto: "" });
+  const [funcionarioNome, setFuncionarioNome] = useState("");
+  // Financeiro - liquidação customizada
+  const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
+  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro">("dinheiro");
+  const { isCarregandoPix: isCarregandoPixFinanceiro, pixData: pixDataFinanceiro, gerarPagamentoPix: gerarPixFinanceiro, limparPix: limparPixFinanceiro } = usePixPayment();
+  // Notificação de pagamento recebido
+  const [notificacaoPagamento, setNotificacaoPagamento] = useState<{ show: boolean; cliente: string; valor: number } | null>(null);
 
   interface Mensalista {
     id?: number; nome: string; dia: string; horario: string; metodoPgto: string;
@@ -81,6 +85,7 @@ const AtendenteDashboard = () => {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [listaReservas, setListaReservas] = useState<ReservaCompleta[]>([]);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
+  const [itensReservaMap, setItensReservaMap] = useState<Record<number, any[]>>({});
 
   // --- CARREGAMENTO ---
   const buscarDadosIniciais = async () => {
@@ -112,9 +117,37 @@ const AtendenteDashboard = () => {
       obs: o.observacao, tipo: o.tipo || "neutra", alerta: !!o.alerta
     })));
 
+    // Buscar itens_reserva para mostrar consumo na agenda
+    const { data: itens } = await supabase.from('itens_reserva').select('*, produtos(nome, preco_venda, preco_aluguel, tipo)');
+    if (itens) {
+      const map: Record<number, any[]> = {};
+      itens.forEach((it: any) => {
+        if (!it.reserva_id) return;
+        if (!map[it.reserva_id]) map[it.reserva_id] = [];
+        map[it.reserva_id].push(it);
+      });
+      setItensReservaMap(map);
+    }
+
     buscarMensalistas();
     carregarReservasFinancas();
   };
+
+  // Buscar nome do funcionário logado
+  useEffect(() => {
+    const buscarFuncionario = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: func } = await supabase.from('funcionarios').select('nome, sobrenome').eq('email_corporativo', user.email).single();
+        if (func) {
+          setFuncionarioNome([func.nome, func.sobrenome].filter(Boolean).join(" "));
+        } else {
+          setFuncionarioNome(localStorage.getItem("userName") || "Atendente");
+        }
+      }
+    };
+    buscarFuncionario();
+  }, []);
 
   const buscarMensalistas = async () => {
     const { data } = await supabase.from('clientes').select('*').eq('tipo', 'mensalista');
@@ -131,6 +164,25 @@ const AtendenteDashboard = () => {
   };
 
   useEffect(() => { buscarDadosIniciais(); }, []);
+
+  // Realtime: escutar pagamentos confirmados para notificar atendente
+  useEffect(() => {
+    const channel = supabase
+      .channel('pagamentos-atendente')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: 'status=eq.aprovado' }, async (payload) => {
+        const pagamento = payload.new as any;
+        // Buscar reserva para mostrar nome do cliente
+        const { data: reserva } = await supabase.from('reservas').select('cliente_nome, valor_total').eq('id', pagamento.reserva_id).single();
+        if (reserva) {
+          setNotificacaoPagamento({ show: true, cliente: reserva.cliente_nome || "Cliente", valor: pagamento.valor });
+          toast({ title: "💰 Pagamento Recebido!", description: `${reserva.cliente_nome} pagou R$ ${Number(pagamento.valor).toFixed(2)} via PIX` });
+          carregarReservasFinancas();
+          buscarDadosIniciais();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   // Comissão
   useEffect(() => {
@@ -188,10 +240,8 @@ const AtendenteDashboard = () => {
     const slotsCalculados = gerarSlotsAgenda(Number(duracao));
     const dataFormatada = diaSelecionado.toLocaleDateString('sv-SE');
     return slotsCalculados.map(slot => {
-      // Check both direct reservas and package reservas (same weekday recurrence)
       const reservaEncontrada = listaReservas?.find(r => {
         if (r.data_reserva === dataFormatada && r.horario_inicio === slot.inicio && r.status !== 'cancelada') return true;
-        // Package: check if same weekday within 4 weeks
         if (r.tipo === 'pacote' && r.horario_inicio === slot.inicio && r.status !== 'cancelada') {
           const reservaDate = new Date(r.data_reserva + 'T00:00:00');
           const slotDate = new Date(dataFormatada + 'T00:00:00');
@@ -253,8 +303,6 @@ const AtendenteDashboard = () => {
 
       if (resError) throw resError;
 
-      // Fidelidade será incrementada apenas na confirmação do pagamento
-
       setReservaIdAtual(reserva.id);
       setReservaCriada(true);
 
@@ -268,7 +316,6 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
-        // Incrementar fidelidade ao confirmar pagamento presencial
         const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
         if (clienteEncontrado) {
           await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
@@ -297,7 +344,7 @@ const AtendenteDashboard = () => {
 
   const handleGerarPixLivre = async (valorOriginal: number) => {
     if (reservaIdAtual) {
-      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro (PIX Livre)`, reservaIdAtual, undefined, undefined, 'livre', 0);
+      await gerarPagamentoPix(valorOriginal, `Reserva Arena Cedro (PIX Livre)`, reservaIdAtual, undefined, undefined, 'adiantamento', 0);
     }
   };
 
@@ -312,7 +359,6 @@ const AtendenteDashboard = () => {
   };
 
   const handlePixConfirmadoAtendente = async () => {
-    // Incrementar fidelidade apenas se pagamento integral (sem valor restante)
     if (reservaIdAtual) {
       const { data: reserva } = await supabase.from('reservas').select('cliente_id, valor_restante').eq('id', reservaIdAtual).single();
       if (reserva?.cliente_id && Number(reserva.valor_restante || 0) <= 0) {
@@ -339,24 +385,46 @@ const AtendenteDashboard = () => {
     }
   };
 
-  const handleLiquidarReserva = async (id: number, total: number, metodo: string) => {
+  const handleLiquidarReserva = async (id: number, valorPago: number, metodo: string) => {
     try {
       const { data: reserva } = await supabase.from('reservas').select('cliente_id, valor_pago_sinal, valor_total').eq('id', id).single();
+      const totalJaPago = Number(reserva?.valor_pago_sinal || 0) + valorPago;
+      const valorRestante = Math.max(Number(reserva?.valor_total || 0) - totalJaPago, 0);
+      const pagamentoCompleto = valorRestante <= 0;
+
       const { error } = await supabase.from('reservas').update({
-        pago: true, valor_pago_sinal: total, valor_restante: 0, data_pagamento: new Date().toISOString(),
-        forma_pagamento: metodo, status: 'confirmada'
+        pago: pagamentoCompleto,
+        valor_pago_sinal: totalJaPago,
+        valor_restante: valorRestante,
+        data_pagamento: pagamentoCompleto ? new Date().toISOString() : undefined,
+        forma_pagamento: metodo,
+        status: pagamentoCompleto ? 'confirmada' : 'pendente'
       }).eq('id', id);
       if (error) throw error;
-      // Incrementar fidelidade APENAS na baixa completa (pagamento total quitado)
-      if (reserva?.cliente_id) {
+
+      // Registrar pagamento
+      await supabase.from('pagamentos').insert([{
+        reserva_id: id, valor: valorPago, status: 'aprovado',
+        tipo: pagamentoCompleto ? 'integral' : 'parcial',
+        forma_pagamento: metodo, data_confirmacao: new Date().toISOString()
+      }]);
+
+      if (pagamentoCompleto && reserva?.cliente_id) {
         await supabase.rpc('incrementar_fidelidade', { cli_id: reserva.cliente_id });
       }
-      toast({ title: "Pagamento Confirmado" });
+      toast({ title: pagamentoCompleto ? "✅ Pagamento Total Confirmado" : "💰 Pagamento Parcial Registrado" });
+      setLiquidarValorCustom("");
+      limparPixFinanceiro();
       carregarReservasFinancas();
       buscarDadosIniciais();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message });
     }
+  };
+
+  // Gerar PIX para financeiro (dar baixa)
+  const handleGerarPixFinanceiro = async (reservaId: number, valor: number) => {
+    await gerarPixFinanceiro(valor, `Pagamento restante Arena Cedro`, reservaId, undefined, undefined, 'parcial', 0);
   };
 
   // VIP handlers
@@ -435,7 +503,7 @@ const AtendenteDashboard = () => {
             <img src="/media/logo-arena.png" alt="Logo" className="h-40 md:h-48 w-auto object-contain transition-transform hover:scale-105" />
             <div className="flex flex-col">
               <span className="text-[10px] font-black uppercase text-[#22c55e] tracking-[0.3em] leading-none mb-1">Painel Operacional</span>
-              <span className="text-xl font-black italic uppercase text-white">Bem Vindo, {localStorage.getItem("userName") || "Atendente"}</span>
+              <span className="text-xl font-black italic uppercase text-white">Bem Vindo, {funcionarioNome || "Atendente"}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -471,6 +539,20 @@ const AtendenteDashboard = () => {
           </div>
         </div>
       </header>
+
+      {/* Notificação de pagamento recebido */}
+      {notificacaoPagamento?.show && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right bg-[#22c55e] text-black p-4 rounded-2xl shadow-2xl max-w-sm">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 size={24} />
+            <div>
+              <p className="font-black text-sm">Pagamento Recebido!</p>
+              <p className="text-xs font-bold">{notificacaoPagamento.cliente} pagou R$ {notificacaoPagamento.valor.toFixed(2)}</p>
+            </div>
+            <button onClick={() => setNotificacaoPagamento(null)} className="ml-2 font-black">✕</button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {isMaintenance && (
@@ -535,6 +617,7 @@ const AtendenteDashboard = () => {
                   const isPendente = slot.status === 'pendente';
                   const isReservado = slot.status === 'reservado';
                   const tipoReserva = slot.detalhes?.tipo;
+                  const itensDoSlot = slot.detalhes ? itensReservaMap[slot.detalhes.id] || [] : [];
 
                   return (
                     <Dialog key={index}>
@@ -553,14 +636,25 @@ const AtendenteDashboard = () => {
                           )}>{isLivre ? "LIVRE" : isPendente ? "PENDENTE" : "RESERVADO"}</Badge>
                           {isReservado && tipoReserva && (
                             <Badge className={cn("text-[7px] font-black border-none",
-                              tipoReserva === 'fixa' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"
-                            )}>{tipoReserva === 'fixa' ? 'FIXA/VIP' : 'AVULSA'}</Badge>
+                              tipoReserva === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"
+                            )}>{tipoReserva === 'pacote' ? 'PACOTE' : 'AVULSA'}</Badge>
+                          )}
+                          {/* Mostrar consumo de produtos */}
+                          {itensDoSlot.length > 0 && (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Badge className="text-[6px] font-black bg-orange-500/20 text-orange-400 border-none">
+                                {itensDoSlot.length} {itensDoSlot.length === 1 ? 'ITEM' : 'ITENS'}
+                              </Badge>
+                            </div>
                           )}
                           {isLivre && <span className="text-[8px] font-bold text-gray-600 italic">R$ {slot.valor.toFixed(2)}</span>}
+                          {!isLivre && slot.detalhes && (
+                            <span className="text-[8px] font-bold text-gray-500">{slot.detalhes.clientes?.nome || slot.detalhes.cliente_nome || ""}</span>
+                          )}
                         </button>
                       </DialogTrigger>
-                      {isLivre && (
-                        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
+                      {isLivre ? (
+                        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none max-h-[90vh] overflow-y-auto">
                           <DialogHeader>
                             <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
                               <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {slot.inicio}
@@ -641,7 +735,7 @@ const AtendenteDashboard = () => {
                                   return valorBase + totalCarrinho;
                                 })()}
                                 desconto={tipoReservaAtendente === 'pacote' ? 40 : 10}
-                                tipoReserva={tipoReservaAtendente}
+                                tipoReserva={tipoReservaAtendente === 'pacote' ? 'pacote' : 'avulsa'}
                                 pixChaveEstatica={pixChaveEstatica}
                                 pixData={pixData}
                                 isCarregando={isCarregandoPix}
@@ -667,18 +761,40 @@ const AtendenteDashboard = () => {
                               </div>
                             )}
 
-                            {/* Produtos */}
+                            {/* Produtos / Consumo */}
                             <div className="space-y-2">
-                              <label className="text-[10px] font-bold uppercase text-gray-400">Consumo</label>
+                              <label className="text-[10px] font-bold uppercase text-gray-400">Consumo (Venda / Aluguel)</label>
                               <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
-                                {produtos.filter(p => p.estoque > 0).map(p => (
-                                  <button key={p.id} onClick={() => adicionarAoCarrinho(p)}
-                                    className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 text-[9px] font-black uppercase transition-all">
-                                    <span>{p.nome}</span>
-                                    <span className="text-[#22c55e]">R$ {p.preco.toFixed(2)}</span>
-                                  </button>
-                                ))}
+                                {produtos.filter(p => p.estoque > 0).map(p => {
+                                  const precoExibido = p.tipo === 'aluguel' ? (p.preco_aluguel || p.preco) : (p.preco_venda || p.preco);
+                                  return (
+                                    <button key={p.id} onClick={() => adicionarAoCarrinho({ ...p, preco: precoExibido })}
+                                      className="flex flex-col items-start p-2.5 rounded-xl bg-white/5 border border-white/5 hover:border-[#22c55e]/50 text-[9px] font-black uppercase transition-all">
+                                      <span className="text-white">{p.nome}</span>
+                                      <div className="flex gap-2 mt-0.5">
+                                        {p.preco_venda && p.preco_venda > 0 && <span className="text-[#22c55e]">V: R${Number(p.preco_venda).toFixed(0)}</span>}
+                                        {p.preco_aluguel && p.preco_aluguel > 0 && <span className="text-purple-400">A: R${Number(p.preco_aluguel).toFixed(0)}</span>}
+                                      </div>
+                                      <Badge className="text-[6px] mt-1 bg-white/5 border-none">{p.tipo}</Badge>
+                                    </button>
+                                  );
+                                })}
                               </div>
+                              {/* Itens no carrinho */}
+                              {itensCarrinho.length > 0 && (
+                                <div className="space-y-1 mt-2">
+                                  <p className="text-[8px] font-black text-gray-500 uppercase">No carrinho:</p>
+                                  {itensCarrinho.map((item, idx) => (
+                                    <div key={item.idUnico} className="flex justify-between items-center bg-white/5 px-3 py-1.5 rounded-lg text-[9px]">
+                                      <span className="text-white font-bold">{item.nome}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[#22c55e] font-black">R$ {item.preco.toFixed(2)}</span>
+                                        <button onClick={() => removerDoCarrinho(item.idUnico)} className="text-red-400 hover:text-red-300"><Trash2 size={12}/></button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
                             <Button disabled={loading || isCarregandoPix}
@@ -690,6 +806,74 @@ const AtendenteDashboard = () => {
                               }}>
                               {loading ? "Processando..." : "Fazer Reserva"}
                             </Button>
+                          </div>
+                        </DialogContent>
+                      ) : (
+                        /* Slot ocupado - mostrar detalhes com consumo */
+                        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none">
+                          <DialogHeader>
+                            <DialogTitle className="italic uppercase flex items-center gap-2 text-lg font-black">
+                              📋 Detalhes - {slot.inicio}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 pt-2">
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Atleta:</span>
+                                <span className="text-white font-black">{slot.detalhes?.clientes?.nome || slot.detalhes?.cliente_nome || "-"}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Tipo:</span>
+                                <Badge className={cn("text-[8px] font-black border-none", slot.detalhes?.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
+                                  {slot.detalhes?.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Valor:</span>
+                                <span className="text-[#22c55e] font-black">R$ {Number(slot.detalhes?.valor_total || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">Status:</span>
+                                <Badge className={cn("text-[8px] font-black border-none", slot.detalhes?.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : "bg-yellow-500/20 text-yellow-400")}>
+                                  {slot.detalhes?.pago ? 'PAGO' : 'PENDENTE'}
+                                </Badge>
+                              </div>
+                            </div>
+                            {/* Consumo / Produtos */}
+                            {itensDoSlot.length > 0 && (
+                              <div className="bg-orange-500/5 border border-orange-500/20 p-4 rounded-xl space-y-2">
+                                <p className="text-[10px] font-black uppercase text-orange-400">🛒 Consumo</p>
+                                {itensDoSlot.map((it: any) => (
+                                  <div key={it.id} className="flex justify-between text-xs">
+                                    <span className="text-white">{it.produtos?.nome || `Produto #${it.produto_id}`}</span>
+                                    <div className="flex gap-2">
+                                      <Badge className="text-[7px] bg-white/5 border-none">{it.tipo}</Badge>
+                                      <span className="text-[#22c55e] font-black">R$ {Number(it.subtotal || it.preco_unitario || 0).toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                <div className="border-t border-orange-500/20 pt-1 flex justify-between text-xs font-black">
+                                  <span className="text-orange-400">Total consumo:</span>
+                                  <span className="text-orange-300">R$ {itensDoSlot.reduce((a: number, it: any) => a + Number(it.subtotal || it.preco_unitario || 0), 0).toFixed(2)}</span>
+                                </div>
+                              </div>
+                            )}
+                            {/* Ações */}
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" className="flex-1 border-blue-500/20 text-blue-400 rounded-xl text-[9px]"
+                                onClick={() => { setRemarcarReserva(slot.detalhes); setRemarcarData(""); setRemarcarModal(true); }}>
+                                <RefreshCcw size={12} className="mr-1" /> Remarcar
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1 border-red-500/20 text-red-400 rounded-xl text-[9px]"
+                                onClick={async () => {
+                                  if (!confirm("Cancelar esta reserva?")) return;
+                                  await supabase.from('reservas').update({ status: 'cancelada' }).eq('id', slot.detalhes.id);
+                                  toast({ title: "Reserva cancelada." });
+                                  carregarReservasFinancas();
+                                }}>
+                                <XCircle size={12} className="mr-1" /> Cancelar
+                              </Button>
+                            </div>
                           </div>
                         </DialogContent>
                       )}
@@ -750,7 +934,6 @@ const AtendenteDashboard = () => {
                   const total = Number(c.reservas_concluidas || 0);
                   const progresso = total % 10;
                   const temPremio = total > 0 && total % 10 === 0;
-                  // Status color based on reservations
                   const reservasCliente = listaReservas.filter(r => r.clientes?.nome?.toLowerCase() === c.nome.toLowerCase());
                   const temPendente = reservasCliente.some(r => !r.pago && r.status !== 'cancelada');
                   const temAtrasada = reservasCliente.some(r => !r.pago && r.status !== 'cancelada' && new Date(r.data_reserva + 'T00:00:00') < new Date());
@@ -781,7 +964,6 @@ const AtendenteDashboard = () => {
                         </div>
                         {temPremio && <p className="text-[8px] text-yellow-500 font-black uppercase text-center">Próximo jogo é cortesia!</p>}
                       </div>
-                      {/* Reservas recentes deste cliente */}
                       {reservasCliente.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
                           <p className="text-[8px] font-black text-gray-600 uppercase">Últimas reservas</p>
@@ -802,7 +984,7 @@ const AtendenteDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* VIP - Editar / Cancelar */}
+          {/* VIP/PACOTES */}
           <TabsContent value="vip">
             <Card className="bg-[#0c120f] border-white/5 p-8 rounded-[2.5rem]">
               <h3 className="text-2xl font-black italic uppercase flex items-center gap-3 mb-6"><Crown className="text-[#22c55e]" /> Pacotes com Desconto</h3>
@@ -914,7 +1096,7 @@ const AtendenteDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* FINANCEIRO - DADOS REAIS SEM DUPLICATAS */}
+          {/* FINANCEIRO - COM INPUT CUSTOMIZADO E PIX QR CODE */}
           <TabsContent value="financeiro" className="space-y-8">
             <Card className="bg-[#0c120f] border-orange-500/20 rounded-[2.5rem] overflow-hidden">
               <div className="bg-[#facc15] p-4 flex items-center gap-2 text-black font-black uppercase text-sm italic">
@@ -929,7 +1111,6 @@ const AtendenteDashboard = () => {
                 </TableHeader>
                 <TableBody>
                 {(() => {
-                  // Deduplicar: agrupar por cliente_nome + data_reserva + horario para não repetir
                   const pendentes = listaReservas.filter(r => !r.pago && r.status !== 'cancelada');
                   const vistos = new Set<string>();
                   return pendentes.filter(res => {
@@ -957,26 +1138,111 @@ const AtendenteDashboard = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Dialog>
+                          <Dialog onOpenChange={(open) => { if (!open) { setLiquidarValorCustom(""); setLiquidarMetodo("dinheiro"); limparPixFinanceiro(); } }}>
                             <DialogTrigger asChild>
                               <Button size="sm" className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
                             </DialogTrigger>
-                            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-sm outline-none">
-                              <DialogHeader><DialogTitle className="italic uppercase font-black flex items-center gap-2"><DollarSign className="text-[#22c55e]" size={18} /> Forma de Pagamento</DialogTitle></DialogHeader>
-                              <div className="space-y-3 pt-4">
+                            <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-sm outline-none max-h-[90vh] overflow-y-auto">
+                              <DialogHeader><DialogTitle className="italic uppercase font-black flex items-center gap-2"><DollarSign className="text-[#22c55e]" size={18} /> Receber Pagamento</DialogTitle></DialogHeader>
+                              <div className="space-y-4 pt-4">
                                 <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                                   <p className="text-[10px] text-gray-500 uppercase font-bold">Valor restante</p>
                                   <p className="text-2xl font-black text-red-500">R$ {restante.toFixed(2)}</p>
                                 </div>
-                                <Button onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), 'dinheiro')} className="w-full bg-yellow-500 text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
-                                  💵 Dinheiro
-                                </Button>
-                                <Button onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), 'pix')} className="w-full bg-[#22c55e] text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
-                                  📱 PIX
-                                </Button>
-                                <Button onClick={() => handleLiquidarReserva(res.id, Number(res.valor_total), 'metade')} variant="outline" className="w-full border-white/10 text-white font-black uppercase rounded-xl h-12 flex items-center gap-2">
-                                  💰 Metade Dinheiro + Metade PIX
-                                </Button>
+
+                                {/* Input para valor customizado */}
+                                <div>
+                                  <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Valor a receber (R$)</label>
+                                  <Input
+                                    type="number"
+                                    min="0.01"
+                                    max={restante}
+                                    step="0.01"
+                                    placeholder={restante.toFixed(2)}
+                                    value={liquidarValorCustom}
+                                    onChange={(e) => setLiquidarValorCustom(e.target.value)}
+                                    className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
+                                  />
+                                  {liquidarValorCustom && parseFloat(liquidarValorCustom) > 0 && parseFloat(liquidarValorCustom) < restante && (
+                                    <p className="text-[9px] text-yellow-400 font-bold mt-1">
+                                      ⚠️ Pagamento parcial. Restará: R$ {(restante - parseFloat(liquidarValorCustom)).toFixed(2)}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Forma de pagamento */}
+                                <RadioGroup value={liquidarMetodo} onValueChange={(v) => setLiquidarMetodo(v as "pix" | "dinheiro")} className="grid grid-cols-2 gap-3">
+                                  <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-1", liquidarMetodo === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                                    <RadioGroupItem value="dinheiro" id={`fin-din-${res.id}`} className="sr-only" />
+                                    <Label htmlFor={`fin-din-${res.id}`} className="flex flex-col items-center gap-1 font-black text-[10px] uppercase cursor-pointer">
+                                      <Banknote size={18} className={liquidarMetodo === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> Dinheiro
+                                    </Label>
+                                  </div>
+                                  <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-1", liquidarMetodo === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                                    <RadioGroupItem value="pix" id={`fin-pix-${res.id}`} className="sr-only" />
+                                    <Label htmlFor={`fin-pix-${res.id}`} className="flex flex-col items-center gap-1 font-black text-[10px] uppercase cursor-pointer">
+                                      <CreditCard size={18} className={liquidarMetodo === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
+                                    </Label>
+                                  </div>
+                                </RadioGroup>
+
+                                {/* PIX QR Code para financeiro */}
+                                {liquidarMetodo === "pix" && (
+                                  <div className="space-y-3">
+                                    {!pixDataFinanceiro && (
+                                      <Button
+                                        disabled={isCarregandoPixFinanceiro}
+                                        onClick={() => {
+                                          const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                          if (val <= 0) return;
+                                          handleGerarPixFinanceiro(res.id, val);
+                                        }}
+                                        className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl"
+                                      >
+                                        {isCarregandoPixFinanceiro ? "Gerando PIX..." : `Gerar PIX — R$ ${(liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante).toFixed(2)}`}
+                                      </Button>
+                                    )}
+                                    {pixDataFinanceiro && (
+                                      <div className="bg-black/60 rounded-2xl border border-[#22c55e]/20 p-4 flex flex-col items-center gap-3">
+                                        <p className="text-xs font-black uppercase text-[#22c55e]">PIX — R$ {pixDataFinanceiro.valorPago.toFixed(2)}</p>
+                                        {pixDataFinanceiro.qrCodeBase64 && (
+                                          <img src={`data:image/png;base64,${pixDataFinanceiro.qrCodeBase64}`} alt="QR Code" className="w-40 h-40 rounded-xl bg-white p-2" />
+                                        )}
+                                        {pixDataFinanceiro.copiaECola && (
+                                          <div className="w-full">
+                                            <p className="text-[9px] text-gray-500 uppercase font-bold mb-1">Copia e Cola:</p>
+                                            <div className="flex gap-2">
+                                              <input readOnly value={pixDataFinanceiro.copiaECola} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white truncate" />
+                                              <Button size="sm" variant="outline" className="border-[#22c55e] text-[#22c55e] shrink-0" onClick={() => {
+                                                navigator.clipboard.writeText(pixDataFinanceiro.copiaECola);
+                                                toast({ title: "✅ Copiado!" });
+                                              }}><Copy size={12} /></Button>
+                                            </div>
+                                          </div>
+                                        )}
+                                        <p className="text-[9px] text-yellow-400 font-bold animate-pulse">⏳ Aguardando pagamento do cliente...</p>
+                                        <Button onClick={() => {
+                                          const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                          handleLiquidarReserva(res.id, val, 'pix');
+                                        }} className="w-full bg-[#22c55e] text-black font-black uppercase h-10 rounded-xl text-xs">
+                                          <CheckCircle2 size={14} className="mr-1" /> Confirmar Pagamento
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Botão dinheiro direto */}
+                                {liquidarMetodo === "dinheiro" && (
+                                  <Button onClick={() => {
+                                    const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                    if (val <= 0) return toast({ variant: "destructive", title: "Valor inválido" });
+                                    handleLiquidarReserva(res.id, val, 'dinheiro');
+                                  }} className="w-full bg-yellow-500 text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
+                                    💵 Confirmar R$ {(liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante).toFixed(2)} em Dinheiro
+                                  </Button>
+                                )}
+
                                 <Button variant="outline" className="w-full border-red-500/20 text-red-400 rounded-xl text-[9px] h-8"
                                   onClick={async () => {
                                     if (!confirm("Cancelar esta reserva?")) return;
