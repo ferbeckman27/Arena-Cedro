@@ -26,7 +26,7 @@ const AdminLogin = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
 
   const passwordValidations = useMemo(() => {
-    const hasExactLength = newPassword.length === 8;
+    const hasExactLength = newPassword.length >= 8;
     const hasUpperCase = /[A-Z]/.test(newPassword);
     const hasLowerCase = /[a-z]/.test(newPassword);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
