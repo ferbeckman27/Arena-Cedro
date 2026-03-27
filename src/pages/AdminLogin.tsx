@@ -89,13 +89,25 @@ const AdminLogin = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.includes("@")) {
-      return toast({ variant: "destructive", title: "E-mail inválido", description: "Digite um e-mail corporativo válido." });
+      return toast({
+        variant: "destructive",
+        title: "E-mail inválido",
+        description: "Digite um e-mail corporativo válido.",
+      });
     }
     if (!passwordValidations.isValid) {
-      return toast({ variant: "destructive", title: "Senha Inválida", description: "Sua senha não atende aos requisitos." });
+      return toast({
+        variant: "destructive",
+        title: "Senha Inválida",
+        description: "Sua senha não atende aos requisitos.",
+      });
     }
     if (newPassword !== confirmPassword) {
-      return toast({ variant: "destructive", title: "Senhas diferentes", description: "A confirmação de senha não confere." });
+      return toast({
+        variant: "destructive",
+        title: "Senhas diferentes",
+        description: "A confirmação de senha não confere.",
+      });
     }
 
     setLoading(true);
@@ -108,7 +120,11 @@ const AdminLogin = () => {
         .single();
 
       if (!func) {
-        toast({ variant: "destructive", title: "E-mail não encontrado", description: "Nenhum funcionário com este e-mail." });
+        toast({
+          variant: "destructive",
+          title: "E-mail não encontrado",
+          description: "Nenhum funcionário com este e-mail.",
+        });
         setLoading(false);
         return;
       }
@@ -285,7 +301,7 @@ const AdminLogin = () => {
                   <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Requisitos de Segurança:</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { ok: passwordValidations.hasExactLength, label: "Exatamente 8 caracteres" },
+                      { ok: passwordValidations.hasExactLength, label: "Exatamente 8+ caracteres" },
                       { ok: passwordValidations.hasUpperCase, label: "Letra maiúscula" },
                       { ok: passwordValidations.hasLowerCase, label: "Letra minúscula" },
                       { ok: passwordValidations.hasSpecialChar, label: "Caractere especial" },
