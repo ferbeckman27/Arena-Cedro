@@ -723,7 +723,7 @@ const AtendenteDashboard = () => {
                               </div>
                             </RadioGroup>
 
-                            {/* PIX Section */}
+                            {/* PIX Section - mostra PixPaymentSection com opções livre/integral */}
                             {metodoPgto === "pix" && reservaCriada && reservaIdAtual && (
                               <PixPaymentSection
                                 valorTotal={(() => {
@@ -745,16 +745,17 @@ const AtendenteDashboard = () => {
                               />
                             )}
 
-                            {/* Dinheiro confirmation */}
+                            {/* Dinheiro = apenas agendar */}
                             {metodoPgto === "dinheiro" && reservaCriada && (
                               <div className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center space-y-2">
-                                <p className="text-xs font-black uppercase italic text-gray-300">Reserva pré-confirmada!</p>
-                                <p className="text-[10px] text-[#22c55e] font-bold uppercase">Pagamento será realizado no caixa.</p>
+                                <p className="text-xs font-black uppercase italic text-[#22c55e]">✅ Reserva Agendada!</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">Pagamento será realizado no caixa da arena.</p>
                                 <p className="text-lg font-black text-white">Valor: R$ {(() => {
                                   const valorReserva = slot.valor;
                                   const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
                                   return (valorBase + totalCarrinho).toFixed(2);
                                 })()}</p>
+                                <p className="text-[9px] text-yellow-400 font-bold">⚠️ Fidelidade será contada após pagamento completo.</p>
                               </div>
                             )}
 
