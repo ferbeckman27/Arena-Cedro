@@ -296,7 +296,7 @@ const AtendenteDashboard = () => {
         valor_total: totalGeral, forma_pagamento: metodoPgto,
         tipo: tipoReservaAtendente,
         funcionario_id: user?.id, atendente_id: user?.id,
-        pago: metodoPgto === 'dinheiro', status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
+        pago: false, status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
         turno_id,
         observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
       }]).select().single();
@@ -316,10 +316,7 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
-        const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
-        if (clienteEncontrado) {
-          await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
-        }
+        // Dinheiro = apenas agendar, sem incrementar fidelidade (paga no caixa)
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
