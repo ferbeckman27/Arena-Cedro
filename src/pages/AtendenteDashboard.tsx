@@ -58,7 +58,7 @@ const AtendenteDashboard = () => {
   const [funcionarioNome, setFuncionarioNome] = useState("");
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
-  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro">("dinheiro");
+  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "metade">("dinheiro");
   const { isCarregandoPix: isCarregandoPixFinanceiro, pixData: pixDataFinanceiro, gerarPagamentoPix: gerarPixFinanceiro, limparPix: limparPixFinanceiro } = usePixPayment();
   // Notificação de pagamento recebido
   const [notificacaoPagamento, setNotificacaoPagamento] = useState<{ show: boolean; cliente: string; valor: number } | null>(null);
