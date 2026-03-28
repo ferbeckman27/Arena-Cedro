@@ -74,7 +74,7 @@ const AtendenteDashboard = () => {
   interface ReservaCompleta {
     id: number; data_reserva: string; horario_inicio: string; horario_fim: string;
     tipo: string; valor_total: number; valor_pago_sinal: number; reserva_fixa_id: number | null;
-    forma_pagamento: string; pago: boolean; status?: string;
+    forma_pagamento: string; pago: boolean; status?: string; cliente_nome?: string;
     clientes: { nome: string } | null;
   }
   interface SlotAgenda { inicio: string; fim: string; turno: string; valor: number; status: string; }
