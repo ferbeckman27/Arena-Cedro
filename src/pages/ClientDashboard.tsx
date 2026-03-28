@@ -637,7 +637,10 @@ const ClienteDashboard = () => {
                 <div className="w-full bg-white/5 h-2 rounded-full mt-2 overflow-hidden">
                   <div className="h-full bg-[#22c55e] transition-all" style={{ width: `${(progressoFidelidade % 10) * 10}%` }} />
                 </div>
-                {progressoFidelidade > 0 && progressoFidelidade % 10 === 0 && <p className="text-yellow-500 text-[9px] font-black mt-1 animate-pulse">★ Próximo jogo é cortesia!</p>}
+                {progressoFidelidade > 0 && progressoFidelidade % 10 === 0 && (
+                  <p className="text-yellow-500 text-[9px] font-black mt-1 animate-pulse">🎉 PARABÉNS! VOCÊ TEM UM JOGO GRÁTIS! Resgate na aba Agenda (horário diurno).</p>
+                )}
+                <p className="text-[8px] text-gray-600 font-bold mt-1 uppercase">Fidelidade conta apenas com pagamento completo</p>
               </div>
               <Button onClick={handleLogout} variant="ghost" className="mt-8 text-red-500 hover:text-red-400 hover:bg-red-500/10 text-xs font-black uppercase italic gap-2"><LogOut size={14} /> Sair da Conta</Button>
             </Card>
