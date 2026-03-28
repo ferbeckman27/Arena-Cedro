@@ -58,7 +58,7 @@ const AtendenteDashboard = () => {
   const [funcionarioNome, setFuncionarioNome] = useState("");
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
-  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro">("dinheiro");
+  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "metade">("dinheiro");
   const { isCarregandoPix: isCarregandoPixFinanceiro, pixData: pixDataFinanceiro, gerarPagamentoPix: gerarPixFinanceiro, limparPix: limparPixFinanceiro } = usePixPayment();
   // Notificação de pagamento recebido
   const [notificacaoPagamento, setNotificacaoPagamento] = useState<{ show: boolean; cliente: string; valor: number } | null>(null);
@@ -74,7 +74,7 @@ const AtendenteDashboard = () => {
   interface ReservaCompleta {
     id: number; data_reserva: string; horario_inicio: string; horario_fim: string;
     tipo: string; valor_total: number; valor_pago_sinal: number; reserva_fixa_id: number | null;
-    forma_pagamento: string; pago: boolean; status?: string;
+    forma_pagamento: string; pago: boolean; status?: string; cliente_nome?: string;
     clientes: { nome: string } | null;
   }
   interface SlotAgenda { inicio: string; fim: string; turno: string; valor: number; status: string; }
@@ -296,7 +296,7 @@ const AtendenteDashboard = () => {
         valor_total: totalGeral, forma_pagamento: metodoPgto,
         tipo: tipoReservaAtendente,
         funcionario_id: user?.id, atendente_id: user?.id,
-        pago: metodoPgto === 'dinheiro', status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
+        pago: false, status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
         turno_id,
         observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
       }]).select().single();
@@ -316,10 +316,7 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
-        const clienteEncontrado = clientes.find(c => c.nome.toLowerCase() === clienteNome.toLowerCase());
-        if (clienteEncontrado) {
-          await supabase.rpc('incrementar_fidelidade', { cli_id: clienteEncontrado.id });
-        }
+        // Dinheiro = apenas agendar, sem incrementar fidelidade (paga no caixa)
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
@@ -726,7 +723,7 @@ const AtendenteDashboard = () => {
                               </div>
                             </RadioGroup>
 
-                            {/* PIX Section */}
+                            {/* PIX Section - mostra PixPaymentSection com opções livre/integral */}
                             {metodoPgto === "pix" && reservaCriada && reservaIdAtual && (
                               <PixPaymentSection
                                 valorTotal={(() => {
@@ -748,16 +745,17 @@ const AtendenteDashboard = () => {
                               />
                             )}
 
-                            {/* Dinheiro confirmation */}
+                            {/* Dinheiro = apenas agendar */}
                             {metodoPgto === "dinheiro" && reservaCriada && (
                               <div className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center space-y-2">
-                                <p className="text-xs font-black uppercase italic text-gray-300">Reserva pré-confirmada!</p>
-                                <p className="text-[10px] text-[#22c55e] font-bold uppercase">Pagamento será realizado no caixa.</p>
+                                <p className="text-xs font-black uppercase italic text-[#22c55e]">✅ Reserva Agendada!</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">Pagamento será realizado no caixa da arena.</p>
                                 <p className="text-lg font-black text-white">Valor: R$ {(() => {
                                   const valorReserva = slot.valor;
                                   const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
                                   return (valorBase + totalCarrinho).toFixed(2);
                                 })()}</p>
+                                <p className="text-[9px] text-yellow-400 font-bold">⚠️ Fidelidade será contada após pagamento completo.</p>
                               </div>
                             )}
 
@@ -1096,7 +1094,7 @@ const AtendenteDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* FINANCEIRO - COM INPUT CUSTOMIZADO E PIX QR CODE */}
+          {/* FINANCEIRO - COM 3 FORMAS DE PAGAMENTO */}
           <TabsContent value="financeiro" className="space-y-8">
             <Card className="bg-[#0c120f] border-orange-500/20 rounded-[2.5rem] overflow-hidden">
               <div className="bg-[#facc15] p-4 flex items-center gap-2 text-black font-black uppercase text-sm italic">
@@ -1123,7 +1121,7 @@ const AtendenteDashboard = () => {
                     const restante = Number(res.valor_total) - pago;
                     return (
                       <TableRow key={res.id} className="border-white/5">
-                        <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || "Atleta"}</TableCell>
+                        <TableCell className="font-black italic uppercase text-white">{res.clientes?.nome || res.cliente_nome || "Atleta"}</TableCell>
                         <TableCell className="text-[11px]">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} {res.horario_inicio?.slice(0,5)}</TableCell>
                         <TableCell>
                           <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
@@ -1140,65 +1138,61 @@ const AtendenteDashboard = () => {
                         <TableCell className="text-right">
                           <Dialog onOpenChange={(open) => { if (!open) { setLiquidarValorCustom(""); setLiquidarMetodo("dinheiro"); limparPixFinanceiro(); } }}>
                             <DialogTrigger asChild>
-                              <Button size="sm" className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">Dar Baixa</Button>
+                              <Button size="sm" className="bg-[#22c55e] text-black font-black text-[9px] uppercase rounded-xl h-8">💰 Pagamento</Button>
                             </DialogTrigger>
                             <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-sm outline-none max-h-[90vh] overflow-y-auto">
                               <DialogHeader><DialogTitle className="italic uppercase font-black flex items-center gap-2"><DollarSign className="text-[#22c55e]" size={18} /> Receber Pagamento</DialogTitle></DialogHeader>
                               <div className="space-y-4 pt-4">
                                 <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Valor restante</p>
-                                  <p className="text-2xl font-black text-red-500">R$ {restante.toFixed(2)}</p>
+                                  <p className="text-[10px] text-gray-500 uppercase font-bold">Atleta: {res.clientes?.nome || res.cliente_nome}</p>
+                                  <p className="text-2xl font-black text-red-500">Restante: R$ {restante.toFixed(2)}</p>
                                 </div>
 
                                 {/* Input para valor customizado */}
                                 <div>
                                   <label className="text-[10px] font-black uppercase text-gray-500 mb-1 block">Valor a receber (R$)</label>
                                   <Input
-                                    type="number"
-                                    min="0.01"
-                                    max={restante}
-                                    step="0.01"
+                                    type="number" min="0.01" max={restante} step="0.01"
                                     placeholder={restante.toFixed(2)}
                                     value={liquidarValorCustom}
                                     onChange={(e) => setLiquidarValorCustom(e.target.value)}
                                     className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
                                   />
                                   {liquidarValorCustom && parseFloat(liquidarValorCustom) > 0 && parseFloat(liquidarValorCustom) < restante && (
-                                    <p className="text-[9px] text-yellow-400 font-bold mt-1">
-                                      ⚠️ Pagamento parcial. Restará: R$ {(restante - parseFloat(liquidarValorCustom)).toFixed(2)}
-                                    </p>
+                                    <p className="text-[9px] text-yellow-400 font-bold mt-1">⚠️ Pagamento parcial. Restará: R$ {(restante - parseFloat(liquidarValorCustom)).toFixed(2)}</p>
                                   )}
                                 </div>
 
-                                {/* Forma de pagamento */}
-                                <RadioGroup value={liquidarMetodo} onValueChange={(v) => setLiquidarMetodo(v as "pix" | "dinheiro")} className="grid grid-cols-2 gap-3">
-                                  <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-1", liquidarMetodo === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
-                                    <RadioGroupItem value="dinheiro" id={`fin-din-${res.id}`} className="sr-only" />
-                                    <Label htmlFor={`fin-din-${res.id}`} className="flex flex-col items-center gap-1 font-black text-[10px] uppercase cursor-pointer">
-                                      <Banknote size={18} className={liquidarMetodo === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> Dinheiro
-                                    </Label>
+                                {/* 3 Formas de pagamento */}
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black uppercase text-gray-500">Forma de Pagamento</label>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                      { value: "pix", icon: <CreditCard size={16} />, label: "PIX" },
+                                      { value: "dinheiro", icon: <Banknote size={16} />, label: "DINHEIRO" },
+                                      { value: "metade", icon: <><CreditCard size={12} /><Banknote size={12} /></>, label: "METADE" },
+                                    ].map(opt => (
+                                      <button key={opt.value} type="button"
+                                        onClick={() => setLiquidarMetodo(opt.value as any)}
+                                        className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-1",
+                                          liquidarMetodo === opt.value ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5 hover:border-white/20"
+                                        )}>
+                                        <div className={cn("flex gap-1", liquidarMetodo === opt.value ? "text-[#22c55e]" : "text-gray-600")}>{opt.icon}</div>
+                                        <span className="text-[8px] font-black uppercase">{opt.label}</span>
+                                      </button>
+                                    ))}
                                   </div>
-                                  <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-1", liquidarMetodo === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
-                                    <RadioGroupItem value="pix" id={`fin-pix-${res.id}`} className="sr-only" />
-                                    <Label htmlFor={`fin-pix-${res.id}`} className="flex flex-col items-center gap-1 font-black text-[10px] uppercase cursor-pointer">
-                                      <CreditCard size={18} className={liquidarMetodo === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
-                                    </Label>
-                                  </div>
-                                </RadioGroup>
+                                </div>
 
-                                {/* PIX QR Code para financeiro */}
+                                {/* PIX QR Code */}
                                 {liquidarMetodo === "pix" && (
                                   <div className="space-y-3">
                                     {!pixDataFinanceiro && (
-                                      <Button
-                                        disabled={isCarregandoPixFinanceiro}
-                                        onClick={() => {
-                                          const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
-                                          if (val <= 0) return;
-                                          handleGerarPixFinanceiro(res.id, val);
-                                        }}
-                                        className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl"
-                                      >
+                                      <Button disabled={isCarregandoPixFinanceiro} onClick={() => {
+                                        const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                        if (val <= 0) return;
+                                        handleGerarPixFinanceiro(res.id, val);
+                                      }} className="w-full bg-[#22c55e] text-black font-black uppercase h-12 rounded-xl">
                                         {isCarregandoPixFinanceiro ? "Gerando PIX..." : `Gerar PIX — R$ ${(liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante).toFixed(2)}`}
                                       </Button>
                                     )}
@@ -1221,27 +1215,68 @@ const AtendenteDashboard = () => {
                                           </div>
                                         )}
                                         <p className="text-[9px] text-yellow-400 font-bold animate-pulse">⏳ Aguardando pagamento do cliente...</p>
-                                        <Button onClick={() => {
-                                          const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
-                                          handleLiquidarReserva(res.id, val, 'pix');
-                                        }} className="w-full bg-[#22c55e] text-black font-black uppercase h-10 rounded-xl text-xs">
-                                          <CheckCircle2 size={14} className="mr-1" /> Confirmar Pagamento
-                                        </Button>
                                       </div>
                                     )}
                                   </div>
                                 )}
 
-                                {/* Botão dinheiro direto */}
-                                {liquidarMetodo === "dinheiro" && (
-                                  <Button onClick={() => {
-                                    const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
-                                    if (val <= 0) return toast({ variant: "destructive", title: "Valor inválido" });
-                                    handleLiquidarReserva(res.id, val, 'dinheiro');
-                                  }} className="w-full bg-yellow-500 text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
-                                    💵 Confirmar R$ {(liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante).toFixed(2)} em Dinheiro
-                                  </Button>
+                                {/* Metade PIX + Metade Dinheiro */}
+                                {liquidarMetodo === "metade" && (
+                                  <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-2">
+                                    <p className="text-[10px] font-black uppercase text-gray-400">Metade PIX + Metade Dinheiro</p>
+                                    {(() => {
+                                      const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                      const metade = val / 2;
+                                      return (
+                                        <>
+                                          <div className="flex justify-between text-xs">
+                                            <span className="text-gray-400">PIX:</span>
+                                            <span className="text-[#22c55e] font-black">R$ {metade.toFixed(2)}</span>
+                                          </div>
+                                          <div className="flex justify-between text-xs">
+                                            <span className="text-gray-400">Dinheiro:</span>
+                                            <span className="text-yellow-400 font-black">R$ {metade.toFixed(2)}</span>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
+                                    {!pixDataFinanceiro && (
+                                      <Button disabled={isCarregandoPixFinanceiro} onClick={() => {
+                                        const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                        handleGerarPixFinanceiro(res.id, val / 2);
+                                      }} className="w-full bg-[#22c55e] text-black font-black uppercase h-10 rounded-xl text-xs">
+                                        {isCarregandoPixFinanceiro ? "Gerando..." : "Gerar PIX da Metade"}
+                                      </Button>
+                                    )}
+                                    {pixDataFinanceiro && (
+                                      <div className="bg-black/60 rounded-xl border border-[#22c55e]/20 p-3 flex flex-col items-center gap-2">
+                                        <p className="text-[10px] font-black text-[#22c55e]">PIX Metade — R$ {pixDataFinanceiro.valorPago.toFixed(2)}</p>
+                                        {pixDataFinanceiro.qrCodeBase64 && (
+                                          <img src={`data:image/png;base64,${pixDataFinanceiro.qrCodeBase64}`} alt="QR Code" className="w-32 h-32 rounded-lg bg-white p-1" />
+                                        )}
+                                        {pixDataFinanceiro.copiaECola && (
+                                          <div className="w-full flex gap-1">
+                                            <input readOnly value={pixDataFinanceiro.copiaECola} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[8px] text-white truncate" />
+                                            <Button size="sm" variant="outline" className="border-[#22c55e] text-[#22c55e] h-7 px-2" onClick={() => {
+                                              navigator.clipboard.writeText(pixDataFinanceiro.copiaECola);
+                                              toast({ title: "✅ Copiado!" });
+                                            }}><Copy size={10} /></Button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
+
+                                {/* Botão Dar Baixa */}
+                                <Button onClick={() => {
+                                  const val = liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante;
+                                  if (val <= 0) return toast({ variant: "destructive", title: "Valor inválido" });
+                                  const metodo = liquidarMetodo === "metade" ? "pix+dinheiro" : liquidarMetodo;
+                                  handleLiquidarReserva(res.id, val, metodo);
+                                }} className="w-full bg-yellow-500 text-black font-black uppercase rounded-xl h-12 flex items-center gap-2">
+                                  <CheckCircle2 size={16} /> Dar Baixa — R$ {(liquidarValorCustom ? parseFloat(liquidarValorCustom) : restante).toFixed(2)}
+                                </Button>
 
                                 <Button variant="outline" className="w-full border-red-500/20 text-red-400 rounded-xl text-[9px] h-8"
                                   onClick={async () => {
@@ -1284,7 +1319,12 @@ const AtendenteDashboard = () => {
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2 flex-wrap">
                             <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
-                            <Badge className="text-[8px] bg-white/5">{res.forma_pagamento}</Badge>
+                            <Badge className={cn("text-[8px] font-black border-none",
+                              res.forma_pagamento === 'pix' ? "bg-blue-500/20 text-blue-400" :
+                              res.forma_pagamento === 'dinheiro' ? "bg-yellow-500/20 text-yellow-400" :
+                              res.forma_pagamento === 'pix+dinheiro' ? "bg-purple-500/20 text-purple-400" :
+                              "bg-white/10 text-gray-400"
+                            )}>{res.forma_pagamento === 'pix+dinheiro' ? 'PIX+DIN' : (res.forma_pagamento || '—').toUpperCase()}</Badge>
                             <Badge className={cn("text-[8px] font-black border-none", res.tipo === 'pacote' ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400")}>
                               {res.tipo === 'pacote' ? 'PACOTE' : 'AVULSA'}
                             </Badge>

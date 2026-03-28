@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -436,7 +436,39 @@ const ClienteDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
-        <div className="mb-12"><FidelityCard count={progressoFidelidade} /></div>
+        <div className="mb-12">
+          <FidelityCard count={progressoFidelidade} />
+          {/* Mensagem de jogo grátis ao completar 10 */}
+          {progressoFidelidade > 0 && progressoFidelidade % 10 === 0 && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <div className="mt-4 bg-yellow-500/10 border-2 border-yellow-500/40 rounded-[2rem] p-6 text-center cursor-pointer hover:border-yellow-500/80 transition-all animate-pulse">
+                  <p className="text-2xl font-black uppercase italic text-yellow-400">🎉 PARABÉNS!</p>
+                  <p className="text-lg font-black uppercase text-white mt-1">VOCÊ TEM UM JOGO GRÁTIS PARA RESGATAR!</p>
+                  <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase">Clique aqui para marcar seu jogo cortesia</p>
+                  <Button className="mt-4 bg-yellow-500 text-black font-black uppercase rounded-xl h-12 px-8">
+                    🏆 Resgatar Jogo Grátis
+                  </Button>
+                </div>
+              </DialogTrigger>
+              <DialogContent className="bg-[#0c120f] border-white/10 text-white max-w-[480px] rounded-[2rem] p-8 outline-none">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black italic uppercase text-yellow-400 flex items-center gap-3">🏆 Jogo Grátis</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4">
+                    <p className="text-xs font-bold text-yellow-300 uppercase">Seu jogo cortesia está disponível!</p>
+                    <p className="text-[10px] text-gray-400 mt-2">Válido para horários <strong className="text-white">DIURNOS</strong> (09h às 17h), de segunda a domingo.</p>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Selecione a data e horário na aba "Agenda" — apenas horários entre 09:00 e 17:00 estão disponíveis para resgate.</p>
+                  <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 p-3 rounded-xl">
+                    <p className="text-[9px] text-[#22c55e] font-bold uppercase">✅ A fidelidade é contada somente após o pagamento completo da reserva no caixa da arena.</p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
 
         <div className="flex flex-wrap gap-4 mb-6 text-xs font-bold uppercase">
           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#22c55e]" /> Disponível</div>
@@ -605,7 +637,10 @@ const ClienteDashboard = () => {
                 <div className="w-full bg-white/5 h-2 rounded-full mt-2 overflow-hidden">
                   <div className="h-full bg-[#22c55e] transition-all" style={{ width: `${(progressoFidelidade % 10) * 10}%` }} />
                 </div>
-                {progressoFidelidade > 0 && progressoFidelidade % 10 === 0 && <p className="text-yellow-500 text-[9px] font-black mt-1 animate-pulse">★ Próximo jogo é cortesia!</p>}
+                {progressoFidelidade > 0 && progressoFidelidade % 10 === 0 && (
+                  <p className="text-yellow-500 text-[9px] font-black mt-1 animate-pulse">🎉 PARABÉNS! VOCÊ TEM UM JOGO GRÁTIS! Resgate na aba Agenda (horário diurno).</p>
+                )}
+                <p className="text-[8px] text-gray-600 font-bold mt-1 uppercase">Fidelidade conta apenas com pagamento completo</p>
               </div>
               <Button onClick={handleLogout} variant="ghost" className="mt-8 text-red-500 hover:text-red-400 hover:bg-red-500/10 text-xs font-black uppercase italic gap-2"><LogOut size={14} /> Sair da Conta</Button>
             </Card>
