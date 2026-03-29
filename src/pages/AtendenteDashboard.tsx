@@ -179,9 +179,6 @@ const AtendenteDashboard = () => {
           carregarReservasFinancas();
           buscarDadosIniciais();
         }
-          carregarReservasFinancas();
-          buscarDadosIniciais();
-        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
