@@ -169,13 +169,13 @@ const AtendenteDashboard = () => {
   useEffect(() => {
     const channel = supabase
       .channel('pagamentos-atendente')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos', filter: 'status=eq.aprovado' }, async (payload) => {
-        const pagamento = payload.new as any;
-        // Buscar reserva para mostrar nome do cliente
-        const { data: reserva } = await supabase.from('reservas').select('cliente_nome, valor_total').eq('id', pagamento.reserva_id).single();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos' }, async (payload) => {
+        const pgto = payload.new as any;
+        if (pgto.status !== 'pago') return;
+        const { data: reserva } = await supabase.from('reservas').select('cliente_nome, valor_total').eq('id', pgto.reserva_id).single();
         if (reserva) {
-          setNotificacaoPagamento({ show: true, cliente: reserva.cliente_nome || "Cliente", valor: pagamento.valor });
-          toast({ title: "💰 Pagamento Recebido!", description: `${reserva.cliente_nome} pagou R$ ${Number(pagamento.valor).toFixed(2)} via PIX` });
+          setNotificacaoPagamento({ show: true, cliente: reserva.cliente_nome || "Cliente", valor: pgto.valor });
+          toast({ title: "💰 Pagamento Recebido!", description: `${reserva.cliente_nome} pagou R$ ${Number(pgto.valor).toFixed(2)} via PIX` });
           carregarReservasFinancas();
           buscarDadosIniciais();
         }
@@ -795,15 +795,17 @@ const AtendenteDashboard = () => {
                               )}
                             </div>
 
-                            <Button disabled={loading || isCarregandoPix}
-                              className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl"
-                              onClick={() => {
-                                const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
-                                const hora = parseInt(slot.inicio.split(":")[0]);
-                                handleAgendar(slot, input?.value, hora >= 18 ? 2 : 1);
-                              }}>
-                              {loading ? "Processando..." : "Fazer Reserva"}
-                            </Button>
+                            {!reservaCriada && (
+                              <Button disabled={loading || isCarregandoPix}
+                                className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl"
+                                onClick={() => {
+                                  const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+                                  const hora = parseInt(slot.inicio.split(":")[0]);
+                                  handleAgendar(slot, input?.value, hora >= 18 ? 2 : 1);
+                                }}>
+                                {loading ? "Processando..." : "Fazer Reserva"}
+                              </Button>
+                            )}
                           </div>
                         </DialogContent>
                       ) : (

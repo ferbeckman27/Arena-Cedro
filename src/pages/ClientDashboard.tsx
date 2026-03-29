@@ -111,9 +111,33 @@ const ClienteDashboard = () => {
     inicializarDados();
   }, [userData.id]);
 
+  // Realtime: escutar pagamentos confirmados para notificar cliente
+  const [notificacaoPagamentoCliente, setNotificacaoPagamentoCliente] = useState<{ show: boolean; valor: number } | null>(null);
+  useEffect(() => {
+    if (!userData.id) return;
+    const channel = supabase
+      .channel('pagamentos-cliente')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos' }, async (payload) => {
+        const pgto = payload.new as any;
+        if (pgto.status !== 'pago') return;
+        // Verificar se a reserva pertence a este cliente
+        const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', pgto.reserva_id).single();
+        if (reserva && String(reserva.cliente_id) === String(userData.id)) {
+          setNotificacaoPagamentoCliente({ show: true, valor: pgto.valor });
+          toast({ title: "✅ Pagamento Confirmado!", description: `Seu pagamento de R$ ${Number(pgto.valor).toFixed(2)} foi recebido!` });
+          // Recarregar dados
+          const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', Number(userData.id)).single();
+          if (user) setProgressoFidelidade(user.reservas_concluidas || 0);
+          const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+          if (historico) setHistoricoReservas(historico);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userData.id]);
+
   useEffect(() => {
     const carregarReservasOcupadas = async () => {
-      // Load reservas for selected day AND all package reservas to detect recurring slots
       const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
       const { data } = await supabase.from('reservas')
         .select('horario_inicio, data_reserva, status, cliente_nome, id, tipo, pago, valor_total, valor_restante')
@@ -434,6 +458,20 @@ const ClienteDashboard = () => {
           <button onClick={handleLogout} className="text-red-500 hover:bg-red-500/10 p-2 rounded-xl transition-all"><LogOut size={20} /></button>
         </div>
       </header>
+
+      {/* Notificação de pagamento recebido */}
+      {notificacaoPagamentoCliente?.show && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right bg-[#22c55e] text-black p-4 rounded-2xl shadow-2xl max-w-sm">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 size={24} />
+            <div>
+              <p className="font-black text-sm">Pagamento Confirmado!</p>
+              <p className="text-xs font-bold">R$ {notificacaoPagamentoCliente.valor.toFixed(2)} recebido com sucesso</p>
+            </div>
+            <button onClick={() => setNotificacaoPagamentoCliente(null)} className="ml-2 font-black">✕</button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         <div className="mb-12">
