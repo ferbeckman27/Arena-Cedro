@@ -172,11 +172,13 @@ const AtendenteDashboard = () => {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos' }, async (payload) => {
         const pgto = payload.new as any;
         if (pgto.status !== 'pago') return;
-        // Buscar reserva para mostrar nome do cliente
-        const { data: reserva } = await supabase.from('reservas').select('cliente_nome, valor_total').eq('id', pagamento.reserva_id).single();
+        const { data: reserva } = await supabase.from('reservas').select('cliente_nome, valor_total').eq('id', pgto.reserva_id).single();
         if (reserva) {
-          setNotificacaoPagamento({ show: true, cliente: reserva.cliente_nome || "Cliente", valor: pagamento.valor });
-          toast({ title: "💰 Pagamento Recebido!", description: `${reserva.cliente_nome} pagou R$ ${Number(pagamento.valor).toFixed(2)} via PIX` });
+          setNotificacaoPagamento({ show: true, cliente: reserva.cliente_nome || "Cliente", valor: pgto.valor });
+          toast({ title: "💰 Pagamento Recebido!", description: `${reserva.cliente_nome} pagou R$ ${Number(pgto.valor).toFixed(2)} via PIX` });
+          carregarReservasFinancas();
+          buscarDadosIniciais();
+        }
           carregarReservasFinancas();
           buscarDadosIniciais();
         }
