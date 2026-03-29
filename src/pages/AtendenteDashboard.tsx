@@ -170,9 +170,8 @@ const AtendenteDashboard = () => {
     const channel = supabase
       .channel('pagamentos-atendente')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos' }, async (payload) => {
-        const pagamento = payload.new as any;
-        if (pagamento.status !== 'pago') return;
-        const pagamento = payload.new as any;
+        const pgto = payload.new as any;
+        if (pgto.status !== 'pago') return;
         // Buscar reserva para mostrar nome do cliente
         const { data: reserva } = await supabase.from('reservas').select('cliente_nome, valor_total').eq('id', pagamento.reserva_id).single();
         if (reserva) {
