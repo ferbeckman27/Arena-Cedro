@@ -459,6 +459,20 @@ const ClienteDashboard = () => {
         </div>
       </header>
 
+      {/* Notificação de pagamento recebido */}
+      {notificacaoPagamentoCliente?.show && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right bg-[#22c55e] text-black p-4 rounded-2xl shadow-2xl max-w-sm">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 size={24} />
+            <div>
+              <p className="font-black text-sm">Pagamento Confirmado!</p>
+              <p className="text-xs font-bold">R$ {notificacaoPagamentoCliente.valor.toFixed(2)} recebido com sucesso</p>
+            </div>
+            <button onClick={() => setNotificacaoPagamentoCliente(null)} className="ml-2 font-black">✕</button>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         <div className="mb-12">
           <FidelityCard count={progressoFidelidade} />
