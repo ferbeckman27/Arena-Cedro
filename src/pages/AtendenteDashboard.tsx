@@ -795,15 +795,17 @@ const AtendenteDashboard = () => {
                               )}
                             </div>
 
-                            <Button disabled={loading || isCarregandoPix}
-                              className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl"
-                              onClick={() => {
-                                const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
-                                const hora = parseInt(slot.inicio.split(":")[0]);
-                                handleAgendar(slot, input?.value, hora >= 18 ? 2 : 1);
-                              }}>
-                              {loading ? "Processando..." : "Fazer Reserva"}
-                            </Button>
+                            {!reservaCriada && (
+                              <Button disabled={loading || isCarregandoPix}
+                                className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl"
+                                onClick={() => {
+                                  const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+                                  const hora = parseInt(slot.inicio.split(":")[0]);
+                                  handleAgendar(slot, input?.value, hora >= 18 ? 2 : 1);
+                                }}>
+                                {loading ? "Processando..." : "Fazer Reserva"}
+                              </Button>
+                            )}
                           </div>
                         </DialogContent>
                       ) : (
