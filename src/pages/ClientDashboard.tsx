@@ -136,8 +136,8 @@ const ClienteDashboard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [userData.id]);
 
+  useEffect(() => {
     const carregarReservasOcupadas = async () => {
-      // Load reservas for selected day AND all package reservas to detect recurring slots
       const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
       const { data } = await supabase.from('reservas')
         .select('horario_inicio, data_reserva, status, cliente_nome, id, tipo, pago, valor_total, valor_restante')
