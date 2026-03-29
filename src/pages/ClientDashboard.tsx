@@ -111,7 +111,31 @@ const ClienteDashboard = () => {
     inicializarDados();
   }, [userData.id]);
 
+  // Realtime: escutar pagamentos confirmados para notificar cliente
+  const [notificacaoPagamentoCliente, setNotificacaoPagamentoCliente] = useState<{ show: boolean; valor: number } | null>(null);
   useEffect(() => {
+    if (!userData.id) return;
+    const channel = supabase
+      .channel('pagamentos-cliente')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pagamentos' }, async (payload) => {
+        const pgto = payload.new as any;
+        if (pgto.status !== 'pago') return;
+        // Verificar se a reserva pertence a este cliente
+        const { data: reserva } = await supabase.from('reservas').select('cliente_id').eq('id', pgto.reserva_id).single();
+        if (reserva && String(reserva.cliente_id) === String(userData.id)) {
+          setNotificacaoPagamentoCliente({ show: true, valor: pgto.valor });
+          toast({ title: "✅ Pagamento Confirmado!", description: `Seu pagamento de R$ ${Number(pgto.valor).toFixed(2)} foi recebido!` });
+          // Recarregar dados
+          const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', Number(userData.id)).single();
+          if (user) setProgressoFidelidade(user.reservas_concluidas || 0);
+          const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
+          if (historico) setHistoricoReservas(historico);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userData.id]);
+
     const carregarReservasOcupadas = async () => {
       // Load reservas for selected day AND all package reservas to detect recurring slots
       const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
