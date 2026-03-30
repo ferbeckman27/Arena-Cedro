@@ -305,7 +305,7 @@ const AtendenteDashboard = () => {
         horario_inicio: slotInicio, horario_fim: slotFim, duracao: duracaoMin,
         valor_total: totalGeral, forma_pagamento: metodoPgto,
         tipo: tipoReservaAtendente,
-        funcionario_id: user?.id, atendente_id: user?.id,
+        funcionario_id: funcionarioId || undefined, atendente_id: funcionarioId || undefined,
         pago: false, status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
         turno_id,
         observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
