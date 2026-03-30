@@ -56,6 +56,7 @@ const AtendenteDashboard = () => {
   const [editandoVipId, setEditandoVipId] = useState<number | null>(null);
   const [editVipForm, setEditVipForm] = useState({ dia: "", horario: "", metodoPgto: "" });
   const [funcionarioNome, setFuncionarioNome] = useState("");
+  const [funcionarioId, setFuncionarioId] = useState<string | null>(null);
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
   const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "metade">("dinheiro");
