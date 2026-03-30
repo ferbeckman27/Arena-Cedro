@@ -196,16 +196,14 @@ const AtendenteDashboard = () => {
 
   // Comissão
   useEffect(() => {
+    if (!funcionarioId) return;
     const buscarComissao = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('reservas').select('comissao_valor').eq('atendente_id', user.id);
-        const total = data?.reduce((acc, curr) => acc + (Number(curr.comissao_valor) || 0), 0) || 0;
-        setTotalComissao(total);
-      }
+      const { data } = await supabase.from('reservas').select('comissao_valor').eq('atendente_id', funcionarioId);
+      const total = data?.reduce((acc, curr) => acc + (Number(curr.comissao_valor) || 0), 0) || 0;
+      setTotalComissao(total);
     };
     buscarComissao();
-  }, []);
+  }, [funcionarioId]);
 
   // Manutenção polling
   useEffect(() => {
