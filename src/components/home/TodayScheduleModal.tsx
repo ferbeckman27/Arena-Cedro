@@ -42,7 +42,7 @@ const generateTodaySlots = (): TimeSlotPreview[] => {
     }
   }
   
-  // Nocturnal: 18:00 - 22:00 (R$ 120/hour = R$ 60/30min)
+  // Nocturnal: 18:00 - 22:00 (R$ 140/hour = R$ 70/30min)
   for (let hour = 18; hour <= 22; hour++) {
     for (let half = 0; half < 2; half++) {
       if (hour === 22 && half === 1) continue; // Stop at 22:00
@@ -54,7 +54,7 @@ const generateTodaySlots = (): TimeSlotPreview[] => {
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
         status,
-        price: 60, // R$ 120/hour = R$ 60/30min
+        price: 70, // R$ 140/hour = R$ 70/30min
       });
     }
   }
