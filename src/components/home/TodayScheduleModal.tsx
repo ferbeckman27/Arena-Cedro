@@ -26,10 +26,9 @@ interface TodayScheduleModalProps {
 const generateTodaySlots = (): TimeSlotPreview[] => {
   const slots: TimeSlotPreview[] = [];
   
-  // Diurnal: 08:00 - 17:30 (R$ 80/hour = R$ 40/30min)
+  // Diurnal: 08:00 - 17:30 (R$ 100/hour)
   for (let hour = 8; hour < 18; hour++) {
     for (let half = 0; half < 2; half++) {
-      if (hour === 17 && half === 1) continue; // Stop at 17:30
       const random = Math.random();
       let status: TimeSlotPreview["status"] = "available";
       if (random > 0.7) status = "unavailable";
@@ -38,7 +37,7 @@ const generateTodaySlots = (): TimeSlotPreview[] => {
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
         status,
-        price: 40, // R$ 80/hour = R$ 40/30min
+        price: 50, // R$ 100/hour = R$ 50/30min
       });
     }
   }
