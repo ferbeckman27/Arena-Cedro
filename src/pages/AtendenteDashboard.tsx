@@ -134,16 +134,25 @@ const AtendenteDashboard = () => {
     carregarReservasFinancas();
   };
 
-  // Buscar nome do funcionário logado
+  // Buscar nome e ID do funcionário logado
   useEffect(() => {
     const buscarFuncionario = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: func } = await supabase.from('funcionarios').select('nome, sobrenome').eq('email_corporativo', user.email).single();
+        const { data: func } = await supabase.from('funcionarios').select('id, nome, sobrenome').eq('email_corporativo', user.email).single();
         if (func) {
           setFuncionarioNome([func.nome, func.sobrenome].filter(Boolean).join(" "));
+          setFuncionarioId(func.id);
         } else {
-          setFuncionarioNome(localStorage.getItem("userName") || "Atendente");
+          // Fallback: try matching by regular email
+          const { data: func2 } = await supabase.from('funcionarios').select('id, nome, sobrenome').eq('email', user.email).single();
+          if (func2) {
+            setFuncionarioNome([func2.nome, func2.sobrenome].filter(Boolean).join(" "));
+            setFuncionarioId(func2.id);
+          } else {
+            setFuncionarioNome(localStorage.getItem("userName") || "Atendente");
+            setFuncionarioId(null);
+          }
         }
       }
     };
