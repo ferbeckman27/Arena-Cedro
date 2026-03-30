@@ -296,7 +296,6 @@ const AtendenteDashboard = () => {
       const valorTotalReserva = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
       const totalGeral = valorTotalReserva + totalProdutos;
 
-      const { data: { user } } = await supabase.auth.getUser();
       const slotInicio = typeof slot === 'string' ? slot : slot.inicio;
       const slotFim = typeof slot === 'string' ? '' : slot.fim;
 
