@@ -124,8 +124,8 @@ export const TodayScheduleModal = ({ isOpen, onClose, onLoginClick }: TodaySched
         {/* Diurnal Slots */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">☀️ Turno Diurno (08h - 17h)</h4>
-            <span className="text-sm text-primary font-semibold">R$ 80,00/hora</span>
+            <h4 className="font-medium">☀️ Turno Diurno (08h - 18h)</h4>
+            <span className="text-sm text-primary font-semibold">R$ 100,00/hora</span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {diurnalSlots.map((slot, idx) => (
