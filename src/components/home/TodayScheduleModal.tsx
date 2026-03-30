@@ -151,7 +151,7 @@ export const TodayScheduleModal = ({ isOpen, onClose, onLoginClick }: TodaySched
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">🌙 Turno Noturno (18h - 22h)</h4>
-            <span className="text-sm text-primary font-semibold">R$ 120,00/hora</span>
+            <span className="text-sm text-primary font-semibold">R$ 140,00/hora</span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {nocturnalSlots.map((slot, idx) => (
