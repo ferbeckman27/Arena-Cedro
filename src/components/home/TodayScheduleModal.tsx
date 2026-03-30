@@ -26,10 +26,9 @@ interface TodayScheduleModalProps {
 const generateTodaySlots = (): TimeSlotPreview[] => {
   const slots: TimeSlotPreview[] = [];
   
-  // Diurnal: 08:00 - 17:30 (R$ 80/hour = R$ 40/30min)
+  // Diurnal: 08:00 - 17:30 (R$ 100/hour)
   for (let hour = 8; hour < 18; hour++) {
     for (let half = 0; half < 2; half++) {
-      if (hour === 17 && half === 1) continue; // Stop at 17:30
       const random = Math.random();
       let status: TimeSlotPreview["status"] = "available";
       if (random > 0.7) status = "unavailable";
@@ -38,12 +37,12 @@ const generateTodaySlots = (): TimeSlotPreview[] => {
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
         status,
-        price: 40, // R$ 80/hour = R$ 40/30min
+        price: 50, // R$ 100/hour = R$ 50/30min
       });
     }
   }
   
-  // Nocturnal: 18:00 - 22:00 (R$ 120/hour = R$ 60/30min)
+  // Nocturnal: 18:00 - 22:00 (R$ 140/hour = R$ 70/30min)
   for (let hour = 18; hour <= 22; hour++) {
     for (let half = 0; half < 2; half++) {
       if (hour === 22 && half === 1) continue; // Stop at 22:00
@@ -55,7 +54,7 @@ const generateTodaySlots = (): TimeSlotPreview[] => {
       slots.push({
         time: `${hour.toString().padStart(2, "0")}:${half === 0 ? "00" : "30"}`,
         status,
-        price: 60, // R$ 120/hour = R$ 60/30min
+        price: 70, // R$ 140/hour = R$ 70/30min
       });
     }
   }
@@ -125,8 +124,8 @@ export const TodayScheduleModal = ({ isOpen, onClose, onLoginClick }: TodaySched
         {/* Diurnal Slots */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">☀️ Turno Diurno (08h - 17h)</h4>
-            <span className="text-sm text-primary font-semibold">R$ 80,00/hora</span>
+            <h4 className="font-medium">☀️ Turno Diurno (08h - 18h)</h4>
+            <span className="text-sm text-primary font-semibold">R$ 100,00/hora</span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {diurnalSlots.map((slot, idx) => (
@@ -152,7 +151,7 @@ export const TodayScheduleModal = ({ isOpen, onClose, onLoginClick }: TodaySched
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">🌙 Turno Noturno (18h - 22h)</h4>
-            <span className="text-sm text-primary font-semibold">R$ 120,00/hora</span>
+            <span className="text-sm text-primary font-semibold">R$ 140,00/hora</span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {nocturnalSlots.map((slot, idx) => (

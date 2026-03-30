@@ -56,6 +56,7 @@ const AtendenteDashboard = () => {
   const [editandoVipId, setEditandoVipId] = useState<number | null>(null);
   const [editVipForm, setEditVipForm] = useState({ dia: "", horario: "", metodoPgto: "" });
   const [funcionarioNome, setFuncionarioNome] = useState("");
+  const [funcionarioId, setFuncionarioId] = useState<string | null>(null);
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
   const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "metade">("dinheiro");
@@ -133,16 +134,25 @@ const AtendenteDashboard = () => {
     carregarReservasFinancas();
   };
 
-  // Buscar nome do funcionário logado
+  // Buscar nome e ID do funcionário logado
   useEffect(() => {
     const buscarFuncionario = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: func } = await supabase.from('funcionarios').select('nome, sobrenome').eq('email_corporativo', user.email).single();
+        const { data: func } = await supabase.from('funcionarios').select('id, nome, sobrenome').eq('email_corporativo', user.email).single();
         if (func) {
           setFuncionarioNome([func.nome, func.sobrenome].filter(Boolean).join(" "));
+          setFuncionarioId(func.id);
         } else {
-          setFuncionarioNome(localStorage.getItem("userName") || "Atendente");
+          // Fallback: try matching by regular email
+          const { data: func2 } = await supabase.from('funcionarios').select('id, nome, sobrenome').eq('email', user.email).single();
+          if (func2) {
+            setFuncionarioNome([func2.nome, func2.sobrenome].filter(Boolean).join(" "));
+            setFuncionarioId(func2.id);
+          } else {
+            setFuncionarioNome(localStorage.getItem("userName") || "Atendente");
+            setFuncionarioId(null);
+          }
         }
       }
     };
@@ -186,16 +196,14 @@ const AtendenteDashboard = () => {
 
   // Comissão
   useEffect(() => {
+    if (!funcionarioId) return;
     const buscarComissao = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('reservas').select('comissao_valor').eq('atendente_id', user.id);
-        const total = data?.reduce((acc, curr) => acc + (Number(curr.comissao_valor) || 0), 0) || 0;
-        setTotalComissao(total);
-      }
+      const { data } = await supabase.from('reservas').select('comissao_valor').eq('atendente_id', funcionarioId);
+      const total = data?.reduce((acc, curr) => acc + (Number(curr.comissao_valor) || 0), 0) || 0;
+      setTotalComissao(total);
     };
     buscarComissao();
-  }, []);
+  }, [funcionarioId]);
 
   // Manutenção polling
   useEffect(() => {
@@ -219,7 +227,7 @@ const AtendenteDashboard = () => {
 
   const gerarSlotsAgenda = (duracaoMinutos: number): SlotAgenda[] => {
     const slots: SlotAgenda[] = [];
-    const periodos = [{ inicio: 9, fim: 17.5 }, { inicio: 18, fim: 22 }];
+    const periodos = [{ inicio: 9, fim: 18 }, { inicio: 18, fim: 22 }];
     for (const periodo of periodos) {
       let atual = periodo.inicio;
       while (atual + duracaoMinutos / 60 <= periodo.fim) {
@@ -286,7 +294,6 @@ const AtendenteDashboard = () => {
       const valorTotalReserva = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
       const totalGeral = valorTotalReserva + totalProdutos;
 
-      const { data: { user } } = await supabase.auth.getUser();
       const slotInicio = typeof slot === 'string' ? slot : slot.inicio;
       const slotFim = typeof slot === 'string' ? '' : slot.fim;
 
@@ -295,7 +302,7 @@ const AtendenteDashboard = () => {
         horario_inicio: slotInicio, horario_fim: slotFim, duracao: duracaoMin,
         valor_total: totalGeral, forma_pagamento: metodoPgto,
         tipo: tipoReservaAtendente,
-        funcionario_id: user?.id, atendente_id: user?.id,
+        funcionario_id: funcionarioId || undefined, atendente_id: funcionarioId || undefined,
         pago: false, status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
         turno_id,
         observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
