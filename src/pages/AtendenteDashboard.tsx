@@ -229,7 +229,7 @@ const AtendenteDashboard = () => {
 
   const gerarSlotsAgenda = (duracaoMinutos: number): SlotAgenda[] => {
     const slots: SlotAgenda[] = [];
-    const periodos = [{ inicio: 9, fim: 17.5 }, { inicio: 18, fim: 22 }];
+    const periodos = [{ inicio: 9, fim: 18 }, { inicio: 18, fim: 22 }];
     for (const periodo of periodos) {
       let atual = periodo.inicio;
       while (atual + duracaoMinutos / 60 <= periodo.fim) {
