@@ -289,7 +289,46 @@ const AtendenteDashboard = () => {
 
   const totalCarrinho = useMemo(() => itensCarrinho.reduce((acc, item) => acc + item.preco, 0), [itensCarrinho]);
 
-  async function handleAgendar(slot: any, clienteNome: string, turno_id: number) {
+  // Cadastrar novo cliente
+  const handleCadastrarCliente = async () => {
+    if (!novoClienteForm.nome.trim()) return toast({ variant: "destructive", title: "Nome obrigatório" });
+    if (!novoClienteForm.email.trim()) return toast({ variant: "destructive", title: "E-mail obrigatório" });
+    const senhaGerada = Math.random().toString(36).slice(-8);
+    try {
+      const { data: cli, error } = await supabase.from('clientes').insert([{
+        nome: novoClienteForm.nome.trim(),
+        sobrenome: novoClienteForm.sobrenome.trim() || null,
+        telefone: novoClienteForm.telefone.trim() || null,
+        email: novoClienteForm.email.trim(),
+        senha: senhaGerada, // será hasheada pelo trigger se existir, senão salva plain
+        tipo: 'avulso',
+        cadastrado_por: funcionarioNome || 'atendente'
+      }]).select().single();
+      if (error) throw error;
+      // Atualizar senha com hash via RPC
+      await supabase.rpc('redefinir_senha_cliente', { p_email: novoClienteForm.email.trim(), p_nova_senha: senhaGerada });
+      
+      setClienteSelecionadoId(cli.id);
+      setClienteNomeBusca([cli.nome, cli.sobrenome].filter(Boolean).join(" "));
+      setMostrarCadastroCliente(false);
+      toast({ title: "✅ Cliente cadastrado!" });
+      buscarDadosIniciais();
+      
+      // Retornar dados para envio WhatsApp posterior
+      return { id: cli.id, nome: [cli.nome, cli.sobrenome].filter(Boolean).join(" "), email: novoClienteForm.email.trim(), senha: senhaGerada, telefone: novoClienteForm.telefone.trim() };
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao cadastrar", description: e.message });
+      return null;
+    }
+  };
+
+  // Sugestões de clientes filtradas
+  const clientesFiltrados = useMemo(() => {
+    if (!clienteNomeBusca.trim()) return [];
+    return clientes.filter(c => c.nome.toLowerCase().includes(clienteNomeBusca.toLowerCase())).slice(0, 8);
+  }, [clientes, clienteNomeBusca]);
+
+  async function handleAgendar(slot: any, clienteNome: string, turno_id: number, clienteIdOverride?: number) {
     if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
     const duracaoMin = parseInt(duracao, 10);
     setLoading(true);
@@ -303,14 +342,18 @@ const AtendenteDashboard = () => {
 
       const slotInicio = typeof slot === 'string' ? slot : slot.inicio;
       const slotFim = typeof slot === 'string' ? '' : slot.fim;
+      
+      const clienteId = clienteIdOverride || clienteSelecionadoId || undefined;
+      const formaPgto = metodoPgto === 'antecipado' ? 'pix' : metodoPgto;
 
       const { data: reserva, error: resError } = await supabase.from('reservas').insert([{
         cliente_nome: clienteNome, data_reserva: diaSelecionado.toLocaleDateString('sv-SE'),
         horario_inicio: slotInicio, horario_fim: slotFim, duracao: duracaoMin,
-        valor_total: totalGeral, forma_pagamento: metodoPgto,
+        valor_total: totalGeral, forma_pagamento: formaPgto,
         tipo: tipoReservaAtendente,
+        cliente_id: clienteId,
         funcionario_id: funcionarioId || undefined, atendente_id: funcionarioId || undefined,
-        pago: false, status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
+        pago: false, status: formaPgto === 'pix' ? 'pendente' : 'confirmada',
         turno_id,
         observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
       }]).select().single();
@@ -330,7 +373,11 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
-        // Dinheiro = apenas agendar, sem incrementar fidelidade (paga no caixa)
+        playTorcida();
+        setIsTermosAberto(true);
+        setAceitouTermos(false);
+      } else if (metodoPgto === 'antecipado') {
+        // Antecipado = agendar, pagamento será cobrado antes do jogo
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
