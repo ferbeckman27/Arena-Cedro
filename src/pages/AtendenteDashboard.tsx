@@ -2417,20 +2417,22 @@ const AtendenteDashboard = () => {
                               </div>
                               {/* PIX QR Code se gerado para esta reserva */}
                               {pixDataFinanceiro && reservaIdAtual === r.id && (
-                                <div className="bg-white/5 border border-white/10 rounded-xl p-3 mt-2">
-                                  <PixPaymentSection
-                                    pixData={{
-                                      copiaECola: pixDataFinanceiro.copiaECola,
-                                      qrCodeBase64: pixDataFinanceiro.qrCodeBase64,
-                                      valorPago: pixDataFinanceiro.valorPago,
-                                      valorOriginal: pixDataFinanceiro.valorOriginal,
-                                      desconto: pixDataFinanceiro.desconto,
-                                      valorRestante: pixDataFinanceiro.valorRestante,
-                                    }}
-                                  />
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-3 mt-2 space-y-2">
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase">PIX Gerado — R$ {pixDataFinanceiro.valorPago.toFixed(2)}</p>
+                                  {pixDataFinanceiro.qrCodeBase64 && (
+                                    <img src={`data:image/png;base64,${pixDataFinanceiro.qrCodeBase64}`} alt="QR PIX" className="w-40 h-40 mx-auto rounded-lg" />
+                                  )}
+                                  {pixDataFinanceiro.copiaECola && (
+                                    <div className="flex gap-2">
+                                      <Input value={pixDataFinanceiro.copiaECola} readOnly className="bg-white/5 border-white/10 text-white text-[9px] h-8 flex-1" />
+                                      <Button size="sm" variant="outline" className="h-8 border-white/10 text-white" onClick={() => { navigator.clipboard.writeText(pixDataFinanceiro.copiaECola); toast({ title: "Copiado!" }); }}>
+                                        <Copy size={12} />
+                                      </Button>
+                                    </div>
+                                  )}
                                   <Button
                                     size="sm"
-                                    className="mt-2 w-full bg-[#22c55e] text-black font-black text-[10px] h-8 rounded-xl"
+                                    className="w-full bg-[#22c55e] text-black font-black text-[10px] h-8 rounded-xl"
                                     onClick={() => {
                                       handleLiquidarReserva(r.id, pixDataFinanceiro.valorPago, "pix");
                                     }}
