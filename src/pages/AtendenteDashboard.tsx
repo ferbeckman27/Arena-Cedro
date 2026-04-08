@@ -958,10 +958,29 @@ const AtendenteDashboard = () => {
                             {!reservaCriada && (
                               <Button disabled={loading || isCarregandoPix}
                                 className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl"
-                                onClick={() => {
-                                  const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+                                onClick={async () => {
+                                  const nome = clienteNomeBusca.trim() || (document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement)?.value;
                                   const hora = parseInt(slot.inicio.split(":")[0]);
-                                  handleAgendar(slot, input?.value, hora >= 18 ? 2 : 1);
+                                  await handleAgendar(slot, nome, hora >= 18 ? 2 : 1, clienteSelecionadoId || undefined);
+                                  
+                                  // Enviar WhatsApp com detalhes da reserva se cliente tem telefone
+                                  if (clienteSelecionadoId) {
+                                    const cli = clientes.find(c => c.id === clienteSelecionadoId);
+                                    if (cli?.telefone) {
+                                      const tel = cli.telefone.replace(/\D/g, '');
+                                      const valorReserva = slot.valor;
+                                      const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                                      const total = valorBase + totalCarrinho;
+                                      const msg = `*ARENA CEDRO - RESERVA CONFIRMADA* ⚽%0A%0A` +
+                                        `📅 *Data:* ${diaSelecionado.toLocaleDateString('pt-BR')}%0A` +
+                                        `⏰ *Horário:* ${slot.inicio}%0A` +
+                                        `💰 *Valor:* R$ ${total.toFixed(2)}%0A` +
+                                        `📋 *Tipo:* ${tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : 'Avulsa'}%0A` +
+                                        `💳 *Pagamento:* ${metodoPgto === 'antecipado' ? 'Antecipado (antes do jogo)' : metodoPgto === 'pix' ? 'PIX' : 'No local'}%0A%0A` +
+                                        `📖 Regras: ${window.location.origin}/regras-arena.pdf`;
+                                      window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+                                    }
+                                  }
                                 }}>
                                 {loading ? "Processando..." : "Fazer Reserva"}
                               </Button>
