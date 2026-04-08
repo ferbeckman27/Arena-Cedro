@@ -779,6 +779,83 @@ const AtendenteDashboard = () => {
     navigate("/adminlogin");
   };
 
+  const gerarRelatorioFiscal = (dataStr: string, pix: number, dinheiro: number, reservasDoDia: ReservaCompleta[]) => {
+    const { jsPDF } = (window as any).jspdf || {};
+    // Use dynamic import approach
+    import("jspdf").then(({ default: jsPDF }) => {
+      const doc = new jsPDF({ unit: "mm", format: [80, 200] }); // 80mm thermal printer width
+      const w = 80;
+      let y = 8;
+
+      doc.setFont("courier", "bold");
+      doc.setFontSize(10);
+      doc.text("ARENA CEDRO", w / 2, y, { align: "center" });
+      y += 5;
+      doc.setFontSize(7);
+      doc.text("FECHAMENTO DE CAIXA", w / 2, y, { align: "center" });
+      y += 5;
+      doc.setLineWidth(0.3);
+      doc.line(4, y, w - 4, y);
+      y += 4;
+
+      doc.setFontSize(8);
+      doc.text(`Data: ${new Date(dataStr + "T00:00:00").toLocaleDateString("pt-BR")}`, 4, y);
+      y += 4;
+      doc.text(`Emissão: ${new Date().toLocaleString("pt-BR")}`, 4, y);
+      y += 4;
+      doc.text(`Operador: ${funcionarioNome}`, 4, y);
+      y += 5;
+      doc.line(4, y, w - 4, y);
+      y += 4;
+
+      doc.setFontSize(9);
+      doc.text("RESUMO FINANCEIRO", w / 2, y, { align: "center" });
+      y += 5;
+
+      doc.setFontSize(8);
+      doc.text(`PIX:`, 4, y);
+      doc.text(`R$ ${pix.toFixed(2)}`, w - 4, y, { align: "right" });
+      y += 4;
+      doc.text(`Dinheiro:`, 4, y);
+      doc.text(`R$ ${dinheiro.toFixed(2)}`, w - 4, y, { align: "right" });
+      y += 4;
+      doc.line(4, y, w - 4, y);
+      y += 4;
+      doc.setFont("courier", "bold");
+      doc.setFontSize(10);
+      doc.text(`TOTAL:`, 4, y);
+      doc.text(`R$ ${(pix + dinheiro).toFixed(2)}`, w - 4, y, { align: "right" });
+      y += 6;
+      doc.line(4, y, w - 4, y);
+      y += 4;
+
+      // List reservations
+      doc.setFont("courier", "normal");
+      doc.setFontSize(7);
+      doc.text("RESERVAS DO DIA:", 4, y);
+      y += 4;
+
+      reservasDoDia.forEach((r, i) => {
+        if (y > 185) return;
+        const nome = r.clientes?.nome || r.cliente_nome || "Atleta";
+        doc.text(`${i + 1}. ${nome.substring(0, 18)}`, 4, y);
+        doc.text(`R$ ${Number(r.valor_pago_sinal || r.valor_total).toFixed(2)}`, w - 4, y, { align: "right" });
+        y += 3.5;
+      });
+
+      y += 3;
+      doc.line(4, y, w - 4, y);
+      y += 4;
+      doc.setFontSize(6);
+      doc.text("Documento não fiscal", w / 2, y, { align: "center" });
+      y += 3;
+      doc.text("Arena Cedro - Sistema de Gestão", w / 2, y, { align: "center" });
+
+      doc.autoPrint();
+      window.open(doc.output("bloburl"), "_blank");
+    });
+  };
+
   const handleFecharCaixa = async () => {
     try {
       const {
@@ -801,7 +878,11 @@ const AtendenteDashboard = () => {
           fechado_por: user?.id,
         },
       ]);
-      toast({ title: "Caixa Fechado!" });
+
+      // Gerar relatório fiscal para impressora
+      gerarRelatorioFiscal(dataStr, pix, dinheiro, reservasDoDia);
+
+      toast({ title: "Caixa Fechado!", description: "Relatório fiscal gerado para impressão." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro", description: err.message });
     }
@@ -2283,6 +2364,31 @@ const AtendenteDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* CONFIRMAÇÃO DE SAÍDA */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-black italic uppercase text-red-500 flex items-center gap-2">
+              <LogOut size={20} /> Sair do Painel
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400 text-sm">
+              Tem certeza que deseja sair do painel operacional? Você será redirecionado para a tela de login corporativo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl font-black">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700 text-white font-black rounded-xl"
+            >
+              Sim, Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
