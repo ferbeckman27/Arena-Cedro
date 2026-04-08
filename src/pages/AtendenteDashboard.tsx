@@ -37,7 +37,7 @@ const AtendenteDashboard = () => {
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [filtroNome, setFiltroNome] = useState("");
   const [duracao, setDuracao] = useState<string>("60");
-  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro">("dinheiro");
+  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro" | "antecipado">("dinheiro");
   const [tipoReservaAtendente, setTipoReservaAtendente] = useState<'avulsa' | 'pacote'>('avulsa');
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
@@ -63,6 +63,13 @@ const AtendenteDashboard = () => {
   const { isCarregandoPix: isCarregandoPixFinanceiro, pixData: pixDataFinanceiro, gerarPagamentoPix: gerarPixFinanceiro, limparPix: limparPixFinanceiro } = usePixPayment();
   // Notificação de pagamento recebido
   const [notificacaoPagamento, setNotificacaoPagamento] = useState<{ show: boolean; cliente: string; valor: number } | null>(null);
+  
+  // Cadastro de novo cliente
+  const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false);
+  const [novoClienteForm, setNovoClienteForm] = useState({ nome: "", sobrenome: "", telefone: "", email: "" });
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<number | null>(null);
+  const [clienteNomeBusca, setClienteNomeBusca] = useState("");
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
   interface Mensalista {
     id?: number; nome: string; dia: string; horario: string; metodoPgto: string;
@@ -282,7 +289,46 @@ const AtendenteDashboard = () => {
 
   const totalCarrinho = useMemo(() => itensCarrinho.reduce((acc, item) => acc + item.preco, 0), [itensCarrinho]);
 
-  async function handleAgendar(slot: any, clienteNome: string, turno_id: number) {
+  // Cadastrar novo cliente
+  const handleCadastrarCliente = async (): Promise<{ id: number; nome: string; email: string; senha: string; telefone: string } | null> => {
+    if (!novoClienteForm.nome.trim()) { toast({ variant: "destructive", title: "Nome obrigatório" }); return null; }
+    if (!novoClienteForm.email.trim()) { toast({ variant: "destructive", title: "E-mail obrigatório" }); return null; }
+    const senhaGerada = Math.random().toString(36).slice(-8);
+    try {
+      const { data: cli, error } = await supabase.from('clientes').insert([{
+        nome: novoClienteForm.nome.trim(),
+        sobrenome: novoClienteForm.sobrenome.trim() || null,
+        telefone: novoClienteForm.telefone.trim() || null,
+        email: novoClienteForm.email.trim(),
+        senha: senhaGerada, // será hasheada pelo trigger se existir, senão salva plain
+        tipo: 'avulso',
+        cadastrado_por: funcionarioNome || 'atendente'
+      }]).select().single();
+      if (error) throw error;
+      // Atualizar senha com hash via RPC
+      await supabase.rpc('redefinir_senha_cliente', { p_email: novoClienteForm.email.trim(), p_nova_senha: senhaGerada });
+      
+      setClienteSelecionadoId(cli.id);
+      setClienteNomeBusca([cli.nome, cli.sobrenome].filter(Boolean).join(" "));
+      setMostrarCadastroCliente(false);
+      toast({ title: "✅ Cliente cadastrado!" });
+      buscarDadosIniciais();
+      
+      // Retornar dados para envio WhatsApp posterior
+      return { id: cli.id, nome: [cli.nome, cli.sobrenome].filter(Boolean).join(" "), email: novoClienteForm.email.trim(), senha: senhaGerada, telefone: novoClienteForm.telefone.trim() };
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao cadastrar", description: e.message });
+      return null;
+    }
+  };
+
+  // Sugestões de clientes filtradas
+  const clientesFiltrados = useMemo(() => {
+    if (!clienteNomeBusca.trim()) return [];
+    return clientes.filter(c => c.nome.toLowerCase().includes(clienteNomeBusca.toLowerCase())).slice(0, 8);
+  }, [clientes, clienteNomeBusca]);
+
+  async function handleAgendar(slot: any, clienteNome: string, turno_id: number, clienteIdOverride?: number) {
     if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
     const duracaoMin = parseInt(duracao, 10);
     setLoading(true);
@@ -296,14 +342,18 @@ const AtendenteDashboard = () => {
 
       const slotInicio = typeof slot === 'string' ? slot : slot.inicio;
       const slotFim = typeof slot === 'string' ? '' : slot.fim;
+      
+      const clienteId = clienteIdOverride || clienteSelecionadoId || undefined;
+      const formaPgto = metodoPgto === 'antecipado' ? 'pix' : metodoPgto;
 
       const { data: reserva, error: resError } = await supabase.from('reservas').insert([{
         cliente_nome: clienteNome, data_reserva: diaSelecionado.toLocaleDateString('sv-SE'),
         horario_inicio: slotInicio, horario_fim: slotFim, duracao: duracaoMin,
-        valor_total: totalGeral, forma_pagamento: metodoPgto,
+        valor_total: totalGeral, forma_pagamento: formaPgto,
         tipo: tipoReservaAtendente,
+        cliente_id: clienteId,
         funcionario_id: funcionarioId || undefined, atendente_id: funcionarioId || undefined,
-        pago: false, status: metodoPgto === 'pix' ? 'pendente' : 'confirmada',
+        pago: false, status: formaPgto === 'pix' ? 'pendente' : 'confirmada',
         turno_id,
         observacoes: tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : undefined
       }]).select().single();
@@ -323,7 +373,11 @@ const AtendenteDashboard = () => {
       }
 
       if (metodoPgto === 'dinheiro') {
-        // Dinheiro = apenas agendar, sem incrementar fidelidade (paga no caixa)
+        playTorcida();
+        setIsTermosAberto(true);
+        setAceitouTermos(false);
+      } else if (metodoPgto === 'antecipado') {
+        // Antecipado = agendar, pagamento será cobrado antes do jogo
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
@@ -665,7 +719,86 @@ const AtendenteDashboard = () => {
                             </DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4 pt-4">
-                            <Input placeholder="Nome do Atleta" className="bg-white/5 border-white/10 h-14 rounded-xl text-white" id={`atleta-${slot.inicio}`} />
+                            {/* Nome do cliente com autocomplete + cadastro */}
+                            <div className="space-y-2 relative">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest">Atleta</label>
+                                <button type="button" onClick={() => setMostrarCadastroCliente(!mostrarCadastroCliente)}
+                                  className="text-[9px] font-black uppercase text-[#22c55e] hover:underline flex items-center gap-1">
+                                  <Plus size={12} /> {mostrarCadastroCliente ? "Fechar" : "Novo Cliente"}
+                                </button>
+                              </div>
+                              
+                              {/* Cadastro inline de novo cliente */}
+                              {mostrarCadastroCliente && (
+                                <div className="bg-white/5 border border-[#22c55e]/20 rounded-xl p-4 space-y-3 animate-in slide-in-from-top">
+                                  <p className="text-[9px] font-black uppercase text-[#22c55e]">Cadastrar Novo Cliente</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input placeholder="Nome *" value={novoClienteForm.nome} onChange={e => setNovoClienteForm(p => ({ ...p, nome: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                    <Input placeholder="Sobrenome" value={novoClienteForm.sobrenome} onChange={e => setNovoClienteForm(p => ({ ...p, sobrenome: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                  </div>
+                                  <Input placeholder="Telefone (WhatsApp)" value={novoClienteForm.telefone} onChange={e => setNovoClienteForm(p => ({ ...p, telefone: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                  <Input placeholder="E-mail *" type="email" value={novoClienteForm.email} onChange={e => setNovoClienteForm(p => ({ ...p, email: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                  <Button type="button" className="w-full bg-[#22c55e] text-black font-black uppercase text-xs h-10 rounded-lg"
+                                    onClick={async () => {
+                                      const resultado = await handleCadastrarCliente();
+                                      if (resultado) {
+                                        // Enviar WhatsApp com credenciais
+                                        const tel = resultado.telefone?.replace(/\D/g, '');
+                                        if (tel) {
+                                          const msg = `*ARENA CEDRO - CADASTRO REALIZADO* ⚽%0A%0A` +
+                                            `Olá *${resultado.nome}*!%0A%0A` +
+                                            `Seu cadastro foi criado com sucesso.%0A%0A` +
+                                            `📧 *Usuário:* ${resultado.email}%0A` +
+                                            `🔑 *Senha:* ${resultado.senha}%0A%0A` +
+                                            `Acesse: ${window.location.origin}/login%0A%0A` +
+                                            `Não compartilhe sua senha com ninguém!`;
+                                          window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+                                        }
+                                        setNovoClienteForm({ nome: "", sobrenome: "", telefone: "", email: "" });
+                                      }
+                                    }}>
+                                    Cadastrar e Enviar WhatsApp
+                                  </Button>
+                                </div>
+                              )}
+                              
+                              {/* Campo de busca/autocomplete */}
+                              {!mostrarCadastroCliente && (
+                                <div className="relative">
+                                  <Input 
+                                    placeholder="Buscar ou digitar nome do atleta" 
+                                    value={clienteNomeBusca} 
+                                    onChange={e => { setClienteNomeBusca(e.target.value); setMostrarSugestoes(true); setClienteSelecionadoId(null); }}
+                                    onFocus={() => clienteNomeBusca.trim() && setMostrarSugestoes(true)}
+                                    onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                                    className="bg-white/5 border-white/10 h-14 rounded-xl text-white" 
+                                    id={`atleta-${slot.inicio}`} 
+                                  />
+                                  {mostrarSugestoes && clientesFiltrados.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#0c120f] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                                      {clientesFiltrados.map(c => (
+                                        <button key={c.id} type="button"
+                                          className="w-full text-left px-4 py-3 hover:bg-[#22c55e]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
+                                          onMouseDown={(e) => { e.preventDefault(); setClienteNomeBusca(c.nome); setClienteSelecionadoId(c.id); setMostrarSugestoes(false); }}>
+                                          <div className="flex items-center gap-2">
+                                            <Users size={14} className="text-[#22c55e]" />
+                                            <span className="text-white text-sm font-bold">{c.nome}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            {c.isVip && <Badge className="bg-[#22c55e] text-black text-[7px] font-black">VIP</Badge>}
+                                            <span className="text-[9px] text-gray-500">{c.reservas_concluidas || 0} jogos</span>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {clienteSelecionadoId && (
+                                    <p className="text-[9px] text-[#22c55e] font-bold mt-1">✓ Cliente vinculado ao cadastro</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
 
                             {/* Tipo de Reserva */}
                             <div className="space-y-2">
@@ -715,17 +848,23 @@ const AtendenteDashboard = () => {
                             })()}
 
                             {/* Método de Pagamento */}
-                            <RadioGroup value={metodoPgto} onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro")} className="grid grid-cols-2 gap-4">
-                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                            <RadioGroup value={metodoPgto} onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro" | "antecipado")} className="grid grid-cols-3 gap-3">
+                              <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
                                 <RadioGroupItem value="pix" id={`pix-${slot.inicio}`} className="sr-only" />
                                 <Label htmlFor={`pix-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
-                                  <CreditCard size={20} className={metodoPgto === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
+                                  <CreditCard size={18} className={metodoPgto === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
                                 </Label>
                               </div>
-                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                              <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
                                 <RadioGroupItem value="dinheiro" id={`dinheiro-${slot.inicio}`} className="sr-only" />
                                 <Label htmlFor={`dinheiro-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
-                                  <Banknote size={20} className={metodoPgto === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> DINHEIRO
+                                  <Banknote size={18} className={metodoPgto === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> DINHEIRO
+                                </Label>
+                              </div>
+                              <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "antecipado" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                                <RadioGroupItem value="antecipado" id={`antecipado-${slot.inicio}`} className="sr-only" />
+                                <Label htmlFor={`antecipado-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
+                                  <Clock size={18} className={metodoPgto === "antecipado" ? "text-[#22c55e]" : "text-gray-600"} /> ANTECIPADO
                                 </Label>
                               </div>
                             </RadioGroup>
@@ -756,13 +895,27 @@ const AtendenteDashboard = () => {
                             {metodoPgto === "dinheiro" && reservaCriada && (
                               <div className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center space-y-2">
                                 <p className="text-xs font-black uppercase italic text-[#22c55e]">✅ Reserva Agendada!</p>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase">Pagamento será realizado no caixa da arena.</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">Pagamento será realizado no caixa da arena no dia da reserva.</p>
                                 <p className="text-lg font-black text-white">Valor: R$ {(() => {
                                   const valorReserva = slot.valor;
                                   const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
                                   return (valorBase + totalCarrinho).toFixed(2);
                                 })()}</p>
                                 <p className="text-[9px] text-yellow-400 font-bold">⚠️ Fidelidade será contada após pagamento completo.</p>
+                              </div>
+                            )}
+
+                            {/* Antecipado = agendar com pagamento antes do jogo */}
+                            {metodoPgto === "antecipado" && reservaCriada && (
+                              <div className="bg-black/40 p-5 rounded-[2rem] border border-orange-500/20 text-center space-y-2">
+                                <p className="text-xs font-black uppercase italic text-orange-400">⏳ Reserva Agendada — Pagamento Antecipado</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">O pagamento será cobrado antes do início do jogo no dia da reserva.</p>
+                                <p className="text-lg font-black text-white">Valor: R$ {(() => {
+                                  const valorReserva = slot.valor;
+                                  const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                                  return (valorBase + totalCarrinho).toFixed(2);
+                                })()}</p>
+                                <p className="text-[9px] text-yellow-400 font-bold">⚠️ O cliente deverá pagar antes de entrar na quadra.</p>
                               </div>
                             )}
 
@@ -805,10 +958,29 @@ const AtendenteDashboard = () => {
                             {!reservaCriada && (
                               <Button disabled={loading || isCarregandoPix}
                                 className="w-full bg-[#22c55e] hover:bg-[#1ba850] text-black font-black uppercase h-16 rounded-2xl"
-                                onClick={() => {
-                                  const input = document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement;
+                                onClick={async () => {
+                                  const nome = clienteNomeBusca.trim() || (document.getElementById(`atleta-${slot.inicio}`) as HTMLInputElement)?.value;
                                   const hora = parseInt(slot.inicio.split(":")[0]);
-                                  handleAgendar(slot, input?.value, hora >= 18 ? 2 : 1);
+                                  await handleAgendar(slot, nome, hora >= 18 ? 2 : 1, clienteSelecionadoId || undefined);
+                                  
+                                  // Enviar WhatsApp com detalhes da reserva se cliente tem telefone
+                                  if (clienteSelecionadoId) {
+                                    const cli = clientes.find(c => c.id === clienteSelecionadoId);
+                                    if (cli?.telefone) {
+                                      const tel = cli.telefone.replace(/\D/g, '');
+                                      const valorReserva = slot.valor;
+                                      const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                                      const total = valorBase + totalCarrinho;
+                                      const msg = `*ARENA CEDRO - RESERVA CONFIRMADA* ⚽%0A%0A` +
+                                        `📅 *Data:* ${diaSelecionado.toLocaleDateString('pt-BR')}%0A` +
+                                        `⏰ *Horário:* ${slot.inicio}%0A` +
+                                        `💰 *Valor:* R$ ${total.toFixed(2)}%0A` +
+                                        `📋 *Tipo:* ${tipoReservaAtendente === 'pacote' ? 'Pacote 4 jogos' : 'Avulsa'}%0A` +
+                                        `💳 *Pagamento:* ${metodoPgto === 'antecipado' ? 'Antecipado (antes do jogo)' : metodoPgto === 'pix' ? 'PIX' : 'No local'}%0A%0A` +
+                                        `📖 Regras: ${window.location.origin}/regras-arena.pdf`;
+                                      window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+                                    }
+                                  }
                                 }}>
                                 {loading ? "Processando..." : "Fazer Reserva"}
                               </Button>
