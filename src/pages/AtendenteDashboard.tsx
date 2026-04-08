@@ -1339,7 +1339,7 @@ const AtendenteDashboard = () => {
                               {tipoReservaAtendente === "pacote" && (
                                 <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-3 rounded-xl">
                                   <p className="text-[9px] text-[#22c55e] font-black uppercase italic leading-tight">
-                                    ✨ Pacote 4 jogos: desconto de R$10 por jogo (R$40 total). Pagamento antecipado PIX
+                                    ✨ Pacote 4 jogos: desconto de R$10 por jogo (R$40 total). Pagamento antes do jogo PIX
                                     ou dinheiro.
                                   </p>
                                 </div>
@@ -1447,7 +1447,7 @@ const AtendenteDashboard = () => {
                                     size={18}
                                     className={metodoPgto === "antecipado" ? "text-[#22c55e]" : "text-gray-600"}
                                   />{" "}
-                                  ANTECIPADO
+                                  ANTES DO JOGO
                                 </Label>
                               </div>
                             </RadioGroup>
@@ -1502,7 +1502,7 @@ const AtendenteDashboard = () => {
                             {metodoPgto === "antecipado" && reservaCriada && (
                               <div className="bg-black/40 p-5 rounded-[2rem] border border-orange-500/20 text-center space-y-2">
                                 <p className="text-xs font-black uppercase italic text-orange-400">
-                                  ⏳ Reserva Agendada — Pagamento Antecipado
+                                  ⏳ Reserva Agendada — Pagamento Antes do Jogo
                                 </p>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase">
                                   O pagamento será cobrado antes do início do jogo no dia da reserva.
@@ -1613,7 +1613,7 @@ const AtendenteDashboard = () => {
                                         `⏰ *Horário:* ${slot.inicio}%0A` +
                                         `💰 *Valor:* R$ ${total.toFixed(2)}%0A` +
                                         `📋 *Tipo:* ${tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : "Avulsa"}%0A` +
-                                        `💳 *Pagamento:* ${metodoPgto === "antecipado" ? "Antecipado (antes do jogo)" : metodoPgto === "pix" ? "PIX" : "No local"}%0A%0A` +
+                                        `💳 *Pagamento:* ${metodoPgto === "antecipado" ? "Antes do Jogo" : metodoPgto === "pix" ? "PIX" : "No local"}%0A%0A` +
                                         `📖 Regras: ${window.location.origin}/regras-arena.pdf`;
                                       window.open(`https://wa.me/55${tel}?text=${msg}`, "_blank");
                                     }
