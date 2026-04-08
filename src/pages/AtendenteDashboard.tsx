@@ -37,7 +37,7 @@ const AtendenteDashboard = () => {
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [filtroNome, setFiltroNome] = useState("");
   const [duracao, setDuracao] = useState<string>("60");
-  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro">("dinheiro");
+  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro" | "antecipado">("dinheiro");
   const [tipoReservaAtendente, setTipoReservaAtendente] = useState<'avulsa' | 'pacote'>('avulsa');
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
@@ -63,6 +63,13 @@ const AtendenteDashboard = () => {
   const { isCarregandoPix: isCarregandoPixFinanceiro, pixData: pixDataFinanceiro, gerarPagamentoPix: gerarPixFinanceiro, limparPix: limparPixFinanceiro } = usePixPayment();
   // Notificação de pagamento recebido
   const [notificacaoPagamento, setNotificacaoPagamento] = useState<{ show: boolean; cliente: string; valor: number } | null>(null);
+  
+  // Cadastro de novo cliente
+  const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false);
+  const [novoClienteForm, setNovoClienteForm] = useState({ nome: "", sobrenome: "", telefone: "", email: "" });
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<number | null>(null);
+  const [clienteNomeBusca, setClienteNomeBusca] = useState("");
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
   interface Mensalista {
     id?: number; nome: string; dia: string; horario: string; metodoPgto: string;
