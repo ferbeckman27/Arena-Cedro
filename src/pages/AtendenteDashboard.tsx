@@ -2317,9 +2317,9 @@ const AtendenteDashboard = () => {
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-black text-sm">{nomeCliente}</p>
+                              <p className="font-black text-sm">{nomeCliente} <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span></p>
                               <p className="text-[10px] text-gray-400">
-                                {new Date(r.data_reserva + "T00:00:00").toLocaleDateString("pt-BR")} — {r.horario_inicio?.slice(0, 5)}
+                                {r.horario_inicio?.slice(0, 5)} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
                               </p>
                             </div>
                             <div className="text-right">
