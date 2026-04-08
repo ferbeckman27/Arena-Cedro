@@ -180,6 +180,8 @@ const AtendenteDashboard = () => {
   const carregarReservasFinancas = async () => {
     const { data } = await supabase.from('reservas').select('*, clientes ( nome )').order('data_reserva', { ascending: false });
     if (data) setListaReservas(data as unknown as ReservaCompleta[]);
+    const { data: pgtos } = await supabase.from('pagamentos').select('*').eq('status', 'aprovado');
+    if (pgtos) setListaPagamentos(pgtos as unknown as PagamentoRegistrado[]);
   };
 
   useEffect(() => { buscarDadosIniciais(); }, []);
