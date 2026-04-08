@@ -523,7 +523,8 @@ const AtendenteDashboard = () => {
       const valorReserva = (valorBaseHora * duracaoMin) / 60;
       const totalProdutos = itensCarrinho.reduce((acc: number, item: any) => acc + item.preco, 0);
       const valorTotalReserva = tipoReservaAtendente === "pacote" ? valorReserva * 4 : valorReserva;
-      const totalGeral = valorTotalReserva + totalProdutos;
+      const descontoPacote = tipoReservaAtendente === "pacote" ? 40 : 0;
+      const totalGeral = valorTotalReserva + totalProdutos - descontoPacote;
 
       const slotInicio = typeof slot === "string" ? slot : slot.inicio;
       const slotFim = typeof slot === "string" ? "" : slot.fim;
@@ -1460,9 +1461,17 @@ const AtendenteDashboard = () => {
                                       <span className="text-white font-bold">R$ {totalCarrinho.toFixed(2)}</span>
                                     </div>
                                   )}
+                                  {tipoReservaAtendente === "pacote" && (
+                                    <div className="flex justify-between text-sm items-center">
+                                      <span className="flex items-center gap-1 text-[#22c55e] font-bold">
+                                        🏷️ Desconto Pacote (R$10 x 4):
+                                      </span>
+                                      <span className="font-black text-[#22c55e]">- R$ {descontoAtual.toFixed(2)}</span>
+                                    </div>
+                                  )}
                                   <div className="border-t border-white/10 pt-2 flex justify-between font-black text-lg italic">
                                     <span className="text-gray-400">Total:</span>
-                                    <span className="text-[#22c55e]">R$ {totalComProdutos.toFixed(2)}</span>
+                                    <span className="text-[#22c55e]">R$ {(totalComProdutos - (tipoReservaAtendente === "pacote" ? descontoAtual : 0)).toFixed(2)}</span>
                                   </div>
                                 </div>
                               );
