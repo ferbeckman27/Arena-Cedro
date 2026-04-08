@@ -612,8 +612,12 @@ const AtendenteDashboard = () => {
                 <DialogHeader><DialogTitle className="italic uppercase flex items-center gap-2"><DollarSign className="text-[#22c55e]" size={20} /> Resumo {diaSelecionado.toLocaleDateString()}</DialogTitle></DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">PIX</p><p className="text-xl font-black text-[#22c55e]">R$ {resumoFinanceiro.pix.toFixed(2)}</p></div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">Dinheiro</p><p className="text-xl font-black text-[#22c55e]">R$ {resumoFinanceiro.dinheiro.toFixed(2)}</p></div>
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">PIX</p><p className="text-xl font-black text-blue-400">R$ {resumoFinanceiro.pix.toFixed(2)}</p></div>
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">Dinheiro</p><p className="text-xl font-black text-yellow-400">R$ {resumoFinanceiro.dinheiro.toFixed(2)}</p></div>
+                  </div>
+                  <div className="p-4 bg-[#22c55e]/10 rounded-xl border border-[#22c55e]/20 flex justify-between items-center">
+                    <span className="text-xs uppercase font-black italic">Total Recebido:</span>
+                    <span className="font-black text-[#22c55e] text-xl">R$ {(resumoFinanceiro.pix + resumoFinanceiro.dinheiro).toFixed(2)}</span>
                   </div>
                   <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between items-center">
                     <span className="text-xs uppercase font-black italic">A receber:</span>
