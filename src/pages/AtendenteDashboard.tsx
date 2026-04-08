@@ -294,7 +294,9 @@ const AtendenteDashboard = () => {
     const { data } = await supabase
       .from("reservas")
       .select("*, clientes ( nome )")
-      .order("data_reserva", { ascending: false });
+      .order("data_reserva", { ascending: false })
+      .order("horario_inicio", { ascending: true })
+      .order("created_at", { ascending: false });
     if (data) setListaReservas(data as unknown as ReservaCompleta[]);
     const { data: pgtos } = await supabase.from("pagamentos").select("*").eq("status", "aprovado");
     if (pgtos) setListaPagamentos(pgtos as unknown as PagamentoRegistrado[]);
@@ -847,19 +849,43 @@ const AtendenteDashboard = () => {
     });
   };
 
+  const reservasFinanceiroDoDia = useMemo(() => {
+    const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
+
+    return listaReservas
+      .filter((r) => r.data_reserva === dataStr)
+      .slice()
+      .sort((a, b) => {
+        const horaA = String(a.horario_inicio || "");
+        const horaB = String(b.horario_inicio || "");
+
+        if (horaA !== horaB) return horaA.localeCompare(horaB);
+
+        const createdA = new Date((a as any).created_at || 0).getTime();
+        const createdB = new Date((b as any).created_at || 0).getTime();
+        return createdB - createdA;
+      });
+  }, [listaReservas, diaSelecionado]);
+
+  const reservasFinanceiroAtivasDoDia = useMemo(
+    () => reservasFinanceiroDoDia.filter((r) => r.status !== "cancelada"),
+    [reservasFinanceiroDoDia],
+  );
+
+  const reservasFinanceiroCanceladasDoDia = useMemo(
+    () => reservasFinanceiroDoDia.filter((r) => r.status === "cancelada"),
+    [reservasFinanceiroDoDia],
+  );
+
   const handleFecharCaixa = async () => {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
-      const reservasDoDia = listaReservas.filter((r) => r.data_reserva === dataStr && r.pago);
-      const pix = reservasDoDia
-        .filter((r) => r.forma_pagamento === "pix")
-        .reduce((a, r) => a + Number(r.valor_total || 0), 0);
-      const dinheiro = reservasDoDia
-        .filter((r) => r.forma_pagamento === "dinheiro")
-        .reduce((a, r) => a + Number(r.valor_total || 0), 0);
+      const reservasDoDia = reservasFinanceiroAtivasDoDia.filter((r) => r.pago);
+      const pix = resumoFinanceiro.pix;
+      const dinheiro = resumoFinanceiro.dinheiro;
 
       await supabase.from("fechamentos_caixa").insert([
         {
@@ -881,9 +907,7 @@ const AtendenteDashboard = () => {
 
   // Financeiro real
   const resumoFinanceiro = useMemo(() => {
-    const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
-    const doDia = listaReservas.filter((r) => r.data_reserva === dataStr);
-    const reservaIdsDoDia = new Set(doDia.map((r) => r.id));
+    const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
 
     // Pagamentos aprovados do dia (da tabela pagamentos)
     const pagsDoDia = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
@@ -902,7 +926,7 @@ const AtendenteDashboard = () => {
     });
 
     // Sinais pagos nas reservas que não têm registro na tabela pagamentos
-    doDia.forEach((r) => {
+    reservasFinanceiroAtivasDoDia.forEach((r) => {
       const sinal = Number(r.valor_pago_sinal || 0);
       if (sinal <= 0) return;
       const totalPagRegistrado = pagsDoDia
@@ -919,14 +943,14 @@ const AtendenteDashboard = () => {
       }
     });
 
-    const pendentes = doDia.filter((r) => !r.pago && r.status !== "cancelada");
+    const pendentes = reservasFinanceiroAtivasDoDia.filter((r) => !r.pago);
     const restante = pendentes.reduce(
       (a, r) => a + Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0),
       0,
     );
 
     return { pix, dinheiro, restante };
-  }, [listaReservas, listaPagamentos, diaSelecionado]);
+  }, [reservasFinanceiroAtivasDoDia, listaPagamentos]);
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
@@ -2305,12 +2329,10 @@ const AtendenteDashboard = () => {
               <ScrollArea className="max-h-[500px]">
                 <div className="p-4 space-y-3">
                   {(() => {
-                    const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
-                    const reservasDoDia = listaReservas.filter((r) => r.data_reserva === dataStr);
-                    if (reservasDoDia.length === 0) return (
+                    if (reservasFinanceiroDoDia.length === 0) return (
                       <p className="text-center text-gray-500 text-sm py-8">Nenhuma reserva neste dia.</p>
                     );
-                    return reservasDoDia.map((r) => {
+                    return [...reservasFinanceiroAtivasDoDia, ...reservasFinanceiroCanceladasDoDia].map((r) => {
                       const restante = Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0);
                       const nomeCliente = r.clientes?.nome || r.cliente_nome || "—";
                       return (
@@ -2319,7 +2341,7 @@ const AtendenteDashboard = () => {
                             <div>
                               <p className="font-black text-sm">{nomeCliente} <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span></p>
                               <p className="text-[10px] text-gray-400">
-                                {r.horario_inicio?.slice(0, 5)} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
+                                {r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
                               </p>
                             </div>
                             <div className="text-right">
