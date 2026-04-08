@@ -1177,13 +1177,53 @@ const AtendenteDashboard = () => {
                                     onChange={(e) => setNovoClienteForm((p) => ({ ...p, email: e.target.value }))}
                                     className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs"
                                   />
+                                  {/* Senha */}
+                                  <div className="relative">
+                                    <Input
+                                      placeholder="Senha *"
+                                      type={mostrarSenhaCadastro ? "text" : "password"}
+                                      value={novoClienteForm.senha}
+                                      onChange={(e) => setNovoClienteForm((p) => ({ ...p, senha: e.target.value }))}
+                                      className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs pr-10"
+                                    />
+                                    <button type="button" onClick={() => setMostrarSenhaCadastro(!mostrarSenhaCadastro)} className="absolute right-3 top-2.5 text-gray-500">
+                                      {mostrarSenhaCadastro ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                  </div>
+                                  <Input
+                                    placeholder="Confirmar Senha *"
+                                    type="password"
+                                    value={novoClienteForm.confirmarSenha}
+                                    onChange={(e) => setNovoClienteForm((p) => ({ ...p, confirmarSenha: e.target.value }))}
+                                    className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs"
+                                  />
+                                  {/* Regras de senha */}
+                                  {novoClienteForm.senha && (
+                                    <div className="bg-white/5 border border-white/10 p-3 rounded-xl space-y-1">
+                                      <p className="text-[9px] text-gray-500 uppercase font-bold mb-1">Requisitos:</p>
+                                      <div className="grid grid-cols-2 gap-1">
+                                        {[
+                                          { ok: novoClienteForm.senha.length >= 8, label: "8+ caracteres" },
+                                          { ok: /[A-Z]/.test(novoClienteForm.senha), label: "Maiúscula" },
+                                          { ok: /[a-z]/.test(novoClienteForm.senha), label: "Minúscula" },
+                                          { ok: /[!@#$%^&*(),.?":{}|<>]/.test(novoClienteForm.senha), label: "Especial" },
+                                          { ok: /\d/.test(novoClienteForm.senha), label: "Número" },
+                                          { ok: novoClienteForm.senha === novoClienteForm.confirmarSenha && novoClienteForm.confirmarSenha.length > 0, label: "Senhas iguais" },
+                                        ].map((rule, i) => (
+                                          <div key={i} className="flex items-center gap-1 text-[9px]">
+                                            {rule.ok ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
+                                            <span className={rule.ok ? "text-white" : "text-gray-500"}>{rule.label}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                   <Button
                                     type="button"
                                     className="w-full bg-[#22c55e] text-black font-black uppercase text-xs h-10 rounded-lg"
                                     onClick={async () => {
                                       const resultado = await handleCadastrarCliente();
                                       if (resultado) {
-                                        // Enviar WhatsApp com credenciais
                                         const tel = resultado.telefone?.replace(/\D/g, "");
                                         if (tel) {
                                           const msg =
