@@ -2267,6 +2267,36 @@ const AtendenteDashboard = () => {
               </Dialog>
             </Card>
           </TabsContent>
+          {/* FINANCEIRO */}
+          <TabsContent value="financeiro" className="space-y-8">
+            <Card className="bg-[#0c120f] border-white/5 rounded-[2.5rem] overflow-hidden">
+              <div className="bg-[#22c55e] p-4 flex items-center gap-2 text-black font-black uppercase text-sm italic">
+                <DollarSign size={18} /> Financeiro do Dia — {diaSelecionado.toLocaleDateString("pt-BR")}
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <p className="text-[10px] text-gray-400 uppercase font-black">PIX</p>
+                    <p className="text-xl font-black text-blue-400">R$ {resumoFinanceiro.pix.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                    <p className="text-[10px] text-gray-400 uppercase font-black">Dinheiro</p>
+                    <p className="text-xl font-black text-yellow-400">R$ {resumoFinanceiro.dinheiro.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-[#22c55e]/10 rounded-xl border border-[#22c55e]/20 flex justify-between items-center">
+                  <span className="text-xs uppercase font-black italic">Total Recebido:</span>
+                  <span className="font-black text-[#22c55e] text-xl">
+                    R$ {(resumoFinanceiro.pix + resumoFinanceiro.dinheiro).toFixed(2)}
+                  </span>
+                </div>
+                <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between items-center">
+                  <span className="text-xs uppercase font-black italic">A receber:</span>
+                  <span className="font-black text-red-500">R$ {resumoFinanceiro.restante.toFixed(2)}</span>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
 
         </Tabs>
       </main>
