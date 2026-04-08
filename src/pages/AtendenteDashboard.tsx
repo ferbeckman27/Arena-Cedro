@@ -523,7 +523,8 @@ const AtendenteDashboard = () => {
       const valorReserva = (valorBaseHora * duracaoMin) / 60;
       const totalProdutos = itensCarrinho.reduce((acc: number, item: any) => acc + item.preco, 0);
       const valorTotalReserva = tipoReservaAtendente === "pacote" ? valorReserva * 4 : valorReserva;
-      const totalGeral = valorTotalReserva + totalProdutos;
+      const descontoPacote = tipoReservaAtendente === "pacote" ? 40 : 0;
+      const totalGeral = valorTotalReserva + totalProdutos - descontoPacote;
 
       const slotInicio = typeof slot === "string" ? slot : slot.inicio;
       const slotFim = typeof slot === "string" ? "" : slot.fim;
