@@ -549,52 +549,37 @@ const AtendenteDashboard = () => {
     const doDia = listaReservas.filter(r => r.data_reserva === dataStr);
     const reservaIdsDoDia = new Set(doDia.map(r => r.id));
     
-    // Use pagamentos table for accurate per-method totals
-    const pagamentosDoDia = listaPagamentos.filter(p => reservaIdsDoDia.has(p.reserva_id));
+    // Pagamentos aprovados do dia (da tabela pagamentos)
+    const pagsDoDia = listaPagamentos.filter(p => reservaIdsDoDia.has(p.reserva_id));
     
-    const pix = pagamentosDoDia
-      .filter(p => p.forma_pagamento === 'pix' || p.forma_pagamento === 'pix+dinheiro')
-      .reduce((a, p) => {
-        if (p.forma_pagamento === 'pix+dinheiro') return a + Number(p.valor) / 2;
-        return a + Number(p.valor);
-      }, 0);
+    let pix = 0;
+    let dinheiro = 0;
     
-    const dinheiro = pagamentosDoDia
-      .filter(p => p.forma_pagamento === 'dinheiro' || p.forma_pagamento === 'pix+dinheiro')
-      .reduce((a, p) => {
-        if (p.forma_pagamento === 'pix+dinheiro') return a + Number(p.valor) / 2;
-        return a + Number(p.valor);
-      }, 0);
+    pagsDoDia.forEach(p => {
+      const val = Number(p.valor);
+      if (p.forma_pagamento === 'pix') pix += val;
+      else if (p.forma_pagamento === 'dinheiro') dinheiro += val;
+      else if (p.forma_pagamento === 'pix+dinheiro') { pix += val / 2; dinheiro += val / 2; }
+      else if (p.forma_pagamento === 'antecipado') dinheiro += val;
+    });
     
-    // Also add sinal values from reservas that were paid during booking (valor_pago_sinal)
-    const totalPagoDoDia = pagamentosDoDia.reduce((a, p) => a + Number(p.valor), 0);
-    
-    // For reservas with valor_pago_sinal but no matching pagamento record, add those too
-    const sinalExtra = doDia.reduce((a, r) => {
-      const sinalReserva = Number(r.valor_pago_sinal || 0);
-      const pagamentosDaReserva = pagamentosDoDia.filter(p => p.reserva_id === r.id).reduce((s, p) => s + Number(p.valor), 0);
-      if (sinalReserva > pagamentosDaReserva) {
-        return a + (sinalReserva - pagamentosDaReserva);
+    // Sinais pagos nas reservas que não têm registro na tabela pagamentos
+    doDia.forEach(r => {
+      const sinal = Number(r.valor_pago_sinal || 0);
+      if (sinal <= 0) return;
+      const totalPagRegistrado = pagsDoDia.filter(p => p.reserva_id === r.id).reduce((a, p) => a + Number(p.valor), 0);
+      const diff = sinal - totalPagRegistrado;
+      if (diff > 0) {
+        if (r.forma_pagamento === 'pix') pix += diff;
+        else if (r.forma_pagamento === 'dinheiro' || r.forma_pagamento === 'antecipado') dinheiro += diff;
+        else if (r.forma_pagamento === 'pix+dinheiro') { pix += diff / 2; dinheiro += diff / 2; }
       }
-      return a;
-    }, 0);
-    
-    const pixTotal = pix + (sinalExtra > 0 ? doDia.filter(r => r.forma_pagamento === 'pix' && Number(r.valor_pago_sinal || 0) > 0).reduce((a, r) => {
-      const pagDaRes = pagamentosDoDia.filter(p => p.reserva_id === r.id).reduce((s, p) => s + Number(p.valor), 0);
-      const diff = Number(r.valor_pago_sinal || 0) - pagDaRes;
-      return diff > 0 ? a + diff : a;
-    }, 0) : 0);
-    
-    const dinheiroTotal = dinheiro + (sinalExtra > 0 ? doDia.filter(r => r.forma_pagamento === 'dinheiro' && Number(r.valor_pago_sinal || 0) > 0).reduce((a, r) => {
-      const pagDaRes = pagamentosDoDia.filter(p => p.reserva_id === r.id).reduce((s, p) => s + Number(p.valor), 0);
-      const diff = Number(r.valor_pago_sinal || 0) - pagDaRes;
-      return diff > 0 ? a + diff : a;
-    }, 0) : 0);
+    });
     
     const pendentes = doDia.filter(r => !r.pago && r.status !== 'cancelada');
-    const restante = pendentes.reduce((a, r) => a + Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0);
+    const restante = pendentes.reduce((a, r) => a + Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0), 0);
     
-    return { pix: pixTotal, dinheiro: dinheiroTotal, restante };
+    return { pix, dinheiro, restante };
   }, [listaReservas, listaPagamentos, diaSelecionado]);
 
   return (
