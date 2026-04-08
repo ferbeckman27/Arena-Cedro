@@ -719,7 +719,86 @@ const AtendenteDashboard = () => {
                             </DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4 pt-4">
-                            <Input placeholder="Nome do Atleta" className="bg-white/5 border-white/10 h-14 rounded-xl text-white" id={`atleta-${slot.inicio}`} />
+                            {/* Nome do cliente com autocomplete + cadastro */}
+                            <div className="space-y-2 relative">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase text-gray-500 italic tracking-widest">Atleta</label>
+                                <button type="button" onClick={() => setMostrarCadastroCliente(!mostrarCadastroCliente)}
+                                  className="text-[9px] font-black uppercase text-[#22c55e] hover:underline flex items-center gap-1">
+                                  <Plus size={12} /> {mostrarCadastroCliente ? "Fechar" : "Novo Cliente"}
+                                </button>
+                              </div>
+                              
+                              {/* Cadastro inline de novo cliente */}
+                              {mostrarCadastroCliente && (
+                                <div className="bg-white/5 border border-[#22c55e]/20 rounded-xl p-4 space-y-3 animate-in slide-in-from-top">
+                                  <p className="text-[9px] font-black uppercase text-[#22c55e]">Cadastrar Novo Cliente</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input placeholder="Nome *" value={novoClienteForm.nome} onChange={e => setNovoClienteForm(p => ({ ...p, nome: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                    <Input placeholder="Sobrenome" value={novoClienteForm.sobrenome} onChange={e => setNovoClienteForm(p => ({ ...p, sobrenome: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                  </div>
+                                  <Input placeholder="Telefone (WhatsApp)" value={novoClienteForm.telefone} onChange={e => setNovoClienteForm(p => ({ ...p, telefone: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                  <Input placeholder="E-mail *" type="email" value={novoClienteForm.email} onChange={e => setNovoClienteForm(p => ({ ...p, email: e.target.value }))} className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs" />
+                                  <Button type="button" className="w-full bg-[#22c55e] text-black font-black uppercase text-xs h-10 rounded-lg"
+                                    onClick={async () => {
+                                      const resultado = await handleCadastrarCliente();
+                                      if (resultado) {
+                                        // Enviar WhatsApp com credenciais
+                                        const tel = resultado.telefone?.replace(/\D/g, '');
+                                        if (tel) {
+                                          const msg = `*ARENA CEDRO - CADASTRO REALIZADO* ⚽%0A%0A` +
+                                            `Olá *${resultado.nome}*!%0A%0A` +
+                                            `Seu cadastro foi criado com sucesso.%0A%0A` +
+                                            `📧 *Usuário:* ${resultado.email}%0A` +
+                                            `🔑 *Senha:* ${resultado.senha}%0A%0A` +
+                                            `Acesse: ${window.location.origin}/login%0A%0A` +
+                                            `Não compartilhe sua senha com ninguém!`;
+                                          window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+                                        }
+                                        setNovoClienteForm({ nome: "", sobrenome: "", telefone: "", email: "" });
+                                      }
+                                    }}>
+                                    Cadastrar e Enviar WhatsApp
+                                  </Button>
+                                </div>
+                              )}
+                              
+                              {/* Campo de busca/autocomplete */}
+                              {!mostrarCadastroCliente && (
+                                <div className="relative">
+                                  <Input 
+                                    placeholder="Buscar ou digitar nome do atleta" 
+                                    value={clienteNomeBusca} 
+                                    onChange={e => { setClienteNomeBusca(e.target.value); setMostrarSugestoes(true); setClienteSelecionadoId(null); }}
+                                    onFocus={() => clienteNomeBusca.trim() && setMostrarSugestoes(true)}
+                                    onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                                    className="bg-white/5 border-white/10 h-14 rounded-xl text-white" 
+                                    id={`atleta-${slot.inicio}`} 
+                                  />
+                                  {mostrarSugestoes && clientesFiltrados.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-[#0c120f] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                                      {clientesFiltrados.map(c => (
+                                        <button key={c.id} type="button"
+                                          className="w-full text-left px-4 py-3 hover:bg-[#22c55e]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
+                                          onMouseDown={(e) => { e.preventDefault(); setClienteNomeBusca(c.nome); setClienteSelecionadoId(c.id); setMostrarSugestoes(false); }}>
+                                          <div className="flex items-center gap-2">
+                                            <Users size={14} className="text-[#22c55e]" />
+                                            <span className="text-white text-sm font-bold">{c.nome}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            {c.isVip && <Badge className="bg-[#22c55e] text-black text-[7px] font-black">VIP</Badge>}
+                                            <span className="text-[9px] text-gray-500">{c.reservas_concluidas || 0} jogos</span>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {clienteSelecionadoId && (
+                                    <p className="text-[9px] text-[#22c55e] font-bold mt-1">✓ Cliente vinculado ao cadastro</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
 
                             {/* Tipo de Reserva */}
                             <div className="space-y-2">
