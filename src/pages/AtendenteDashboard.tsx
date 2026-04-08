@@ -2304,19 +2304,22 @@ const AtendenteDashboard = () => {
               </div>
               <ScrollArea className="max-h-[500px]">
                 <div className="p-4 space-y-3">
-                  {listaReservas.length === 0 ? (
-                    <p className="text-center text-gray-500 text-sm py-8">Nenhuma reserva encontrada.</p>
-                  ) : (
-                    listaReservas.map((r) => {
+                  {(() => {
+                    const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
+                    const reservasDoDia = listaReservas.filter((r) => r.data_reserva === dataStr);
+                    if (reservasDoDia.length === 0) return (
+                      <p className="text-center text-gray-500 text-sm py-8">Nenhuma reserva neste dia.</p>
+                    );
+                    return reservasDoDia.map((r) => {
                       const restante = Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0);
                       const nomeCliente = r.clientes?.nome || r.cliente_nome || "—";
                       return (
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-black text-sm">{nomeCliente}</p>
+                              <p className="font-black text-sm">{nomeCliente} <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span></p>
                               <p className="text-[10px] text-gray-400">
-                                {new Date(r.data_reserva + "T00:00:00").toLocaleDateString("pt-BR")} — {r.horario_inicio?.slice(0, 5)}
+                                {r.horario_inicio?.slice(0, 5)} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
                               </p>
                             </div>
                             <div className="text-right">
@@ -2445,8 +2448,8 @@ const AtendenteDashboard = () => {
                           )}
                         </div>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                 </div>
               </ScrollArea>
             </Card>
