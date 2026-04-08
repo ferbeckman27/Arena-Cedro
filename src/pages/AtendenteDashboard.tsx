@@ -1533,7 +1533,7 @@ const AtendenteDashboard = () => {
                         <TableCell className="text-gray-500 text-xs">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} | {res.horario_inicio?.slice(0,5)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2 flex-wrap">
-                            <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
+                            <span className="font-black text-[#22c55e]">R$ {Number(res.valor_pago_sinal || res.valor_total).toFixed(2)}</span>
                             <Badge className={cn("text-[8px] font-black border-none",
                               res.forma_pagamento === 'pix' ? "bg-blue-500/20 text-blue-400" :
                               res.forma_pagamento === 'dinheiro' ? "bg-yellow-500/20 text-yellow-400" :
