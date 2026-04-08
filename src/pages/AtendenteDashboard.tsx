@@ -530,7 +530,7 @@ const AtendenteDashboard = () => {
       const slotFim = typeof slot === "string" ? "" : slot.fim;
 
       const clienteId = clienteIdOverride || clienteSelecionadoId || undefined;
-      const formaPgto = metodoPgto === "antecipado" ? "pix" : metodoPgto;
+      const formaPgto = metodoPgto === "antecipado" ? "antes_do_jogo" : metodoPgto;
 
       const { data: reserva, error: resError } = await supabase
         .from("reservas")
@@ -548,7 +548,7 @@ const AtendenteDashboard = () => {
             funcionario_id: funcionarioId || undefined,
             atendente_id: funcionarioId || undefined,
             pago: false,
-            status: formaPgto === "pix" ? "pendente" : "confirmada",
+            status: metodoPgto === "pix" ? "pendente" : "confirmada",
             turno_id,
             observacoes: tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
           },
