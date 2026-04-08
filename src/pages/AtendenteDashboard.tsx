@@ -290,9 +290,9 @@ const AtendenteDashboard = () => {
   const totalCarrinho = useMemo(() => itensCarrinho.reduce((acc, item) => acc + item.preco, 0), [itensCarrinho]);
 
   // Cadastrar novo cliente
-  const handleCadastrarCliente = async () => {
-    if (!novoClienteForm.nome.trim()) return toast({ variant: "destructive", title: "Nome obrigatório" });
-    if (!novoClienteForm.email.trim()) return toast({ variant: "destructive", title: "E-mail obrigatório" });
+  const handleCadastrarCliente = async (): Promise<{ id: number; nome: string; email: string; senha: string; telefone: string } | null> => {
+    if (!novoClienteForm.nome.trim()) { toast({ variant: "destructive", title: "Nome obrigatório" }); return null; }
+    if (!novoClienteForm.email.trim()) { toast({ variant: "destructive", title: "E-mail obrigatório" }); return null; }
     const senhaGerada = Math.random().toString(36).slice(-8);
     try {
       const { data: cli, error } = await supabase.from('clientes').insert([{
