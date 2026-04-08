@@ -451,7 +451,16 @@ const AtendenteDashboard = () => {
       toast({ variant: "destructive", title: "E-mail obrigatório" });
       return null;
     }
-    const senhaGerada = Math.random().toString(36).slice(-8);
+    const senha = novoClienteForm.senha;
+    if (senha.length < 8 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[!@#$%^&*(),.?":{}|<>]/.test(senha) || !/\d/.test(senha)) {
+      toast({ variant: "destructive", title: "Senha inválida", description: "A senha não atende aos requisitos de segurança." });
+      return null;
+    }
+    if (senha !== novoClienteForm.confirmarSenha) {
+      toast({ variant: "destructive", title: "Senhas diferentes", description: "A confirmação de senha não confere." });
+      return null;
+    }
+    const senhaGerada = senha;
     try {
       const { data: cli, error } = await supabase
         .from("clientes")
@@ -1187,7 +1196,7 @@ const AtendenteDashboard = () => {
                                             `Não compartilhe sua senha com ninguém!`;
                                           window.open(`https://wa.me/55${tel}?text=${msg}`, "_blank");
                                         }
-                                        setNovoClienteForm({ nome: "", sobrenome: "", telefone: "", email: "" });
+                                        setNovoClienteForm({ nome: "", sobrenome: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
                                       }
                                     }}
                                   >
