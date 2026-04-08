@@ -104,7 +104,8 @@ const AtendenteDashboard = () => {
 
   // Cadastro de novo cliente
   const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false);
-  const [novoClienteForm, setNovoClienteForm] = useState({ nome: "", sobrenome: "", telefone: "", email: "" });
+  const [novoClienteForm, setNovoClienteForm] = useState({ nome: "", sobrenome: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
+  const [mostrarSenhaCadastro, setMostrarSenhaCadastro] = useState(false);
   const [clienteSelecionadoId, setClienteSelecionadoId] = useState<number | null>(null);
   const [clienteNomeBusca, setClienteNomeBusca] = useState("");
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
