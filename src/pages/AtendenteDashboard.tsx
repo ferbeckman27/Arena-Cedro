@@ -40,6 +40,9 @@ import {
   CheckCircle2,
   CreditCard,
   Banknote,
+  Eye,
+  EyeOff,
+  Circle,
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -104,7 +107,8 @@ const AtendenteDashboard = () => {
 
   // Cadastro de novo cliente
   const [mostrarCadastroCliente, setMostrarCadastroCliente] = useState(false);
-  const [novoClienteForm, setNovoClienteForm] = useState({ nome: "", sobrenome: "", telefone: "", email: "" });
+  const [novoClienteForm, setNovoClienteForm] = useState({ nome: "", sobrenome: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
+  const [mostrarSenhaCadastro, setMostrarSenhaCadastro] = useState(false);
   const [clienteSelecionadoId, setClienteSelecionadoId] = useState<number | null>(null);
   const [clienteNomeBusca, setClienteNomeBusca] = useState("");
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
@@ -450,7 +454,16 @@ const AtendenteDashboard = () => {
       toast({ variant: "destructive", title: "E-mail obrigatório" });
       return null;
     }
-    const senhaGerada = Math.random().toString(36).slice(-8);
+    const senha = novoClienteForm.senha;
+    if (senha.length < 8 || !/[A-Z]/.test(senha) || !/[a-z]/.test(senha) || !/[!@#$%^&*(),.?":{}|<>]/.test(senha) || !/\d/.test(senha)) {
+      toast({ variant: "destructive", title: "Senha inválida", description: "A senha não atende aos requisitos de segurança." });
+      return null;
+    }
+    if (senha !== novoClienteForm.confirmarSenha) {
+      toast({ variant: "destructive", title: "Senhas diferentes", description: "A confirmação de senha não confere." });
+      return null;
+    }
+    const senhaGerada = senha;
     try {
       const { data: cli, error } = await supabase
         .from("clientes")
@@ -1167,13 +1180,53 @@ const AtendenteDashboard = () => {
                                     onChange={(e) => setNovoClienteForm((p) => ({ ...p, email: e.target.value }))}
                                     className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs"
                                   />
+                                  {/* Senha */}
+                                  <div className="relative">
+                                    <Input
+                                      placeholder="Senha *"
+                                      type={mostrarSenhaCadastro ? "text" : "password"}
+                                      value={novoClienteForm.senha}
+                                      onChange={(e) => setNovoClienteForm((p) => ({ ...p, senha: e.target.value }))}
+                                      className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs pr-10"
+                                    />
+                                    <button type="button" onClick={() => setMostrarSenhaCadastro(!mostrarSenhaCadastro)} className="absolute right-3 top-2.5 text-gray-500">
+                                      {mostrarSenhaCadastro ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                  </div>
+                                  <Input
+                                    placeholder="Confirmar Senha *"
+                                    type="password"
+                                    value={novoClienteForm.confirmarSenha}
+                                    onChange={(e) => setNovoClienteForm((p) => ({ ...p, confirmarSenha: e.target.value }))}
+                                    className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs"
+                                  />
+                                  {/* Regras de senha */}
+                                  {novoClienteForm.senha && (
+                                    <div className="bg-white/5 border border-white/10 p-3 rounded-xl space-y-1">
+                                      <p className="text-[9px] text-gray-500 uppercase font-bold mb-1">Requisitos:</p>
+                                      <div className="grid grid-cols-2 gap-1">
+                                        {[
+                                          { ok: novoClienteForm.senha.length >= 8, label: "8+ caracteres" },
+                                          { ok: /[A-Z]/.test(novoClienteForm.senha), label: "Maiúscula" },
+                                          { ok: /[a-z]/.test(novoClienteForm.senha), label: "Minúscula" },
+                                          { ok: /[!@#$%^&*(),.?":{}|<>]/.test(novoClienteForm.senha), label: "Especial" },
+                                          { ok: /\d/.test(novoClienteForm.senha), label: "Número" },
+                                          { ok: novoClienteForm.senha === novoClienteForm.confirmarSenha && novoClienteForm.confirmarSenha.length > 0, label: "Senhas iguais" },
+                                        ].map((rule, i) => (
+                                          <div key={i} className="flex items-center gap-1 text-[9px]">
+                                            {rule.ok ? <CheckCircle2 className="w-3 h-3 text-[#22c55e]" /> : <Circle className="w-3 h-3 text-gray-600" />}
+                                            <span className={rule.ok ? "text-white" : "text-gray-500"}>{rule.label}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                   <Button
                                     type="button"
                                     className="w-full bg-[#22c55e] text-black font-black uppercase text-xs h-10 rounded-lg"
                                     onClick={async () => {
                                       const resultado = await handleCadastrarCliente();
                                       if (resultado) {
-                                        // Enviar WhatsApp com credenciais
                                         const tel = resultado.telefone?.replace(/\D/g, "");
                                         if (tel) {
                                           const msg =
@@ -1186,7 +1239,7 @@ const AtendenteDashboard = () => {
                                             `Não compartilhe sua senha com ninguém!`;
                                           window.open(`https://wa.me/55${tel}?text=${msg}`, "_blank");
                                         }
-                                        setNovoClienteForm({ nome: "", sobrenome: "", telefone: "", email: "" });
+                                        setNovoClienteForm({ nome: "", sobrenome: "", telefone: "", email: "", senha: "", confirmarSenha: "" });
                                       }
                                     }}
                                   >
