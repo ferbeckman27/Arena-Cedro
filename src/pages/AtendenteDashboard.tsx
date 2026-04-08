@@ -86,12 +86,14 @@ const AtendenteDashboard = () => {
     clientes: { nome: string } | null;
   }
   interface SlotAgenda { inicio: string; fim: string; turno: string; valor: number; status: string; }
+  interface PagamentoRegistrado { id: number; reserva_id: number; valor: number; forma_pagamento: string; status: string; data_confirmacao: string | null; created_at: string; }
 
   const [mensalistas, setMensalistas] = useState<Mensalista[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [listaReservas, setListaReservas] = useState<ReservaCompleta[]>([]);
+  const [listaPagamentos, setListaPagamentos] = useState<PagamentoRegistrado[]>([]);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
   const [itensReservaMap, setItensReservaMap] = useState<Record<number, any[]>>({});
 
@@ -178,6 +180,8 @@ const AtendenteDashboard = () => {
   const carregarReservasFinancas = async () => {
     const { data } = await supabase.from('reservas').select('*, clientes ( nome )').order('data_reserva', { ascending: false });
     if (data) setListaReservas(data as unknown as ReservaCompleta[]);
+    const { data: pgtos } = await supabase.from('pagamentos').select('*').eq('status', 'aprovado');
+    if (pgtos) setListaPagamentos(pgtos as unknown as PagamentoRegistrado[]);
   };
 
   useEffect(() => { buscarDadosIniciais(); }, []);
@@ -543,14 +547,40 @@ const AtendenteDashboard = () => {
   const resumoFinanceiro = useMemo(() => {
     const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
     const doDia = listaReservas.filter(r => r.data_reserva === dataStr);
-    const pagas = doDia.filter(r => r.pago);
-    const pendentes = doDia.filter(r => !r.pago);
-    return {
-      pix: pagas.filter(r => r.forma_pagamento === 'pix').reduce((a, r) => a + Number(r.valor_total || 0), 0),
-      dinheiro: pagas.filter(r => r.forma_pagamento === 'dinheiro').reduce((a, r) => a + Number(r.valor_total || 0), 0),
-      restante: pendentes.reduce((a, r) => a + Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0),
-    };
-  }, [listaReservas, diaSelecionado]);
+    const reservaIdsDoDia = new Set(doDia.map(r => r.id));
+    
+    // Pagamentos aprovados do dia (da tabela pagamentos)
+    const pagsDoDia = listaPagamentos.filter(p => reservaIdsDoDia.has(p.reserva_id));
+    
+    let pix = 0;
+    let dinheiro = 0;
+    
+    pagsDoDia.forEach(p => {
+      const val = Number(p.valor);
+      if (p.forma_pagamento === 'pix') pix += val;
+      else if (p.forma_pagamento === 'dinheiro') dinheiro += val;
+      else if (p.forma_pagamento === 'pix+dinheiro') { pix += val / 2; dinheiro += val / 2; }
+      else if (p.forma_pagamento === 'antecipado') dinheiro += val;
+    });
+    
+    // Sinais pagos nas reservas que não têm registro na tabela pagamentos
+    doDia.forEach(r => {
+      const sinal = Number(r.valor_pago_sinal || 0);
+      if (sinal <= 0) return;
+      const totalPagRegistrado = pagsDoDia.filter(p => p.reserva_id === r.id).reduce((a, p) => a + Number(p.valor), 0);
+      const diff = sinal - totalPagRegistrado;
+      if (diff > 0) {
+        if (r.forma_pagamento === 'pix') pix += diff;
+        else if (r.forma_pagamento === 'dinheiro' || r.forma_pagamento === 'antecipado') dinheiro += diff;
+        else if (r.forma_pagamento === 'pix+dinheiro') { pix += diff / 2; dinheiro += diff / 2; }
+      }
+    });
+    
+    const pendentes = doDia.filter(r => !r.pago && r.status !== 'cancelada');
+    const restante = pendentes.reduce((a, r) => a + Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0), 0);
+    
+    return { pix, dinheiro, restante };
+  }, [listaReservas, listaPagamentos, diaSelecionado]);
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
@@ -582,8 +612,12 @@ const AtendenteDashboard = () => {
                 <DialogHeader><DialogTitle className="italic uppercase flex items-center gap-2"><DollarSign className="text-[#22c55e]" size={20} /> Resumo {diaSelecionado.toLocaleDateString()}</DialogTitle></DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">PIX</p><p className="text-xl font-black text-[#22c55e]">R$ {resumoFinanceiro.pix.toFixed(2)}</p></div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">Dinheiro</p><p className="text-xl font-black text-[#22c55e]">R$ {resumoFinanceiro.dinheiro.toFixed(2)}</p></div>
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">PIX</p><p className="text-xl font-black text-blue-400">R$ {resumoFinanceiro.pix.toFixed(2)}</p></div>
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/5"><p className="text-[10px] text-gray-400 uppercase font-black">Dinheiro</p><p className="text-xl font-black text-yellow-400">R$ {resumoFinanceiro.dinheiro.toFixed(2)}</p></div>
+                  </div>
+                  <div className="p-4 bg-[#22c55e]/10 rounded-xl border border-[#22c55e]/20 flex justify-between items-center">
+                    <span className="text-xs uppercase font-black italic">Total Recebido:</span>
+                    <span className="font-black text-[#22c55e] text-xl">R$ {(resumoFinanceiro.pix + resumoFinanceiro.dinheiro).toFixed(2)}</span>
                   </div>
                   <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 flex justify-between items-center">
                     <span className="text-xs uppercase font-black italic">A receber:</span>
@@ -1499,7 +1533,7 @@ const AtendenteDashboard = () => {
                         <TableCell className="text-gray-500 text-xs">{new Date(res.data_reserva + 'T00:00:00').toLocaleDateString('pt-BR')} | {res.horario_inicio?.slice(0,5)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2 flex-wrap">
-                            <span className="font-black text-[#22c55e]">R$ {Number(res.valor_total).toFixed(2)}</span>
+                            <span className="font-black text-[#22c55e]">R$ {Number(res.valor_pago_sinal || res.valor_total).toFixed(2)}</span>
                             <Badge className={cn("text-[8px] font-black border-none",
                               res.forma_pagamento === 'pix' ? "bg-blue-500/20 text-blue-400" :
                               res.forma_pagamento === 'dinheiro' ? "bg-yellow-500/20 text-yellow-400" :
