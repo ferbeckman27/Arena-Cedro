@@ -2389,29 +2389,33 @@ const AtendenteDashboard = () => {
       </Dialog>
 
       {/* CONFIRMAÇÃO DE SAÍDA */}
-      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
-        <AlertDialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-black italic uppercase text-red-500 flex items-center gap-2">
+      <Dialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-sm outline-none">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black italic uppercase text-red-500 flex items-center gap-2">
               <LogOut size={20} /> Sair do Painel
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400 text-sm">
-              Tem certeza que deseja sair do painel operacional? Você será redirecionado para a tela de login corporativo.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl font-black">
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-gray-400 text-sm">
+            Tem certeza que deseja sair do painel operacional? Você será redirecionado para a tela de login corporativo.
+          </p>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowLogoutConfirm(false)}
+              className="bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl font-black"
+            >
               Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </Button>
+            <Button
               onClick={handleLogout}
               className="bg-red-600 hover:bg-red-700 text-white font-black rounded-xl"
             >
               Sim, Sair
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
