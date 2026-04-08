@@ -86,12 +86,14 @@ const AtendenteDashboard = () => {
     clientes: { nome: string } | null;
   }
   interface SlotAgenda { inicio: string; fim: string; turno: string; valor: number; status: string; }
+  interface PagamentoRegistrado { id: number; reserva_id: number; valor: number; forma_pagamento: string; status: string; data_confirmacao: string | null; created_at: string; }
 
   const [mensalistas, setMensalistas] = useState<Mensalista[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [listaReservas, setListaReservas] = useState<ReservaCompleta[]>([]);
+  const [listaPagamentos, setListaPagamentos] = useState<PagamentoRegistrado[]>([]);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
   const [itensReservaMap, setItensReservaMap] = useState<Record<number, any[]>>({});
 
