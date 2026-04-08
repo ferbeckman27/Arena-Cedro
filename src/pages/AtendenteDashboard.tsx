@@ -898,7 +898,7 @@ const AtendenteDashboard = () => {
       else if (p.forma_pagamento === "pix+dinheiro") {
         pix += val / 2;
         dinheiro += val / 2;
-      } else if (p.forma_pagamento === "antecipado") dinheiro += val;
+      } else if (p.forma_pagamento === "antecipado" || p.forma_pagamento === "antes_do_jogo") dinheiro += val;
     });
 
     // Sinais pagos nas reservas que não têm registro na tabela pagamentos
@@ -911,7 +911,7 @@ const AtendenteDashboard = () => {
       const diff = sinal - totalPagRegistrado;
       if (diff > 0) {
         if (r.forma_pagamento === "pix") pix += diff;
-        else if (r.forma_pagamento === "dinheiro" || r.forma_pagamento === "antecipado") dinheiro += diff;
+        else if (r.forma_pagamento === "dinheiro" || r.forma_pagamento === "antecipado" || r.forma_pagamento === "antes_do_jogo") dinheiro += diff;
         else if (r.forma_pagamento === "pix+dinheiro") {
           pix += diff / 2;
           dinheiro += diff / 2;
