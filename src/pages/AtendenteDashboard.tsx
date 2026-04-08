@@ -1085,6 +1085,9 @@ const AtendenteDashboard = () => {
             <TabsTrigger value="alertas" className="font-black italic uppercase px-6">
               Alertas
             </TabsTrigger>
+            <TabsTrigger value="financeiro" className="font-black italic uppercase px-6">
+              Financeiro
+            </TabsTrigger>
           </TabsList>
 
           {/* AGENDA */}
