@@ -547,14 +547,55 @@ const AtendenteDashboard = () => {
   const resumoFinanceiro = useMemo(() => {
     const dataStr = diaSelecionado.toLocaleDateString('sv-SE');
     const doDia = listaReservas.filter(r => r.data_reserva === dataStr);
-    const pagas = doDia.filter(r => r.pago);
-    const pendentes = doDia.filter(r => !r.pago);
-    return {
-      pix: pagas.filter(r => r.forma_pagamento === 'pix').reduce((a, r) => a + Number(r.valor_total || 0), 0),
-      dinheiro: pagas.filter(r => r.forma_pagamento === 'dinheiro').reduce((a, r) => a + Number(r.valor_total || 0), 0),
-      restante: pendentes.reduce((a, r) => a + Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0),
-    };
-  }, [listaReservas, diaSelecionado]);
+    const reservaIdsDoDia = new Set(doDia.map(r => r.id));
+    
+    // Use pagamentos table for accurate per-method totals
+    const pagamentosDoDia = listaPagamentos.filter(p => reservaIdsDoDia.has(p.reserva_id));
+    
+    const pix = pagamentosDoDia
+      .filter(p => p.forma_pagamento === 'pix' || p.forma_pagamento === 'pix+dinheiro')
+      .reduce((a, p) => {
+        if (p.forma_pagamento === 'pix+dinheiro') return a + Number(p.valor) / 2;
+        return a + Number(p.valor);
+      }, 0);
+    
+    const dinheiro = pagamentosDoDia
+      .filter(p => p.forma_pagamento === 'dinheiro' || p.forma_pagamento === 'pix+dinheiro')
+      .reduce((a, p) => {
+        if (p.forma_pagamento === 'pix+dinheiro') return a + Number(p.valor) / 2;
+        return a + Number(p.valor);
+      }, 0);
+    
+    // Also add sinal values from reservas that were paid during booking (valor_pago_sinal)
+    const totalPagoDoDia = pagamentosDoDia.reduce((a, p) => a + Number(p.valor), 0);
+    
+    // For reservas with valor_pago_sinal but no matching pagamento record, add those too
+    const sinalExtra = doDia.reduce((a, r) => {
+      const sinalReserva = Number(r.valor_pago_sinal || 0);
+      const pagamentosDaReserva = pagamentosDoDia.filter(p => p.reserva_id === r.id).reduce((s, p) => s + Number(p.valor), 0);
+      if (sinalReserva > pagamentosDaReserva) {
+        return a + (sinalReserva - pagamentosDaReserva);
+      }
+      return a;
+    }, 0);
+    
+    const pixTotal = pix + (sinalExtra > 0 ? doDia.filter(r => r.forma_pagamento === 'pix' && Number(r.valor_pago_sinal || 0) > 0).reduce((a, r) => {
+      const pagDaRes = pagamentosDoDia.filter(p => p.reserva_id === r.id).reduce((s, p) => s + Number(p.valor), 0);
+      const diff = Number(r.valor_pago_sinal || 0) - pagDaRes;
+      return diff > 0 ? a + diff : a;
+    }, 0) : 0);
+    
+    const dinheiroTotal = dinheiro + (sinalExtra > 0 ? doDia.filter(r => r.forma_pagamento === 'dinheiro' && Number(r.valor_pago_sinal || 0) > 0).reduce((a, r) => {
+      const pagDaRes = pagamentosDoDia.filter(p => p.reserva_id === r.id).reduce((s, p) => s + Number(p.valor), 0);
+      const diff = Number(r.valor_pago_sinal || 0) - pagDaRes;
+      return diff > 0 ? a + diff : a;
+    }, 0) : 0);
+    
+    const pendentes = doDia.filter(r => !r.pago && r.status !== 'cancelada');
+    const restante = pendentes.reduce((a, r) => a + Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0);
+    
+    return { pix: pixTotal, dinheiro: dinheiroTotal, restante };
+  }, [listaReservas, listaPagamentos, diaSelecionado]);
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
