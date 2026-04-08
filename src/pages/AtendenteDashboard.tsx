@@ -848,17 +848,23 @@ const AtendenteDashboard = () => {
                             })()}
 
                             {/* Método de Pagamento */}
-                            <RadioGroup value={metodoPgto} onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro")} className="grid grid-cols-2 gap-4">
-                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                            <RadioGroup value={metodoPgto} onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro" | "antecipado")} className="grid grid-cols-3 gap-3">
+                              <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "pix" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
                                 <RadioGroupItem value="pix" id={`pix-${slot.inicio}`} className="sr-only" />
                                 <Label htmlFor={`pix-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
-                                  <CreditCard size={20} className={metodoPgto === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
+                                  <CreditCard size={18} className={metodoPgto === "pix" ? "text-[#22c55e]" : "text-gray-600"} /> PIX
                                 </Label>
                               </div>
-                              <div className={cn("flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                              <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "dinheiro" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
                                 <RadioGroupItem value="dinheiro" id={`dinheiro-${slot.inicio}`} className="sr-only" />
                                 <Label htmlFor={`dinheiro-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
-                                  <Banknote size={20} className={metodoPgto === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> DINHEIRO
+                                  <Banknote size={18} className={metodoPgto === "dinheiro" ? "text-[#22c55e]" : "text-gray-600"} /> DINHEIRO
+                                </Label>
+                              </div>
+                              <div className={cn("flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2", metodoPgto === "antecipado" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5")}>
+                                <RadioGroupItem value="antecipado" id={`antecipado-${slot.inicio}`} className="sr-only" />
+                                <Label htmlFor={`antecipado-${slot.inicio}`} className="flex flex-col items-center gap-2 font-black text-[10px] uppercase cursor-pointer">
+                                  <Clock size={18} className={metodoPgto === "antecipado" ? "text-[#22c55e]" : "text-gray-600"} /> ANTECIPADO
                                 </Label>
                               </div>
                             </RadioGroup>
@@ -889,13 +895,27 @@ const AtendenteDashboard = () => {
                             {metodoPgto === "dinheiro" && reservaCriada && (
                               <div className="bg-black/40 p-5 rounded-[2rem] border border-white/5 text-center space-y-2">
                                 <p className="text-xs font-black uppercase italic text-[#22c55e]">✅ Reserva Agendada!</p>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase">Pagamento será realizado no caixa da arena.</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">Pagamento será realizado no caixa da arena no dia da reserva.</p>
                                 <p className="text-lg font-black text-white">Valor: R$ {(() => {
                                   const valorReserva = slot.valor;
                                   const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
                                   return (valorBase + totalCarrinho).toFixed(2);
                                 })()}</p>
                                 <p className="text-[9px] text-yellow-400 font-bold">⚠️ Fidelidade será contada após pagamento completo.</p>
+                              </div>
+                            )}
+
+                            {/* Antecipado = agendar com pagamento antes do jogo */}
+                            {metodoPgto === "antecipado" && reservaCriada && (
+                              <div className="bg-black/40 p-5 rounded-[2rem] border border-orange-500/20 text-center space-y-2">
+                                <p className="text-xs font-black uppercase italic text-orange-400">⏳ Reserva Agendada — Pagamento Antecipado</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">O pagamento será cobrado antes do início do jogo no dia da reserva.</p>
+                                <p className="text-lg font-black text-white">Valor: R$ {(() => {
+                                  const valorReserva = slot.valor;
+                                  const valorBase = tipoReservaAtendente === 'pacote' ? valorReserva * 4 : valorReserva;
+                                  return (valorBase + totalCarrinho).toFixed(2);
+                                })()}</p>
+                                <p className="text-[9px] text-yellow-400 font-bold">⚠️ O cliente deverá pagar antes de entrar na quadra.</p>
                               </div>
                             )}
 
