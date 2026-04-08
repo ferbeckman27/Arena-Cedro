@@ -2448,8 +2448,8 @@ const AtendenteDashboard = () => {
                           )}
                         </div>
                       );
-                    })
-                  )}
+                    });
+                  })()}
                 </div>
               </ScrollArea>
             </Card>
