@@ -327,8 +327,8 @@ const Login = () => {
                   <Input required placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                   <Input required placeholder="Sobrenome" value={sobrenome} onChange={(e)=>setSobrenome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                 </div>
-                <Input required placeholder="WhatsApp (ex: 98991223344)" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white" />
-                <Input required type="email" placeholder="E-mail" value={regEmail} onChange={(e)=>setRegEmail(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                <Input placeholder="WhatsApp (ex: 98991223344)" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                <Input type="email" placeholder="E-mail (opcional)" value={regEmail} onChange={(e)=>setRegEmail(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                 
                 <div className="space-y-2">
                   <div className="relative">
