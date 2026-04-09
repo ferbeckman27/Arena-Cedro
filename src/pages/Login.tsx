@@ -131,7 +131,7 @@ const Login = () => {
       
       if (error) throw error;
       toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
-      setLoginEmail(regEmail);
+      setLoginIdentifier(regEmail || telefone);
       setActiveTab("login");
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já está em uso." });
@@ -164,7 +164,7 @@ const Login = () => {
       setForgotEmail("");
       setNewPassword("");
       setConfirmPassword("");
-      setLoginEmail(forgotEmail);
+      setLoginIdentifier(forgotEmail);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     }
@@ -278,10 +278,10 @@ const Login = () => {
               <form onSubmit={handleLoginSubmit} className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail</Label>
+                    <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail ou Telefone</Label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
-                      <Input required type="email" value={loginEmail} onChange={(e)=>setLoginEmail(e.target.value)} placeholder="seu@email.com" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                      <Input required type="text" value={loginIdentifier} onChange={(e)=>setLoginIdentifier(e.target.value)} placeholder="seu@email.com ou 98991223344" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
                     </div>
                   </div>
                   
