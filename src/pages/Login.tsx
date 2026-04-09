@@ -119,22 +119,26 @@ const Login = () => {
       toast({ variant: "destructive", title: "Senha Fraca", description: "Sua senha não atende aos requisitos de segurança." });
       return;
     }
+    if (!regEmail.trim() && !telefone.trim()) {
+      toast({ variant: "destructive", title: "Campo obrigatório", description: "Informe pelo menos um e-mail ou telefone." });
+      return;
+    }
 
     try {
       const { error } = await supabase.from('clientes').insert([{
         nome,
         sobrenome,
-        email: regEmail.trim(),
-        telefone: telefone.trim(),
+        email: regEmail.trim() || null,
+        telefone: telefone.trim() || null,
         senha: regPassword 
       }]);
       
       if (error) throw error;
       toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
-      setLoginIdentifier(regEmail || telefone);
+      setLoginIdentifier(regEmail.trim() || telefone.trim());
       setActiveTab("login");
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já está em uso." });
+      toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail ou telefone já está em uso." });
     }
   };
 
