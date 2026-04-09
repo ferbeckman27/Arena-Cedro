@@ -452,8 +452,8 @@ const AtendenteDashboard = () => {
       toast({ variant: "destructive", title: "Nome obrigatório" });
       return null;
     }
-    if (!novoClienteForm.email.trim()) {
-      toast({ variant: "destructive", title: "E-mail obrigatório" });
+    if (!novoClienteForm.email.trim() && !novoClienteForm.telefone.trim()) {
+      toast({ variant: "destructive", title: "Informe e-mail ou telefone" });
       return null;
     }
     const senha = novoClienteForm.senha;
@@ -474,7 +474,7 @@ const AtendenteDashboard = () => {
             nome: novoClienteForm.nome.trim(),
             sobrenome: novoClienteForm.sobrenome.trim() || null,
             telefone: novoClienteForm.telefone.trim() || null,
-            email: novoClienteForm.email.trim(),
+            email: novoClienteForm.email.trim() || null,
             senha: senhaGerada, // será hasheada pelo trigger se existir, senão salva plain
             tipo: "avulso",
             cadastrado_por: funcionarioNome || "atendente",
@@ -483,11 +483,13 @@ const AtendenteDashboard = () => {
         .select()
         .single();
       if (error) throw error;
-      // Atualizar senha com hash via RPC
-      await supabase.rpc("redefinir_senha_cliente", {
-        p_email: novoClienteForm.email.trim(),
-        p_nova_senha: senhaGerada,
-      });
+      // Atualizar senha com hash via RPC (only if email provided)
+      if (novoClienteForm.email.trim()) {
+        await supabase.rpc("redefinir_senha_cliente", {
+          p_email: novoClienteForm.email.trim(),
+          p_nova_senha: senhaGerada,
+        });
+      }
 
       setClienteSelecionadoId(cli.id);
       setClienteNomeBusca([cli.nome, cli.sobrenome].filter(Boolean).join(" "));
@@ -1282,7 +1284,7 @@ const AtendenteDashboard = () => {
                                     className="bg-white/5 border-white/10 h-10 rounded-lg text-white text-xs"
                                   />
                                   <Input
-                                    placeholder="E-mail *"
+                                    placeholder="E-mail (opcional)"
                                     type="email"
                                     value={novoClienteForm.email}
                                     onChange={(e) => setNovoClienteForm((p) => ({ ...p, email: e.target.value }))}
@@ -1341,7 +1343,7 @@ const AtendenteDashboard = () => {
                                             `*ARENA CEDRO - CADASTRO REALIZADO* ⚽%0A%0A` +
                                             `Olá *${resultado.nome}*!%0A%0A` +
                                             `Seu cadastro foi criado com sucesso.%0A%0A` +
-                                            `📧 *Usuário:* ${resultado.email}%0A` +
+                                            `📧 *Usuário:* ${resultado.email || resultado.telefone}%0A` +
                                             `🔑 *Senha:* ${resultado.senha}%0A%0A` +
                                             `Acesse: ${window.location.origin}/login%0A%0A` +
                                             `Não compartilhe sua senha com ninguém!`;
