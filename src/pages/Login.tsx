@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Phone, CheckCircle2, Circle, ArrowLeft, KeyRound } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
