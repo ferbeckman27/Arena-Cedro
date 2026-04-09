@@ -22,7 +22,7 @@ const Login = () => {
   const { toast } = useToast();
   
   // Login states
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState(""); // email or phone
   const [loginPassword, setLoginPassword] = useState("");
   const [saveSession, setSaveSession] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -70,17 +70,29 @@ const Login = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const identifier = loginIdentifier.trim();
+    if (!identifier) {
+      return toast({ variant: "destructive", title: "Campo obrigatório", description: "Informe seu e-mail ou telefone." });
+    }
     try {
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('email', loginEmail)
-        .eq('senha', loginPassword)
-        .maybeSingle();
+      // Detect if identifier is email or phone
+      const isEmail = identifier.includes("@");
+      let query = supabase.from('clientes').select('*');
+      if (isEmail) {
+        query = query.eq('email', identifier);
+      } else {
+        query = query.eq('telefone', identifier);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
       if (data) {
+        // Verify password (stored as plain text currently)
+        if (data.senha !== loginPassword) {
+          toast({ variant: "destructive", title: "Erro", description: "E-mail/telefone ou senha incorretos." });
+          return;
+        }
         const usuario = data;
         const storage = saveSession ? localStorage : sessionStorage;
         storage.setItem("userName", usuario.nome);
@@ -94,7 +106,7 @@ const Login = () => {
         else if (usuario.tipo === 'atendente') navigate("/atendimento");
         else navigate("/clientdashboard");
       } else {
-        toast({ variant: "destructive", title: "Erro", description: "E-mail ou senha incorretos." });
+        toast({ variant: "destructive", title: "Erro", description: "E-mail/telefone ou senha incorretos." });
       }
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro de Conexão", description: error.message });
