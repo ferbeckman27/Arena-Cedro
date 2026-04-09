@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, Lock, Mail, CheckCircle2, Circle, ArrowLeft, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Phone, CheckCircle2, Circle, ArrowLeft, KeyRound } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +22,7 @@ const Login = () => {
   const { toast } = useToast();
   
   // Login states
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState(""); // email or phone
   const [loginPassword, setLoginPassword] = useState("");
   const [saveSession, setSaveSession] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -70,17 +70,29 @@ const Login = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const identifier = loginIdentifier.trim();
+    if (!identifier) {
+      return toast({ variant: "destructive", title: "Campo obrigatório", description: "Informe seu e-mail ou telefone." });
+    }
     try {
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('email', loginEmail)
-        .eq('senha', loginPassword)
-        .maybeSingle();
+      // Detect if identifier is email or phone
+      const isEmail = identifier.includes("@");
+      let query = supabase.from('clientes').select('*');
+      if (isEmail) {
+        query = query.eq('email', identifier);
+      } else {
+        query = query.eq('telefone', identifier);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
       if (data) {
+        // Verify password (stored as plain text currently)
+        if (data.senha !== loginPassword) {
+          toast({ variant: "destructive", title: "Erro", description: "E-mail/telefone ou senha incorretos." });
+          return;
+        }
         const usuario = data;
         const storage = saveSession ? localStorage : sessionStorage;
         storage.setItem("userName", usuario.nome);
@@ -94,7 +106,7 @@ const Login = () => {
         else if (usuario.tipo === 'atendente') navigate("/atendimento");
         else navigate("/clientdashboard");
       } else {
-        toast({ variant: "destructive", title: "Erro", description: "E-mail ou senha incorretos." });
+        toast({ variant: "destructive", title: "Erro", description: "E-mail/telefone ou senha incorretos." });
       }
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro de Conexão", description: error.message });
@@ -107,22 +119,26 @@ const Login = () => {
       toast({ variant: "destructive", title: "Senha Fraca", description: "Sua senha não atende aos requisitos de segurança." });
       return;
     }
+    if (!regEmail.trim() && !telefone.trim()) {
+      toast({ variant: "destructive", title: "Campo obrigatório", description: "Informe pelo menos um e-mail ou telefone." });
+      return;
+    }
 
     try {
       const { error } = await supabase.from('clientes').insert([{
         nome,
         sobrenome,
-        email: regEmail.trim(),
-        telefone: telefone.trim(),
+        email: regEmail.trim() || null,
+        telefone: telefone.trim() || null,
         senha: regPassword 
       }]);
       
       if (error) throw error;
       toast({ title: "Cadastro realizado!", description: "Agora faça seu login." });
-      setLoginEmail(regEmail);
+      setLoginIdentifier(regEmail.trim() || telefone.trim());
       setActiveTab("login");
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail já está em uso." });
+      toast({ variant: "destructive", title: "Erro ao cadastrar", description: "E-mail ou telefone já está em uso." });
     }
   };
 
@@ -152,7 +168,7 @@ const Login = () => {
       setForgotEmail("");
       setNewPassword("");
       setConfirmPassword("");
-      setLoginEmail(forgotEmail);
+      setLoginIdentifier(forgotEmail);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     }
@@ -266,10 +282,10 @@ const Login = () => {
               <form onSubmit={handleLoginSubmit} className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail</Label>
+                    <Label className="text-white ml-1 uppercase text-[10px] font-bold tracking-widest">E-mail ou Telefone</Label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" />
-                      <Input required type="email" value={loginEmail} onChange={(e)=>setLoginEmail(e.target.value)} placeholder="seu@email.com" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
+                      <Input required type="text" value={loginIdentifier} onChange={(e)=>setLoginIdentifier(e.target.value)} placeholder="seu@email.com ou 98991223344" className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white" />
                     </div>
                   </div>
                   
@@ -311,8 +327,8 @@ const Login = () => {
                   <Input required placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                   <Input required placeholder="Sobrenome" value={sobrenome} onChange={(e)=>setSobrenome(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                 </div>
-                <Input required placeholder="WhatsApp (ex: 98991223344)" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white" />
-                <Input required type="email" placeholder="E-mail" value={regEmail} onChange={(e)=>setRegEmail(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                <Input placeholder="WhatsApp (ex: 98991223344)" value={telefone} onChange={(e)=>setTelefone(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+                <Input type="email" placeholder="E-mail (opcional)" value={regEmail} onChange={(e)=>setRegEmail(e.target.value)} className="bg-white/5 border-white/10 text-white" />
                 
                 <div className="space-y-2">
                   <div className="relative">

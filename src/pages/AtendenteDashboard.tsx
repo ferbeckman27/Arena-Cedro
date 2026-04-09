@@ -925,8 +925,9 @@ const AtendenteDashboard = () => {
       } else if (p.forma_pagamento === "antecipado" || p.forma_pagamento === "antes_do_jogo") dinheiro += val;
     });
 
-    // Sinais pagos nas reservas que não têm registro na tabela pagamentos
+    // Sinais pagos nas reservas que não têm registro na tabela pagamentos (somente reservas pagas)
     reservasFinanceiroAtivasDoDia.forEach((r) => {
+      if (!r.pago) return; // só conta valores efetivamente pagos
       const sinal = Number(r.valor_pago_sinal || 0);
       if (sinal <= 0) return;
       const totalPagRegistrado = pagsDoDia
