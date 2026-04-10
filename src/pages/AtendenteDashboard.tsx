@@ -1101,6 +1101,15 @@ const AtendenteDashboard = () => {
                   </div>
                   <Button
                     onClick={() => {
+                      const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
+                      gerarRelatorioFiscal(dataStr, resumoFinanceiro.pix, resumoFinanceiro.dinheiro, reservasFinanceiroAtivasDoDia);
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase h-12 rounded-2xl"
+                  >
+                    <Printer size={18} className="mr-2" /> Imprimir Relatório
+                  </Button>
+                  <Button
+                    onClick={() => {
                       if (confirm("Fechar caixa?")) handleFecharCaixa();
                     }}
                     className="w-full bg-red-600 hover:bg-red-700 text-white font-black uppercase h-14 rounded-2xl"
