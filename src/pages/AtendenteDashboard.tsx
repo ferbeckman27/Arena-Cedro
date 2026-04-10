@@ -2409,7 +2409,10 @@ const AtendenteDashboard = () => {
                       <p className="text-center text-gray-500 text-sm py-8">Nenhuma reserva neste dia.</p>
                     );
                     return [...reservasFinanceiroAtivasDoDia, ...reservasFinanceiroCanceladasDoDia].map((r) => {
-                      const restante = Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0);
+                      // Calcular valor pago com base nos pagamentos aprovados
+                      const pagamentosReserva = listaPagamentos.filter((p) => p.reserva_id === r.id);
+                      const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
+                      const restante = Math.max(Number(r.valor_total || 0) - totalPagoReal, 0);
                       const nomeCliente = r.clientes?.nome || r.cliente_nome || "—";
                       return (
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
@@ -2421,8 +2424,8 @@ const AtendenteDashboard = () => {
                               </p>
                             </div>
                             <div className="text-right">
-                              <Badge className={r.pago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === "cancelada" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}>
-                                {r.pago ? "Pago" : r.status === "cancelada" ? "Cancelada" : "Pendente"}
+                              <Badge className={totalPagoReal >= Number(r.valor_total || 0) && totalPagoReal > 0 ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === "cancelada" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}>
+                                {totalPagoReal >= Number(r.valor_total || 0) && totalPagoReal > 0 ? "Pago" : r.status === "cancelada" ? "Cancelada" : "Pendente"}
                               </Badge>
                             </div>
                           </div>
@@ -2433,7 +2436,7 @@ const AtendenteDashboard = () => {
                             </div>
                             <div>
                               <p className="text-gray-500 uppercase font-bold">Pago</p>
-                              <p className="font-black text-[#22c55e]">R$ {Number(r.valor_pago_sinal || 0).toFixed(2)}</p>
+                              <p className="font-black text-[#22c55e]">R$ {totalPagoReal.toFixed(2)}</p>
                             </div>
                             <div>
                               <p className="text-gray-500 uppercase font-bold">Restante</p>
@@ -2441,108 +2444,21 @@ const AtendenteDashboard = () => {
                             </div>
                           </div>
 
-                          {/* Ações de pagamento se tiver saldo pendente */}
+                          {/* Botão Dar Baixa */}
                           {restante > 0 && r.status !== "cancelada" && (
-                            <div className="space-y-2 pt-2 border-t border-white/5">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold">Receber Pagamento:</p>
-                              <div className="flex gap-2 items-center flex-wrap">
-                                <Input
-                                  type="number"
-                                  placeholder={`Até R$ ${restante.toFixed(2)}`}
-                                  value={reservaIdAtual === r.id ? liquidarValorCustom : ""}
-                                  onFocus={() => setReservaIdAtual(r.id)}
-                                  onChange={(e) => {
-                                    setReservaIdAtual(r.id);
-                                    setLiquidarValorCustom(e.target.value);
-                                  }}
-                                  className="bg-white/5 border-white/10 text-white h-9 w-28 text-xs"
-                                />
-                                <Select
-                                  value={reservaIdAtual === r.id ? liquidarMetodo : "dinheiro"}
-                                  onValueChange={(v) => {
-                                    setReservaIdAtual(r.id);
-                                    setLiquidarMetodo(v as any);
-                                  }}
-                                >
-                                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-9 w-32 text-[10px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-[#0c120f] border-white/10 text-white">
-                                    <SelectItem value="dinheiro">💵 Dinheiro</SelectItem>
-                                    <SelectItem value="pix">📱 PIX</SelectItem>
-                                    <SelectItem value="metade">🔀 Metade/Metade</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  className="bg-[#22c55e] text-black font-black text-[10px] h-8 rounded-xl flex-1"
-                                  onClick={() => {
-                                    const val = reservaIdAtual === r.id && liquidarValorCustom ? Number(liquidarValorCustom) : restante;
-                                    const metodo = reservaIdAtual === r.id ? liquidarMetodo : "dinheiro";
-                                    if (val <= 0 || val > restante) {
-                                      toast({ variant: "destructive", title: "Valor inválido" });
-                                      return;
-                                    }
-                                    if (metodo === "metade") {
-                                      handleLiquidarReserva(r.id, val / 2, "pix");
-                                      handleLiquidarReserva(r.id, val / 2, "dinheiro");
-                                    } else if (metodo === "pix") {
-                                      handleGerarPixFinanceiro(r.id, val);
-                                    } else {
-                                      handleLiquidarReserva(r.id, val, "dinheiro");
-                                    }
-                                  }}
-                                >
-                                  <CheckCircle size={12} className="mr-1" /> Confirmar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-white/10 text-white text-[10px] h-8 rounded-xl"
-                                  onClick={() => {
-                                    const metodo = reservaIdAtual === r.id ? liquidarMetodo : "dinheiro";
-                                    if (metodo === "metade") {
-                                      handleLiquidarReserva(r.id, restante / 2, "pix");
-                                      handleLiquidarReserva(r.id, restante / 2, "dinheiro");
-                                    } else if (metodo === "pix") {
-                                      handleGerarPixFinanceiro(r.id, restante);
-                                    } else {
-                                      handleLiquidarReserva(r.id, restante, "dinheiro");
-                                    }
-                                  }}
-                                >
-                                  Pagar Total (R$ {restante.toFixed(2)})
-                                </Button>
-                              </div>
-                              {/* PIX QR Code se gerado para esta reserva */}
-                              {pixDataFinanceiro && reservaIdAtual === r.id && (
-                                <div className="bg-white/5 border border-white/10 rounded-xl p-3 mt-2 space-y-2">
-                                  <p className="text-[10px] text-gray-400 font-bold uppercase">PIX Gerado — R$ {pixDataFinanceiro.valorPago.toFixed(2)}</p>
-                                  {pixDataFinanceiro.qrCodeBase64 && (
-                                    <img src={`data:image/png;base64,${pixDataFinanceiro.qrCodeBase64}`} alt="QR PIX" className="w-40 h-40 mx-auto rounded-lg" />
-                                  )}
-                                  {pixDataFinanceiro.copiaECola && (
-                                    <div className="flex gap-2">
-                                      <Input value={pixDataFinanceiro.copiaECola} readOnly className="bg-white/5 border-white/10 text-white text-[9px] h-8 flex-1" />
-                                      <Button size="sm" variant="outline" className="h-8 border-white/10 text-white" onClick={() => { navigator.clipboard.writeText(pixDataFinanceiro.copiaECola); toast({ title: "Copiado!" }); }}>
-                                        <Copy size={12} />
-                                      </Button>
-                                    </div>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    className="w-full bg-[#22c55e] text-black font-black text-[10px] h-8 rounded-xl"
-                                    onClick={() => {
-                                      handleLiquidarReserva(r.id, pixDataFinanceiro.valorPago, "pix");
-                                    }}
-                                  >
-                                    Confirmar Pagamento PIX
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
+                            <Button
+                              size="sm"
+                              className="w-full bg-[#22c55e] text-black font-black text-xs h-10 rounded-xl uppercase"
+                              onClick={() => {
+                                setDarBaixaReserva(r);
+                                setLiquidarValorCustom("");
+                                setLiquidarMetodo("dinheiro");
+                                limparPixFinanceiro();
+                                setDarBaixaAberto(true);
+                              }}
+                            >
+                              <DollarSign size={14} className="mr-1" /> Dar Baixa
+                            </Button>
                           )}
                         </div>
                       );
