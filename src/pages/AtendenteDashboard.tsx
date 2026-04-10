@@ -964,7 +964,14 @@ const AtendenteDashboard = () => {
         data: { user },
       } = await supabase.auth.getUser();
       const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
-      const reservasDoDia = reservasFinanceiroAtivasDoDia.filter((r) => r.pago);
+      // Reservas com pagamentos aprovados = "pagas"
+      const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
+      const pagsDoDia = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
+      const reservasComPagamento = reservasFinanceiroAtivasDoDia.filter((r) => {
+        const totalPag = pagsDoDia.filter((p) => p.reserva_id === r.id).reduce((a, p) => a + Number(p.valor), 0);
+        return totalPag > 0;
+      });
+      const reservasDoDia = reservasComPagamento;
       const pix = resumoFinanceiro.pix;
       const dinheiro = resumoFinanceiro.dinheiro;
 
