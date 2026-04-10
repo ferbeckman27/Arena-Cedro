@@ -775,76 +775,153 @@ const AtendenteDashboard = () => {
   };
 
   const gerarRelatorioFiscal = (dataStr: string, pix: number, dinheiro: number, reservasDoDia: ReservaCompleta[]) => {
-    const { jsPDF } = (window as any).jspdf || {};
-    // Use dynamic import approach
     import("jspdf").then(({ default: jsPDF }) => {
-      const doc = new jsPDF({ unit: "mm", format: [80, 200] }); // 80mm thermal printer width
+      const reservasPagas = reservasDoDia.filter((r) => r.pago);
+      const total = pix + dinheiro;
+      const qtdReservas = reservasPagas.length;
+
+      // Calcular altura dinâmica baseada na quantidade de reservas
+      const alturaBase = 140;
+      const alturaPorReserva = 5;
+      const alturaTotal = Math.max(200, alturaBase + qtdReservas * alturaPorReserva);
+
+      const doc = new jsPDF({ unit: "mm", format: [80, alturaTotal] });
       const w = 80;
-      let y = 8;
+      let y = 6;
+
+      // === CABEÇALHO ===
+      doc.setFont("courier", "bold");
+      doc.setFontSize(12);
+      doc.text("ARENA CEDRO", w / 2, y, { align: "center" });
+      y += 4;
+      doc.setFontSize(7);
+      doc.setFont("courier", "normal");
+      doc.text("Beach Tennis & Society", w / 2, y, { align: "center" });
+      y += 5;
+
+      // Linha dupla
+      doc.setLineWidth(0.4);
+      doc.line(4, y, w - 4, y);
+      y += 1;
+      doc.setLineWidth(0.2);
+      doc.line(4, y, w - 4, y);
+      y += 4;
 
       doc.setFont("courier", "bold");
-      doc.setFontSize(10);
-      doc.text("ARENA CEDRO", w / 2, y, { align: "center" });
-      y += 5;
-      doc.setFontSize(7);
+      doc.setFontSize(9);
       doc.text("FECHAMENTO DE CAIXA", w / 2, y, { align: "center" });
       y += 5;
+
+      // === INFORMACOES ===
+      doc.setFont("courier", "normal");
+      doc.setFontSize(7);
+      doc.text(`Data:     ${new Date(dataStr + "T00:00:00").toLocaleDateString("pt-BR")}`, 4, y);
+      y += 3.5;
+      doc.text(`Emissao:  ${new Date().toLocaleString("pt-BR")}`, 4, y);
+      y += 3.5;
+      doc.text(`Operador: ${funcionarioNome}`, 4, y);
+      y += 4;
+
+      // Linha separadora
+      doc.setLineWidth(0.2);
+      doc.line(4, y, w - 4, y);
+      y += 4;
+
+      // === RESUMO FINANCEIRO ===
+      doc.setFont("courier", "bold");
+      doc.setFontSize(8);
+      doc.text("RESUMO FINANCEIRO", w / 2, y, { align: "center" });
+      y += 5;
+
+      doc.setFont("courier", "normal");
+      doc.setFontSize(8);
+
+      // PIX
+      doc.text("PIX:", 6, y);
+      doc.text(`R$ ${pix.toFixed(2)}`, w - 6, y, { align: "right" });
+      y += 4;
+
+      // Dinheiro
+      doc.text("Dinheiro:", 6, y);
+      doc.text(`R$ ${dinheiro.toFixed(2)}`, w - 6, y, { align: "right" });
+      y += 4;
+
+      // Linha
       doc.setLineWidth(0.3);
       doc.line(4, y, w - 4, y);
       y += 4;
 
-      doc.setFontSize(8);
-      doc.text(`Data: ${new Date(dataStr + "T00:00:00").toLocaleDateString("pt-BR")}`, 4, y);
-      y += 4;
-      doc.text(`Emissão: ${new Date().toLocaleString("pt-BR")}`, 4, y);
-      y += 4;
-      doc.text(`Operador: ${funcionarioNome}`, 4, y);
-      y += 5;
-      doc.line(4, y, w - 4, y);
-      y += 4;
-
-      doc.setFontSize(9);
-      doc.text("RESUMO FINANCEIRO", w / 2, y, { align: "center" });
-      y += 5;
-
-      doc.setFontSize(8);
-      doc.text(`PIX:`, 4, y);
-      doc.text(`R$ ${pix.toFixed(2)}`, w - 4, y, { align: "right" });
-      y += 4;
-      doc.text(`Dinheiro:`, 4, y);
-      doc.text(`R$ ${dinheiro.toFixed(2)}`, w - 4, y, { align: "right" });
-      y += 4;
-      doc.line(4, y, w - 4, y);
-      y += 4;
+      // TOTAL em destaque
       doc.setFont("courier", "bold");
-      doc.setFontSize(10);
-      doc.text(`TOTAL:`, 4, y);
-      doc.text(`R$ ${(pix + dinheiro).toFixed(2)}`, w - 4, y, { align: "right" });
-      y += 6;
+      doc.setFontSize(11);
+      doc.text("TOTAL:", 6, y);
+      doc.text(`R$ ${total.toFixed(2)}`, w - 6, y, { align: "right" });
+      y += 5;
+
+      // Quantidade de reservas
+      doc.setFontSize(7);
+      doc.setFont("courier", "normal");
+      doc.text(`(${qtdReservas} reserva${qtdReservas !== 1 ? "s" : ""} paga${qtdReservas !== 1 ? "s" : ""})`, w / 2, y, { align: "center" });
+      y += 4;
+
+      // Linha dupla
+      doc.setLineWidth(0.4);
+      doc.line(4, y, w - 4, y);
+      y += 1;
+      doc.setLineWidth(0.2);
       doc.line(4, y, w - 4, y);
       y += 4;
 
-      // List reservations
-      doc.setFont("courier", "normal");
-      doc.setFontSize(7);
-      doc.text("RESERVAS DO DIA:", 4, y);
+      // === DETALHAMENTO DAS RESERVAS ===
+      doc.setFont("courier", "bold");
+      doc.setFontSize(8);
+      doc.text("RESERVAS PAGAS", w / 2, y, { align: "center" });
       y += 4;
 
-      reservasDoDia.forEach((r, i) => {
-        if (y > 185) return;
-        const nome = r.clientes?.nome || r.cliente_nome || "Atleta";
-        doc.text(`${i + 1}. ${nome.substring(0, 18)}`, 4, y);
-        doc.text(`R$ ${Number(r.valor_pago_sinal || r.valor_total).toFixed(2)}`, w - 4, y, { align: "right" });
+      doc.setFont("courier", "normal");
+      doc.setFontSize(6.5);
+
+      // Cabeçalho da tabela
+      doc.text("HORA", 4, y);
+      doc.text("CLIENTE", 18, y);
+      doc.text("PGTO", 50, y);
+      doc.text("VALOR", w - 4, y, { align: "right" });
+      y += 1;
+      doc.line(4, y, w - 4, y);
+      y += 3;
+
+      reservasPagas.forEach((r) => {
+        if (y > alturaTotal - 20) return;
+        const nome = (r.clientes?.nome || r.cliente_nome || "Atleta").substring(0, 14);
+        const hora = r.horario_inicio ? String(r.horario_inicio).substring(0, 5) : "--:--";
+        const pgto = (r.forma_pagamento || "---").substring(0, 6).toUpperCase();
+        const valor = Number(r.valor_pago_sinal || r.valor_total || 0).toFixed(2);
+
+        doc.text(hora, 4, y);
+        doc.text(nome, 18, y);
+        doc.text(pgto, 50, y);
+        doc.text(`R$${valor}`, w - 4, y, { align: "right" });
         y += 3.5;
       });
 
-      y += 3;
+      if (reservasPagas.length === 0) {
+        doc.text("Nenhuma reserva paga no dia.", w / 2, y, { align: "center" });
+        y += 4;
+      }
+
+      y += 2;
+      doc.setLineWidth(0.2);
       doc.line(4, y, w - 4, y);
       y += 4;
+
+      // === RODAPE ===
       doc.setFontSize(6);
-      doc.text("Documento não fiscal", w / 2, y, { align: "center" });
+      doc.setFont("courier", "normal");
+      doc.text("Documento nao fiscal", w / 2, y, { align: "center" });
       y += 3;
-      doc.text("Arena Cedro - Sistema de Gestão", w / 2, y, { align: "center" });
+      doc.text("Arena Cedro - Sistema de Gestao", w / 2, y, { align: "center" });
+      y += 3;
+      doc.text(`ID: ${Date.now()}`, w / 2, y, { align: "center" });
 
       doc.autoPrint();
       window.open(doc.output("bloburl"), "_blank");
