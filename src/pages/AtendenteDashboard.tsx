@@ -784,10 +784,10 @@ const AtendenteDashboard = () => {
       const total = pix + dinheiro;
       const qtdReservas = reservasPagas.length;
 
-      // Calcular altura dinâmica baseada na quantidade de reservas
-      const alturaBase = 140;
-      const alturaPorReserva = 5;
-      const alturaTotal = Math.max(200, alturaBase + qtdReservas * alturaPorReserva);
+      // Calcular altura dinâmica com margem generosa
+      const alturaBase = 160;
+      const alturaPorReserva = 6;
+      const alturaTotal = Math.max(250, alturaBase + qtdReservas * alturaPorReserva + 40);
 
       const doc = new jsPDF({ unit: "mm", format: [80, alturaTotal] });
       const w = 80;
@@ -803,7 +803,6 @@ const AtendenteDashboard = () => {
       doc.text("Beach Tennis & Society", w / 2, y, { align: "center" });
       y += 5;
 
-      // Linha dupla
       doc.setLineWidth(0.4);
       doc.line(4, y, w - 4, y);
       y += 1;
@@ -826,7 +825,6 @@ const AtendenteDashboard = () => {
       doc.text(`Operador: ${funcionarioNome}`, 4, y);
       y += 4;
 
-      // Linha separadora
       doc.setLineWidth(0.2);
       doc.line(4, y, w - 4, y);
       y += 4;
@@ -840,35 +838,29 @@ const AtendenteDashboard = () => {
       doc.setFont("courier", "normal");
       doc.setFontSize(8);
 
-      // PIX
       doc.text("PIX:", 6, y);
       doc.text(`R$ ${pix.toFixed(2)}`, w - 6, y, { align: "right" });
       y += 4;
 
-      // Dinheiro
       doc.text("Dinheiro:", 6, y);
       doc.text(`R$ ${dinheiro.toFixed(2)}`, w - 6, y, { align: "right" });
       y += 4;
 
-      // Linha
       doc.setLineWidth(0.3);
       doc.line(4, y, w - 4, y);
       y += 4;
 
-      // TOTAL em destaque
       doc.setFont("courier", "bold");
       doc.setFontSize(11);
       doc.text("TOTAL:", 6, y);
       doc.text(`R$ ${total.toFixed(2)}`, w - 6, y, { align: "right" });
       y += 5;
 
-      // Quantidade de reservas
       doc.setFontSize(7);
       doc.setFont("courier", "normal");
       doc.text(`(${qtdReservas} reserva${qtdReservas !== 1 ? "s" : ""} paga${qtdReservas !== 1 ? "s" : ""})`, w / 2, y, { align: "center" });
       y += 4;
 
-      // Linha dupla
       doc.setLineWidth(0.4);
       doc.line(4, y, w - 4, y);
       y += 1;
@@ -883,27 +875,33 @@ const AtendenteDashboard = () => {
       y += 4;
 
       doc.setFont("courier", "normal");
-      doc.setFontSize(6.5);
+      doc.setFontSize(6);
 
       // Cabeçalho da tabela
+      doc.setFont("courier", "bold");
       doc.text("HORA", 4, y);
-      doc.text("CLIENTE", 18, y);
-      doc.text("PGTO", 50, y);
+      doc.text("CLIENTE", 16, y);
+      doc.text("PGTO", 46, y);
       doc.text("VALOR", w - 4, y, { align: "right" });
       y += 1;
       doc.line(4, y, w - 4, y);
       y += 3;
 
+      doc.setFont("courier", "normal");
       reservasPagas.forEach((r) => {
-        if (y > alturaTotal - 20) return;
-        const nome = (r.clientes?.nome || r.cliente_nome || "Atleta").substring(0, 14);
+        const nome = (r.clientes?.nome || r.cliente_nome || "Atleta").substring(0, 12);
         const hora = r.horario_inicio ? String(r.horario_inicio).substring(0, 5) : "--:--";
         const pgto = (r.forma_pagamento || "---").substring(0, 6).toUpperCase();
-        const valor = Number(r.valor_pago_sinal || r.valor_total || 0).toFixed(2);
+        // Usar pagamentos aprovados para valor real pago
+        const pagamentosReserva = listaPagamentos.filter((p) => p.reserva_id === r.id);
+        const valorPago = pagamentosReserva.length > 0
+          ? pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0)
+          : Number(r.valor_pago_sinal || r.valor_total || 0);
+        const valor = valorPago.toFixed(2);
 
         doc.text(hora, 4, y);
-        doc.text(nome, 18, y);
-        doc.text(pgto, 50, y);
+        doc.text(nome, 16, y);
+        doc.text(pgto, 46, y);
         doc.text(`R$${valor}`, w - 4, y, { align: "right" });
         y += 3.5;
       });
