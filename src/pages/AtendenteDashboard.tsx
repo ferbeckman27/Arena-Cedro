@@ -2472,6 +2472,169 @@ const AtendenteDashboard = () => {
         </Tabs>
       </main>
 
+      {/* MODAL DAR BAIXA */}
+      <Dialog open={darBaixaAberto} onOpenChange={(open) => { if (!open) { setDarBaixaAberto(false); limparPixFinanceiro(); } }}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="italic uppercase flex items-center gap-2 text-lg font-black">
+              <DollarSign className="text-[#22c55e]" size={20} /> Dar Baixa
+            </DialogTitle>
+          </DialogHeader>
+          {darBaixaReserva && (() => {
+            const pagamentosReserva = listaPagamentos.filter((p) => p.reserva_id === darBaixaReserva.id);
+            const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
+            const restante = Math.max(Number(darBaixaReserva.valor_total || 0) - totalPagoReal, 0);
+            const nomeCliente = darBaixaReserva.clientes?.nome || darBaixaReserva.cliente_nome || "—";
+            return (
+              <div className="space-y-4 pt-2">
+                {/* Info da reserva */}
+                <div className="bg-white/5 p-4 rounded-xl border border-white/5 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Atleta:</span>
+                    <span className="text-white font-black">{nomeCliente}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Horário:</span>
+                    <span className="text-white font-bold">{darBaixaReserva.horario_inicio?.slice(0, 5)} às {darBaixaReserva.horario_fim?.slice(0, 5) || "--:--"}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Valor Total:</span>
+                    <span className="text-white font-black">R$ {Number(darBaixaReserva.valor_total || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Já Pago:</span>
+                    <span className="text-[#22c55e] font-black">R$ {totalPagoReal.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-white/10 pt-2 flex justify-between text-sm">
+                    <span className="text-red-400 font-bold">Restante:</span>
+                    <span className="text-red-400 font-black text-lg">R$ {restante.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Método de pagamento */}
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Forma de Pagamento</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: "dinheiro" as const, label: "Dinheiro", icon: "💵" },
+                      { value: "pix" as const, label: "PIX", icon: "📱" },
+                      { value: "metade" as const, label: "Metade", icon: "🔀" },
+                    ].map((m) => (
+                      <button
+                        key={m.value}
+                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); }}
+                        className={cn(
+                          "p-3 rounded-xl border-2 text-center transition-all",
+                          liquidarMetodo === m.value
+                            ? "border-[#22c55e] bg-[#22c55e]/10"
+                            : "border-white/10 hover:border-white/20"
+                        )}
+                      >
+                        <p className="text-lg">{m.icon}</p>
+                        <p className="text-[9px] font-black uppercase text-white">{m.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Valor */}
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Valor a Receber (R$)</p>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    max={restante}
+                    step="0.01"
+                    placeholder={`Até R$ ${restante.toFixed(2)}`}
+                    value={liquidarValorCustom}
+                    onChange={(e) => setLiquidarValorCustom(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
+                  />
+                  <button
+                    onClick={() => setLiquidarValorCustom(restante.toFixed(2))}
+                    className="text-[9px] text-[#22c55e] font-bold mt-1 hover:underline"
+                  >
+                    Preencher valor total restante (R$ {restante.toFixed(2)})
+                  </button>
+                </div>
+
+                {liquidarMetodo === "metade" && liquidarValorCustom && Number(liquidarValorCustom) > 0 && (
+                  <div className="bg-white/5 p-3 rounded-xl border border-white/5 space-y-1 text-[10px]">
+                    <p className="font-black uppercase text-gray-400">Divisão:</p>
+                    <div className="flex justify-between">
+                      <span className="text-blue-400">📱 PIX:</span>
+                      <span className="text-white font-black">R$ {(Number(liquidarValorCustom) / 2).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-400">💵 Dinheiro:</span>
+                      <span className="text-white font-black">R$ {(Number(liquidarValorCustom) / 2).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* PIX QR Code quando gerado */}
+                {pixDataFinanceiro && liquidarMetodo === "pix" && (
+                  <div className="bg-white/5 border border-[#22c55e]/20 rounded-xl p-4 space-y-3">
+                    <p className="text-[10px] text-[#22c55e] font-bold uppercase text-center">PIX Gerado — R$ {pixDataFinanceiro.valorPago.toFixed(2)}</p>
+                    {pixDataFinanceiro.qrCodeBase64 && (
+                      <img src={`data:image/png;base64,${pixDataFinanceiro.qrCodeBase64}`} alt="QR PIX" className="w-44 h-44 mx-auto rounded-lg bg-white p-2" />
+                    )}
+                    {pixDataFinanceiro.copiaECola && (
+                      <div className="flex gap-2">
+                        <Input value={pixDataFinanceiro.copiaECola} readOnly className="bg-white/5 border-white/10 text-white text-[9px] h-8 flex-1" />
+                        <Button size="sm" variant="outline" className="h-8 border-[#22c55e] text-[#22c55e]" onClick={() => { navigator.clipboard.writeText(pixDataFinanceiro.copiaECola); toast({ title: "Copiado!" }); }}>
+                          <Copy size={12} />
+                        </Button>
+                      </div>
+                    )}
+                    <Button
+                      size="sm"
+                      className="w-full bg-[#22c55e] text-black font-black uppercase h-10 rounded-xl"
+                      onClick={() => {
+                        handleLiquidarReserva(darBaixaReserva.id, pixDataFinanceiro.valorPago, "pix");
+                        setDarBaixaAberto(false);
+                      }}
+                    >
+                      <CheckCircle size={14} className="mr-1" /> Confirmar Pagamento PIX
+                    </Button>
+                  </div>
+                )}
+
+                {/* Botão de ação */}
+                {!(pixDataFinanceiro && liquidarMetodo === "pix") && (
+                  <Button
+                    disabled={!liquidarValorCustom || Number(liquidarValorCustom) <= 0 || Number(liquidarValorCustom) > restante || isCarregandoPixFinanceiro}
+                    className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
+                    onClick={() => {
+                      const val = Number(liquidarValorCustom);
+                      if (val <= 0 || val > restante) {
+                        toast({ variant: "destructive", title: "Valor inválido" });
+                        return;
+                      }
+                      if (liquidarMetodo === "pix") {
+                        handleGerarPixFinanceiro(darBaixaReserva.id, val);
+                      } else if (liquidarMetodo === "metade") {
+                        handleLiquidarReserva(darBaixaReserva.id, val / 2, "pix");
+                        handleLiquidarReserva(darBaixaReserva.id, val / 2, "dinheiro");
+                        setDarBaixaAberto(false);
+                      } else {
+                        handleLiquidarReserva(darBaixaReserva.id, val, "dinheiro");
+                        setDarBaixaAberto(false);
+                      }
+                    }}
+                  >
+                    {isCarregandoPixFinanceiro ? "Gerando PIX..." :
+                     liquidarMetodo === "pix" ? `Gerar PIX — R$ ${liquidarValorCustom || "0.00"}` :
+                     liquidarMetodo === "metade" ? `Confirmar Metade — R$ ${liquidarValorCustom || "0.00"}` :
+                     `Confirmar Dinheiro — R$ ${liquidarValorCustom || "0.00"}`}
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* MODAL TERMOS PÓS-PAGAMENTO */}
       <Dialog
         open={isTermosAberto}
