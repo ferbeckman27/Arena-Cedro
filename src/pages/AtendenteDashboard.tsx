@@ -988,7 +988,7 @@ const AtendenteDashboard = () => {
     }
   };
 
-  // Financeiro real
+  // Financeiro real - usa SOMENTE a tabela pagamentos para evitar dupla contagem
   const resumoFinanceiro = useMemo(() => {
     const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
 
@@ -1008,30 +1008,15 @@ const AtendenteDashboard = () => {
       } else if (p.forma_pagamento === "antecipado" || p.forma_pagamento === "antes_do_jogo") dinheiro += val;
     });
 
-    // Sinais pagos nas reservas que não têm registro na tabela pagamentos (somente reservas pagas)
+    // Calcular restante baseado em valor_total - total de pagamentos aprovados
+    let restante = 0;
     reservasFinanceiroAtivasDoDia.forEach((r) => {
-      if (!r.pago) return; // só conta valores efetivamente pagos
-      const sinal = Number(r.valor_pago_sinal || 0);
-      if (sinal <= 0) return;
-      const totalPagRegistrado = pagsDoDia
+      const totalPag = pagsDoDia
         .filter((p) => p.reserva_id === r.id)
         .reduce((a, p) => a + Number(p.valor), 0);
-      const diff = sinal - totalPagRegistrado;
-      if (diff > 0) {
-        if (r.forma_pagamento === "pix") pix += diff;
-        else if (r.forma_pagamento === "dinheiro" || r.forma_pagamento === "antecipado" || r.forma_pagamento === "antes_do_jogo") dinheiro += diff;
-        else if (r.forma_pagamento === "pix+dinheiro") {
-          pix += diff / 2;
-          dinheiro += diff / 2;
-        }
-      }
+      const diff = Math.max(Number(r.valor_total || 0) - totalPag, 0);
+      if (diff > 0) restante += diff;
     });
-
-    const pendentes = reservasFinanceiroAtivasDoDia.filter((r) => !r.pago);
-    const restante = pendentes.reduce(
-      (a, r) => a + Math.max(Number(r.valor_total || 0) - Number(r.valor_pago_sinal || 0), 0),
-      0,
-    );
 
     return { pix, dinheiro, restante };
   }, [reservasFinanceiroAtivasDoDia, listaPagamentos]);
