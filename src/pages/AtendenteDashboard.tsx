@@ -99,6 +99,9 @@ const AtendenteDashboard = () => {
     gerarPagamentoPix: gerarPixFinanceiro,
     limparPix: limparPixFinanceiro,
   } = usePixPayment();
+  // Dar Baixa modal
+  const [darBaixaReserva, setDarBaixaReserva] = useState<ReservaCompleta | null>(null);
+  const [darBaixaAberto, setDarBaixaAberto] = useState(false);
   // Notificação de pagamento recebido
   const [notificacaoPagamento, setNotificacaoPagamento] = useState<{
     show: boolean;
