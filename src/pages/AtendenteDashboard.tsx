@@ -556,6 +556,8 @@ const AtendenteDashboard = () => {
             funcionario_id: funcionarioId || undefined,
             atendente_id: funcionarioId || undefined,
             pago: false,
+            valor_restante: totalGeral,
+            valor_pago_sinal: 0,
             status: metodoPgto === "pix" ? "pendente" : "confirmada",
             turno_id,
             observacoes: tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
@@ -683,10 +685,29 @@ const AtendenteDashboard = () => {
     try {
       const { data: reserva } = await supabase
         .from("reservas")
-        .select("cliente_id, valor_pago_sinal, valor_total")
+        .select("cliente_id, valor_total")
         .eq("id", id)
         .single();
-      const totalJaPago = Number(reserva?.valor_pago_sinal || 0) + valorPago;
+
+      // Registrar pagamento primeiro
+      await supabase.from("pagamentos").insert([
+        {
+          reserva_id: id,
+          valor: valorPago,
+          status: "aprovado",
+          tipo: "parcial",
+          forma_pagamento: metodo,
+          data_confirmacao: new Date().toISOString(),
+        },
+      ]);
+
+      // Recalcular total pago a partir dos pagamentos aprovados (fonte da verdade)
+      const { data: pagamentos } = await supabase
+        .from("pagamentos")
+        .select("valor")
+        .eq("reserva_id", id)
+        .eq("status", "aprovado");
+      const totalJaPago = pagamentos?.reduce((a, p) => a + Number(p.valor), 0) || 0;
       const valorRestante = Math.max(Number(reserva?.valor_total || 0) - totalJaPago, 0);
       const pagamentoCompleto = valorRestante <= 0;
 
@@ -702,18 +723,6 @@ const AtendenteDashboard = () => {
         })
         .eq("id", id);
       if (error) throw error;
-
-      // Registrar pagamento
-      await supabase.from("pagamentos").insert([
-        {
-          reserva_id: id,
-          valor: valorPago,
-          status: "aprovado",
-          tipo: pagamentoCompleto ? "integral" : "parcial",
-          forma_pagamento: metodo,
-          data_confirmacao: new Date().toISOString(),
-        },
-      ]);
 
       if (pagamentoCompleto && reserva?.cliente_id) {
         await supabase.rpc("incrementar_fidelidade", { cli_id: reserva.cliente_id });

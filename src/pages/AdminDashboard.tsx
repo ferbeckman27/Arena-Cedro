@@ -427,7 +427,7 @@ function AdminDashboard() {
       doc.text(`Receita PIX: R$ ${totalPix.toFixed(2).replace(".", ",")}`, 20, 78);
       doc.text(`Receita Dinheiro: R$ ${totalDinheiro.toFixed(2).replace(".", ",")}`, 20, 88);
       doc.line(20, 95, 190, 95);
-      doc.text(`Comissão Atendentes (5%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 105);
+      doc.text(`Comissão Atendentes (2%): - R$ ${comissoes.toFixed(2).replace(".", ",")}`, 20, 105);
       doc.text(`Taxa de Ocupação: ${taxaOcupacao.toFixed(1)}%`, 20, 115);
       doc.text(`Jogos Pagos: ${reservasPagas.length}`, 20, 125);
       doc.setFont(undefined!, "bold"); doc.setFontSize(14);
@@ -944,7 +944,7 @@ function AdminDashboard() {
                         <p className="text-[9px] font-bold text-gray-500 uppercase mt-1">Turno: {item.turno}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-black uppercase text-[#22c55e] tracking-widest">Comissão (5%)</p>
+                        <p className="text-[10px] font-black uppercase text-[#22c55e] tracking-widest">Comissão (2%)</p>
                         <p className="text-2xl font-black text-[#22c55e]">R$ {Number(item.total).toFixed(2)}</p>
                       </div>
                     </div>
