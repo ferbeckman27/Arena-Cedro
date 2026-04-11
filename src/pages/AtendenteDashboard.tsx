@@ -556,6 +556,8 @@ const AtendenteDashboard = () => {
             funcionario_id: funcionarioId || undefined,
             atendente_id: funcionarioId || undefined,
             pago: false,
+            valor_restante: totalGeral,
+            valor_pago_sinal: 0,
             status: metodoPgto === "pix" ? "pendente" : "confirmada",
             turno_id,
             observacoes: tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
