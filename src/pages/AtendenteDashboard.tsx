@@ -2530,11 +2530,10 @@ const AtendenteDashboard = () => {
                 {/* Método de pagamento */}
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Forma de Pagamento</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { value: "dinheiro" as const, label: "Dinheiro", icon: "💵" },
                       { value: "pix" as const, label: "PIX", icon: "📱" },
-                      { value: "metade" as const, label: "Metade", icon: "🔀" },
                     ].map((m) => (
                       <button
                         key={m.value}
@@ -2572,21 +2571,12 @@ const AtendenteDashboard = () => {
                   >
                     Preencher valor total restante (R$ {restante.toFixed(2)})
                   </button>
+                  {liquidarValorCustom && Number(liquidarValorCustom) > 0 && Number(liquidarValorCustom) < restante && (
+                    <p className="text-[9px] text-yellow-400 mt-1 font-bold">
+                      ⚠️ Pagamento parcial: ainda restará R$ {(restante - Number(liquidarValorCustom)).toFixed(2)}
+                    </p>
+                  )}
                 </div>
-
-                {liquidarMetodo === "metade" && liquidarValorCustom && Number(liquidarValorCustom) > 0 && (
-                  <div className="bg-white/5 p-3 rounded-xl border border-white/5 space-y-1 text-[10px]">
-                    <p className="font-black uppercase text-gray-400">Divisão:</p>
-                    <div className="flex justify-between">
-                      <span className="text-blue-400">📱 PIX:</span>
-                      <span className="text-white font-black">R$ {(Number(liquidarValorCustom) / 2).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-yellow-400">💵 Dinheiro:</span>
-                      <span className="text-white font-black">R$ {(Number(liquidarValorCustom) / 2).toFixed(2)}</span>
-                    </div>
-                  </div>
-                )}
 
                 {/* PIX QR Code quando gerado */}
                 {pixDataFinanceiro && liquidarMetodo === "pix" && (
@@ -2629,10 +2619,6 @@ const AtendenteDashboard = () => {
                       }
                       if (liquidarMetodo === "pix") {
                         handleGerarPixFinanceiro(darBaixaReserva.id, val);
-                      } else if (liquidarMetodo === "metade") {
-                        handleLiquidarReserva(darBaixaReserva.id, val / 2, "pix");
-                        handleLiquidarReserva(darBaixaReserva.id, val / 2, "dinheiro");
-                        setDarBaixaAberto(false);
                       } else {
                         handleLiquidarReserva(darBaixaReserva.id, val, "dinheiro");
                         setDarBaixaAberto(false);
@@ -2641,7 +2627,6 @@ const AtendenteDashboard = () => {
                   >
                     {isCarregandoPixFinanceiro ? "Gerando PIX..." :
                      liquidarMetodo === "pix" ? `Gerar PIX — R$ ${liquidarValorCustom || "0.00"}` :
-                     liquidarMetodo === "metade" ? `Confirmar Metade — R$ ${liquidarValorCustom || "0.00"}` :
                      `Confirmar Dinheiro — R$ ${liquidarValorCustom || "0.00"}`}
                   </Button>
                 )}
