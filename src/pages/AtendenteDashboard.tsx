@@ -302,7 +302,7 @@ const AtendenteDashboard = () => {
       .order("horario_inicio", { ascending: true })
       .order("created_at", { ascending: false });
     if (data) setListaReservas(data as unknown as ReservaCompleta[]);
-    const { data: pgtos } = await supabase.from("pagamentos").select("*").eq("status", "aprovado");
+    const { data: pgtos } = await supabase.from("pagamentos").select("*").in("status", ["aprovado", "pago"]);
     if (pgtos) setListaPagamentos(pgtos as unknown as PagamentoRegistrado[]);
   };
 
