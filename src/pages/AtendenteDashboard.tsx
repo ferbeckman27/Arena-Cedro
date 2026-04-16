@@ -711,16 +711,20 @@ const AtendenteDashboard = () => {
       const valorRestante = Math.max(Number(reserva?.valor_total || 0) - totalJaPago, 0);
       const pagamentoCompleto = valorRestante <= 0;
 
+      const updateData: any = {
+        valor_pago_sinal: totalJaPago,
+        valor_restante: valorRestante,
+        forma_pagamento: metodo,
+      };
+      if (pagamentoCompleto) {
+        updateData.pago = true;
+        updateData.data_pagamento = new Date().toISOString();
+        updateData.status = "confirmada";
+      }
+
       const { error } = await supabase
         .from("reservas")
-        .update({
-          pago: pagamentoCompleto,
-          valor_pago_sinal: totalJaPago,
-          valor_restante: valorRestante,
-          data_pagamento: pagamentoCompleto ? new Date().toISOString() : undefined,
-          forma_pagamento: metodo,
-          status: pagamentoCompleto ? "confirmada" : "pendente",
-        })
+        .update(updateData)
         .eq("id", id);
       if (error) throw error;
 
