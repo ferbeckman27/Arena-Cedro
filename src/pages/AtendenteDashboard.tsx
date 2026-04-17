@@ -689,24 +689,29 @@ const AtendenteDashboard = () => {
         .eq("id", id)
         .single();
 
-      // Registrar pagamento primeiro
-      await supabase.from("pagamentos").insert([
-        {
-          reserva_id: id,
-          valor: valorPago,
-          status: "aprovado",
-          tipo: "parcial",
-          forma_pagamento: metodo,
-          data_confirmacao: new Date().toISOString(),
-        },
-      ]);
+      // Para PIX, o pagamento JÁ foi inserido pela edge `criar-pix` e confirmado
+      // pelo webhook do Mercado Pago — NÃO inserir de novo (causava duplicação).
+      // Para dinheiro, inserimos manualmente como aprovado.
+      if (metodo !== "pix") {
+        await supabase.from("pagamentos").insert([
+          {
+            reserva_id: id,
+            valor: valorPago,
+            status: "aprovado",
+            tipo: "parcial",
+            forma_pagamento: metodo,
+            data_confirmacao: new Date().toISOString(),
+          },
+        ]);
+      }
 
-      // Recalcular total pago a partir dos pagamentos aprovados (fonte da verdade)
+      // Recalcular total pago a partir de TODOS os pagamentos confirmados
+      // (PIX = "pago" via webhook MP, dinheiro = "aprovado")
       const { data: pagamentos } = await supabase
         .from("pagamentos")
         .select("valor")
         .eq("reserva_id", id)
-        .eq("status", "aprovado");
+        .in("status", ["aprovado", "pago"]);
       const totalJaPago = pagamentos?.reduce((a, p) => a + Number(p.valor), 0) || 0;
       const valorRestante = Math.max(Number(reserva?.valor_total || 0) - totalJaPago, 0);
       const pagamentoCompleto = valorRestante <= 0;
