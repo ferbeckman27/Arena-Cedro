@@ -75,14 +75,19 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      await supabase
-        .from("reservas")
-        .update({
-          valor_sinal: valorFinalPago,
-          valor_restante: 0,
-          valor_total: valorOriginal,
-        })
-        .eq("id", reserva_id);
+      // Para pagamento PARCIAL (dar baixa do financeiro), NÃO sobrescrever
+      // valor_total nem valor_restante — o valor da reserva já está correto
+      // e o restante será calculado a partir dos pagamentos.
+      if (tipo_pagamento !== "parcial") {
+        await supabase
+          .from("reservas")
+          .update({
+            valor_sinal: valorFinalPago,
+            valor_restante: 0,
+            valor_total: valorOriginal,
+          })
+          .eq("id", reserva_id);
+      }
 
       await supabase.from("pagamentos").insert([
         {
