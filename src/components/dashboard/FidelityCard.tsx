@@ -1,4 +1,4 @@
-import { Trophy, CircleCheck, Circle } from "lucide-react";
+import { CircleCheck, Circle, Volleyball } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
