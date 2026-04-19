@@ -2581,6 +2581,11 @@ const AtendenteDashboard = () => {
                       const cliData = clientes.find((c: any) => c.id === (r as any).cliente_id);
                       const jogosCli = cliData?.reservas_concluidas || 0;
                       const fidelOk = jogosCli >= 10;
+                      const itensReserva = itensReservaMap[r.id] || [];
+                      const aluguéisPendentes = itensReserva.filter((it: any) => it.tipo === "aluguel" && !it.pago);
+                      const temAluguelPendente = aluguéisPendentes.length > 0;
+                      const aluguéisDevolvidos = itensReserva.filter((it: any) => it.tipo === "aluguel" && it.pago);
+                      const temAluguel = itensReserva.some((it: any) => it.tipo === "aluguel");
                       return (
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
                           <div className="flex justify-between items-start">
@@ -2637,6 +2642,58 @@ const AtendenteDashboard = () => {
                             >
                               <DollarSign size={14} className="mr-1" /> Dar Baixa
                             </Button>
+                          )}
+
+                          {/* Aluguéis: lista + devolução de estoque */}
+                          {temAluguel && (
+                            <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] uppercase font-black text-purple-300 flex items-center gap-1">
+                                  📦 Aluguéis ({itensReserva.filter((it: any) => it.tipo === "aluguel").length})
+                                </p>
+                                {!temAluguelPendente && aluguéisDevolvidos.length > 0 && (
+                                  <Badge className="bg-[#22c55e]/20 text-[#22c55e] text-[8px] font-black">
+                                    ✓ Devolvido
+                                  </Badge>
+                                )}
+                              </div>
+                              <ul className="space-y-1">
+                                {itensReserva
+                                  .filter((it: any) => it.tipo === "aluguel")
+                                  .map((it: any) => (
+                                    <li
+                                      key={it.id}
+                                      className="flex justify-between items-center text-[10px]"
+                                    >
+                                      <span className="text-gray-300">
+                                        {it.quantidade}× {it.produtos?.nome || "Item"}
+                                      </span>
+                                      <Badge
+                                        className={cn(
+                                          "text-[8px] font-black",
+                                          it.pago
+                                            ? "bg-[#22c55e]/20 text-[#22c55e]"
+                                            : "bg-yellow-500/20 text-yellow-400"
+                                        )}
+                                      >
+                                        {it.pago ? "Devolvido" : "Pendente"}
+                                      </Badge>
+                                    </li>
+                                  ))}
+                              </ul>
+                              {temAluguelPendente && (
+                                <Button
+                                  size="sm"
+                                  className="w-full bg-purple-500 hover:bg-purple-600 text-white font-black text-xs h-9 rounded-xl uppercase"
+                                  onClick={async () => {
+                                    if (!confirm(`Confirmar devolução de ${aluguéisPendentes.length} item(ns) ao estoque?`)) return;
+                                    await handleDevolverEstoque(r.id);
+                                  }}
+                                >
+                                  📦 Devolver ao Estoque
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </div>
                       );
