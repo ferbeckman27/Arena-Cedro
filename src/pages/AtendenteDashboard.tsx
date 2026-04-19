@@ -92,7 +92,7 @@ const AtendenteDashboard = () => {
   const [funcionarioId, setFuncionarioId] = useState<string | null>(null);
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
-  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro">("dinheiro");
+  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "fidelidade">("dinheiro");
   const {
     isCarregandoPix: isCarregandoPixFinanceiro,
     pixData: pixDataFinanceiro,
