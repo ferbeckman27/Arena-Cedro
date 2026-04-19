@@ -689,6 +689,54 @@ const AtendenteDashboard = () => {
         .eq("id", id)
         .single();
 
+      // CARTÃO FIDELIDADE: cobertura 100% do valor restante (cortesia).
+      // Valida 10+ jogos via RPC, registra pagamento R$0 com forma "fidelidade",
+      // marca a reserva como totalmente paga e reseta -10 do contador.
+      if (metodo === "fidelidade") {
+        if (!reserva?.cliente_id) {
+          toast({ variant: "destructive", title: "Cliente obrigatório", description: "Reserva sem cliente cadastrado não pode usar cartão fidelidade." });
+          return;
+        }
+        const { data: resgateOk, error: resgateErr } = await supabase.rpc("resgatar_fidelidade_cliente", { cli_id: reserva.cliente_id });
+        if (resgateErr) throw resgateErr;
+        if (!resgateOk) {
+          toast({ variant: "destructive", title: "Cartão indisponível", description: "Cliente precisa de 10 jogos completos para resgatar a cortesia." });
+          return;
+        }
+
+        const restante = Number(reserva?.valor_total || 0) - Number(valorPago || 0);
+        // Registra um pagamento "fidelidade" cobrindo o valor restante (R$0 financeiro)
+        await supabase.from("pagamentos").insert([
+          {
+            reserva_id: id,
+            valor: Math.max(restante, 0),
+            status: "aprovado",
+            tipo: "cortesia",
+            forma_pagamento: "fidelidade",
+            data_confirmacao: new Date().toISOString(),
+          },
+        ]);
+
+        await supabase
+          .from("reservas")
+          .update({
+            valor_pago_sinal: Number(reserva?.valor_total || 0),
+            valor_restante: 0,
+            forma_pagamento: "fidelidade",
+            pago: true,
+            data_pagamento: new Date().toISOString(),
+            status: "confirmada",
+          })
+          .eq("id", id);
+
+        toast({ title: "🏆 Cortesia Aplicada", description: "Cartão fidelidade resgatado. Contador zerado." });
+        setLiquidarValorCustom("");
+        limparPixFinanceiro();
+        carregarReservasFinancas();
+        buscarDadosIniciais();
+        return;
+      }
+
       // Para PIX, o pagamento JÁ foi inserido pela edge `criar-pix` e confirmado
       // pelo webhook do Mercado Pago — NÃO inserir de novo (causava duplicação).
       // Para dinheiro, inserimos manualmente como aprovado.
