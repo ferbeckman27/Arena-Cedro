@@ -66,7 +66,7 @@ const AtendenteDashboard = () => {
   const [diaSelecionado, setDiaSelecionado] = useState(new Date());
   const [filtroNome, setFiltroNome] = useState("");
   const [duracao, setDuracao] = useState<string>("60");
-  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro" | "antecipado">("dinheiro");
+  const [metodoPgto, setMetodoPgto] = useState<"pix" | "dinheiro" | "antecipado" | "fidelidade">("dinheiro");
   const [tipoReservaAtendente, setTipoReservaAtendente] = useState<"avulsa" | "pacote">("avulsa");
   const [isModalVipAberto, setIsModalVipAberto] = useState(false);
   const [modalNovoAlertaAberto, setModalNovoAlertaAberto] = useState(false);
@@ -92,7 +92,7 @@ const AtendenteDashboard = () => {
   const [funcionarioId, setFuncionarioId] = useState<string | null>(null);
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
-  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro">("dinheiro");
+  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "fidelidade">("dinheiro");
   const {
     isCarregandoPix: isCarregandoPixFinanceiro,
     pixData: pixDataFinanceiro,
@@ -149,6 +149,7 @@ const AtendenteDashboard = () => {
     pago: boolean;
     status?: string;
     cliente_nome?: string;
+    cliente_id?: number | null;
     clientes: { nome: string } | null;
   }
   interface SlotAgenda {
@@ -540,6 +541,24 @@ const AtendenteDashboard = () => {
       const clienteId = clienteIdOverride || clienteSelecionadoId || undefined;
       const formaPgto = metodoPgto === "antecipado" ? "antes_do_jogo" : metodoPgto;
 
+      // CARTÃO FIDELIDADE: valida que o cliente tem 10+ jogos antes de criar a reserva
+      if (metodoPgto === "fidelidade") {
+        if (!clienteId) {
+          toast({ variant: "destructive", title: "Cliente obrigatório", description: "Selecione um cliente cadastrado para usar o cartão fidelidade." });
+          setLoading(false);
+          return;
+        }
+        const clienteAlvo = clientes.find((c: any) => c.id === clienteId);
+        if (!clienteAlvo || (clienteAlvo.reservas_concluidas || 0) < 10) {
+          toast({ variant: "destructive", title: "Cartão indisponível", description: `Cliente tem ${clienteAlvo?.reservas_concluidas || 0}/10 jogos.` });
+          setLoading(false);
+          return;
+        }
+      }
+
+      const isFidelidade = metodoPgto === "fidelidade";
+      const valorFinal = isFidelidade ? 0 : totalGeral;
+
       const { data: reserva, error: resError } = await supabase
         .from("reservas")
         .insert([
@@ -549,18 +568,21 @@ const AtendenteDashboard = () => {
             horario_inicio: slotInicio,
             horario_fim: slotFim,
             duracao: duracaoMin,
-            valor_total: totalGeral,
+            valor_total: valorFinal,
             forma_pagamento: formaPgto,
             tipo: tipoReservaAtendente,
             cliente_id: clienteId,
             funcionario_id: funcionarioId || undefined,
             atendente_id: funcionarioId || undefined,
-            pago: false,
-            valor_restante: totalGeral,
+            pago: isFidelidade,
+            valor_restante: isFidelidade ? 0 : totalGeral,
             valor_pago_sinal: 0,
             status: metodoPgto === "pix" ? "pendente" : "confirmada",
             turno_id,
-            observacoes: tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
+            observacoes: isFidelidade
+              ? "🏆 Cortesia Cartão Fidelidade"
+              : tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
+            data_pagamento: isFidelidade ? new Date().toISOString() : undefined,
           },
         ])
         .select()
@@ -584,7 +606,23 @@ const AtendenteDashboard = () => {
         );
       }
 
-      if (metodoPgto === "dinheiro") {
+      if (isFidelidade) {
+        // Resgatar cortesia: subtrai 10 jogos
+        await supabase.rpc("resgatar_fidelidade_cliente", { cli_id: clienteId });
+        // Registra pagamento "cortesia" R$0 para histórico
+        await supabase.from("pagamentos").insert([
+          {
+            reserva_id: reserva.id,
+            valor: 0,
+            status: "aprovado",
+            tipo: "cortesia",
+            forma_pagamento: "fidelidade",
+            data_confirmacao: new Date().toISOString(),
+          },
+        ]);
+        playTorcida();
+        toast({ title: "🏆 Cortesia Aplicada!", description: "Reserva grátis confirmada. Contador de fidelidade reduzido em 10." });
+      } else if (metodoPgto === "dinheiro") {
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
@@ -688,6 +726,54 @@ const AtendenteDashboard = () => {
         .select("cliente_id, valor_total")
         .eq("id", id)
         .single();
+
+      // CARTÃO FIDELIDADE: cobertura 100% do valor restante (cortesia).
+      // Valida 10+ jogos via RPC, registra pagamento R$0 com forma "fidelidade",
+      // marca a reserva como totalmente paga e reseta -10 do contador.
+      if (metodo === "fidelidade") {
+        if (!reserva?.cliente_id) {
+          toast({ variant: "destructive", title: "Cliente obrigatório", description: "Reserva sem cliente cadastrado não pode usar cartão fidelidade." });
+          return;
+        }
+        const { data: resgateOk, error: resgateErr } = await supabase.rpc("resgatar_fidelidade_cliente", { cli_id: reserva.cliente_id });
+        if (resgateErr) throw resgateErr;
+        if (!resgateOk) {
+          toast({ variant: "destructive", title: "Cartão indisponível", description: "Cliente precisa de 10 jogos completos para resgatar a cortesia." });
+          return;
+        }
+
+        const restante = Number(reserva?.valor_total || 0) - Number(valorPago || 0);
+        // Registra um pagamento "fidelidade" cobrindo o valor restante (R$0 financeiro)
+        await supabase.from("pagamentos").insert([
+          {
+            reserva_id: id,
+            valor: Math.max(restante, 0),
+            status: "aprovado",
+            tipo: "cortesia",
+            forma_pagamento: "fidelidade",
+            data_confirmacao: new Date().toISOString(),
+          },
+        ]);
+
+        await supabase
+          .from("reservas")
+          .update({
+            valor_pago_sinal: Number(reserva?.valor_total || 0),
+            valor_restante: 0,
+            forma_pagamento: "fidelidade",
+            pago: true,
+            data_pagamento: new Date().toISOString(),
+            status: "confirmada",
+          })
+          .eq("id", id);
+
+        toast({ title: "🏆 Cortesia Aplicada", description: "Cartão fidelidade resgatado. Contador zerado." });
+        setLiquidarValorCustom("");
+        limparPixFinanceiro();
+        carregarReservasFinancas();
+        buscarDadosIniciais();
+        return;
+      }
 
       // Para PIX, o pagamento JÁ foi inserido pela edge `criar-pix` e confirmado
       // pelo webhook do Mercado Pago — NÃO inserir de novo (causava duplicação).
@@ -1603,11 +1689,26 @@ const AtendenteDashboard = () => {
                             })()}
 
                             {/* Método de Pagamento */}
-                            <RadioGroup
-                              value={metodoPgto}
-                              onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro" | "antecipado")}
-                              className="grid grid-cols-3 gap-3"
-                            >
+                            {(() => {
+                              const clienteSel = clientes.find((c: any) => c.id === clienteSelecionadoId);
+                              const jogosCli = clienteSel?.reservas_concluidas || 0;
+                              const fidelOk = !!clienteSelecionadoId && jogosCli >= 10;
+                              return (
+                                <>
+                                  {clienteSelecionadoId && (
+                                    <div className={cn(
+                                      "flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold uppercase",
+                                      fidelOk ? "bg-[#22c55e]/10 border border-[#22c55e]/30 text-[#22c55e]" : "bg-white/5 border border-white/5 text-gray-400"
+                                    )}>
+                                      <span>🏆 Fidelidade do cliente</span>
+                                      <span className="font-black">{jogosCli}/10 {fidelOk && "— Cortesia disponível!"}</span>
+                                    </div>
+                                  )}
+                                  <RadioGroup
+                                    value={metodoPgto}
+                                    onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro" | "antecipado" | "fidelidade")}
+                                    className="grid grid-cols-2 md:grid-cols-4 gap-2"
+                                  >
                               <div
                                 className={cn(
                                   "flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2",
@@ -1666,7 +1767,32 @@ const AtendenteDashboard = () => {
                                   ANTES DO JOGO
                                 </Label>
                               </div>
-                            </RadioGroup>
+                              <div
+                                className={cn(
+                                  "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-2",
+                                  !fidelOk && "opacity-40 cursor-not-allowed pointer-events-none",
+                                  fidelOk && "cursor-pointer",
+                                  metodoPgto === "fidelidade" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5",
+                                )}
+                              >
+                                <RadioGroupItem
+                                  value="fidelidade"
+                                  id={`fidelidade-${slot.inicio}`}
+                                  disabled={!fidelOk}
+                                  className="sr-only"
+                                />
+                                <Label
+                                  htmlFor={`fidelidade-${slot.inicio}`}
+                                  className={cn("flex flex-col items-center gap-2 font-black text-[10px] uppercase", fidelOk ? "cursor-pointer" : "cursor-not-allowed")}
+                                >
+                                  <span className="text-lg leading-none">🏆</span>
+                                  FIDELIDADE
+                                </Label>
+                              </div>
+                                  </RadioGroup>
+                                </>
+                              );
+                            })()}
 
                             {/* PIX Section - mostra PixPaymentSection com opções livre/integral */}
                             {metodoPgto === "pix" && reservaCriada && reservaIdAtual && (
@@ -1735,6 +1861,19 @@ const AtendenteDashboard = () => {
                                 <p className="text-[9px] text-yellow-400 font-bold">
                                   ⚠️ O cliente deverá pagar antes de entrar na quadra.
                                 </p>
+                              </div>
+                            )}
+
+                            {/* Cartão Fidelidade = cortesia, reserva criada já paga */}
+                            {metodoPgto === "fidelidade" && reservaCriada && (
+                              <div className="bg-black/40 p-5 rounded-[2rem] border border-[#22c55e]/30 text-center space-y-2">
+                                <p className="text-xs font-black uppercase italic text-[#22c55e]">
+                                  🏆 CORTESIA APLICADA — RESERVA GRÁTIS!
+                                </p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">
+                                  Cartão fidelidade resgatado. Contador de jogos foi reduzido em 10.
+                                </p>
+                                <p className="text-lg font-black text-[#22c55e]">Valor pago: R$ 0,00</p>
                               </div>
                             )}
 
@@ -2439,11 +2578,25 @@ const AtendenteDashboard = () => {
                       const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
                       const restante = Math.max(Number(r.valor_total || 0) - totalPagoReal, 0);
                       const nomeCliente = r.clientes?.nome || r.cliente_nome || "—";
+                      const cliData = clientes.find((c: any) => c.id === (r as any).cliente_id);
+                      const jogosCli = cliData?.reservas_concluidas || 0;
+                      const fidelOk = jogosCli >= 10;
                       return (
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-black text-sm">{nomeCliente} <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span></p>
+                              <p className="font-black text-sm flex items-center gap-2 flex-wrap">
+                                {nomeCliente}
+                                <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span>
+                                {(r as any).cliente_id && (
+                                  <Badge className={cn(
+                                    "text-[8px] font-black px-2 py-0",
+                                    fidelOk ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/40" : "bg-white/5 text-gray-400"
+                                  )}>
+                                    🏆 {jogosCli}/10
+                                  </Badge>
+                                )}
+                              </p>
                               <p className="text-[10px] text-gray-400">
                                 {r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
                               </p>
@@ -2510,6 +2663,10 @@ const AtendenteDashboard = () => {
             const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
             const restante = Math.max(Number(darBaixaReserva.valor_total || 0) - totalPagoReal, 0);
             const nomeCliente = darBaixaReserva.clientes?.nome || darBaixaReserva.cliente_nome || "—";
+            const clienteIdReserva = (darBaixaReserva as any).cliente_id;
+            const clienteData = clientes.find((c: any) => c.id === clienteIdReserva);
+            const jogosCompletos = clienteData?.reservas_concluidas || 0;
+            const fidelidadeDisponivel = jogosCompletos >= 10 && !!clienteIdReserva;
             return (
               <div className="space-y-4 pt-2">
                 {/* Info da reserva */}
@@ -2518,6 +2675,14 @@ const AtendenteDashboard = () => {
                     <span className="text-gray-400">Atleta:</span>
                     <span className="text-white font-black">{nomeCliente}</span>
                   </div>
+                  {clienteIdReserva && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Jogos Concluídos:</span>
+                      <span className={cn("font-black", fidelidadeDisponivel ? "text-[#22c55e]" : "text-white")}>
+                        {jogosCompletos} / 10 {fidelidadeDisponivel && "🏆"}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Horário:</span>
                     <span className="text-white font-bold">{darBaixaReserva.horario_inicio?.slice(0, 5)} às {darBaixaReserva.horario_fim?.slice(0, 5) || "--:--"}</span>
@@ -2539,16 +2704,19 @@ const AtendenteDashboard = () => {
                 {/* Método de pagamento */}
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Forma de Pagamento</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {[
-                      { value: "dinheiro" as const, label: "Dinheiro", icon: "💵" },
-                      { value: "pix" as const, label: "PIX", icon: "📱" },
+                      { value: "dinheiro" as const, label: "Dinheiro", icon: "💵", disabled: false },
+                      { value: "pix" as const, label: "PIX", icon: "📱", disabled: false },
+                      { value: "fidelidade" as const, label: "Fidelidade", icon: "🏆", disabled: !fidelidadeDisponivel },
                     ].map((m) => (
                       <button
                         key={m.value}
-                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); }}
+                        disabled={m.disabled}
+                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); if (m.value === "fidelidade") setLiquidarValorCustom(restante.toFixed(2)); }}
                         className={cn(
                           "p-3 rounded-xl border-2 text-center transition-all",
+                          m.disabled && "opacity-40 cursor-not-allowed",
                           liquidarMetodo === m.value
                             ? "border-[#22c55e] bg-[#22c55e]/10"
                             : "border-white/10 hover:border-white/20"
@@ -2559,33 +2727,45 @@ const AtendenteDashboard = () => {
                       </button>
                     ))}
                   </div>
-                </div>
-
-                {/* Valor */}
-                <div>
-                  <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Valor a Receber (R$)</p>
-                  <Input
-                    type="number"
-                    min="0.01"
-                    max={restante}
-                    step="0.01"
-                    placeholder={`Até R$ ${restante.toFixed(2)}`}
-                    value={liquidarValorCustom}
-                    onChange={(e) => setLiquidarValorCustom(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
-                  />
-                  <button
-                    onClick={() => setLiquidarValorCustom(restante.toFixed(2))}
-                    className="text-[9px] text-[#22c55e] font-bold mt-1 hover:underline"
-                  >
-                    Preencher valor total restante (R$ {restante.toFixed(2)})
-                  </button>
-                  {liquidarValorCustom && Number(liquidarValorCustom) > 0 && Number(liquidarValorCustom) < restante && (
-                    <p className="text-[9px] text-yellow-400 mt-1 font-bold">
-                      ⚠️ Pagamento parcial: ainda restará R$ {(restante - Number(liquidarValorCustom)).toFixed(2)}
+                  {liquidarMetodo === "fidelidade" && (
+                    <p className="text-[10px] text-[#22c55e] font-bold mt-2 bg-[#22c55e]/10 p-2 rounded-xl border border-[#22c55e]/30">
+                      🏆 Cortesia do cartão fidelidade. Cobre R$ {restante.toFixed(2)} (todo o restante). O contador será reduzido em 10 jogos após confirmação.
+                    </p>
+                  )}
+                  {!fidelidadeDisponivel && clienteIdReserva && (
+                    <p className="text-[9px] text-gray-500 mt-2 italic">
+                      Cartão fidelidade indisponível: cliente tem {jogosCompletos}/10 jogos.
                     </p>
                   )}
                 </div>
+
+                {/* Valor (oculto para fidelidade — sempre cobre o restante) */}
+                {liquidarMetodo !== "fidelidade" && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Valor a Receber (R$)</p>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      max={restante}
+                      step="0.01"
+                      placeholder={`Até R$ ${restante.toFixed(2)}`}
+                      value={liquidarValorCustom}
+                      onChange={(e) => setLiquidarValorCustom(e.target.value)}
+                      className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
+                    />
+                    <button
+                      onClick={() => setLiquidarValorCustom(restante.toFixed(2))}
+                      className="text-[9px] text-[#22c55e] font-bold mt-1 hover:underline"
+                    >
+                      Preencher valor total restante (R$ {restante.toFixed(2)})
+                    </button>
+                    {liquidarValorCustom && Number(liquidarValorCustom) > 0 && Number(liquidarValorCustom) < restante && (
+                      <p className="text-[9px] text-yellow-400 mt-1 font-bold">
+                        ⚠️ Pagamento parcial: ainda restará R$ {(restante - Number(liquidarValorCustom)).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* PIX QR Code quando gerado */}
                 {pixDataFinanceiro && liquidarMetodo === "pix" && (
@@ -2618,9 +2798,18 @@ const AtendenteDashboard = () => {
                 {/* Botão de ação */}
                 {!(pixDataFinanceiro && liquidarMetodo === "pix") && (
                   <Button
-                    disabled={!liquidarValorCustom || Number(liquidarValorCustom) <= 0 || Number(liquidarValorCustom) > restante || isCarregandoPixFinanceiro}
+                    disabled={
+                      liquidarMetodo === "fidelidade"
+                        ? !fidelidadeDisponivel || restante <= 0
+                        : !liquidarValorCustom || Number(liquidarValorCustom) <= 0 || Number(liquidarValorCustom) > restante || isCarregandoPixFinanceiro
+                    }
                     className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
                     onClick={() => {
+                      if (liquidarMetodo === "fidelidade") {
+                        handleLiquidarReserva(darBaixaReserva.id, restante, "fidelidade");
+                        setDarBaixaAberto(false);
+                        return;
+                      }
                       const val = Number(liquidarValorCustom);
                       if (val <= 0 || val > restante) {
                         toast({ variant: "destructive", title: "Valor inválido" });
@@ -2635,6 +2824,7 @@ const AtendenteDashboard = () => {
                     }}
                   >
                     {isCarregandoPixFinanceiro ? "Gerando PIX..." :
+                     liquidarMetodo === "fidelidade" ? `🏆 Aplicar Cortesia Fidelidade — R$ ${restante.toFixed(2)}` :
                      liquidarMetodo === "pix" ? `Gerar PIX — R$ ${liquidarValorCustom || "0.00"}` :
                      `Confirmar Dinheiro — R$ ${liquidarValorCustom || "0.00"}`}
                   </Button>

@@ -853,6 +853,10 @@ export type Database = {
         Args: { p_funcionario_id: string }
         Returns: undefined
       }
+      resgatar_fidelidade_cliente: {
+        Args: { cli_id: number }
+        Returns: boolean
+      }
       set_funcionario_senha: {
         Args: { p_id: string; p_senha: string }
         Returns: undefined
