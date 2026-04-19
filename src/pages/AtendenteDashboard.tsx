@@ -2558,6 +2558,10 @@ const AtendenteDashboard = () => {
             const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
             const restante = Math.max(Number(darBaixaReserva.valor_total || 0) - totalPagoReal, 0);
             const nomeCliente = darBaixaReserva.clientes?.nome || darBaixaReserva.cliente_nome || "—";
+            const clienteIdReserva = (darBaixaReserva as any).cliente_id;
+            const clienteData = clientes.find((c: any) => c.id === clienteIdReserva);
+            const jogosCompletos = clienteData?.reservas_concluidas || 0;
+            const fidelidadeDisponivel = jogosCompletos >= 10 && !!clienteIdReserva;
             return (
               <div className="space-y-4 pt-2">
                 {/* Info da reserva */}
@@ -2566,6 +2570,14 @@ const AtendenteDashboard = () => {
                     <span className="text-gray-400">Atleta:</span>
                     <span className="text-white font-black">{nomeCliente}</span>
                   </div>
+                  {clienteIdReserva && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Jogos Concluídos:</span>
+                      <span className={cn("font-black", fidelidadeDisponivel ? "text-[#22c55e]" : "text-white")}>
+                        {jogosCompletos} / 10 {fidelidadeDisponivel && "🏆"}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Horário:</span>
                     <span className="text-white font-bold">{darBaixaReserva.horario_inicio?.slice(0, 5)} às {darBaixaReserva.horario_fim?.slice(0, 5) || "--:--"}</span>
@@ -2587,16 +2599,19 @@ const AtendenteDashboard = () => {
                 {/* Método de pagamento */}
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Forma de Pagamento</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {[
-                      { value: "dinheiro" as const, label: "Dinheiro", icon: "💵" },
-                      { value: "pix" as const, label: "PIX", icon: "📱" },
+                      { value: "dinheiro" as const, label: "Dinheiro", icon: "💵", disabled: false },
+                      { value: "pix" as const, label: "PIX", icon: "📱", disabled: false },
+                      { value: "fidelidade" as const, label: "Fidelidade", icon: "🏆", disabled: !fidelidadeDisponivel },
                     ].map((m) => (
                       <button
                         key={m.value}
-                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); }}
+                        disabled={m.disabled}
+                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); if (m.value === "fidelidade") setLiquidarValorCustom(restante.toFixed(2)); }}
                         className={cn(
                           "p-3 rounded-xl border-2 text-center transition-all",
+                          m.disabled && "opacity-40 cursor-not-allowed",
                           liquidarMetodo === m.value
                             ? "border-[#22c55e] bg-[#22c55e]/10"
                             : "border-white/10 hover:border-white/20"
@@ -2607,33 +2622,45 @@ const AtendenteDashboard = () => {
                       </button>
                     ))}
                   </div>
-                </div>
-
-                {/* Valor */}
-                <div>
-                  <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Valor a Receber (R$)</p>
-                  <Input
-                    type="number"
-                    min="0.01"
-                    max={restante}
-                    step="0.01"
-                    placeholder={`Até R$ ${restante.toFixed(2)}`}
-                    value={liquidarValorCustom}
-                    onChange={(e) => setLiquidarValorCustom(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
-                  />
-                  <button
-                    onClick={() => setLiquidarValorCustom(restante.toFixed(2))}
-                    className="text-[9px] text-[#22c55e] font-bold mt-1 hover:underline"
-                  >
-                    Preencher valor total restante (R$ {restante.toFixed(2)})
-                  </button>
-                  {liquidarValorCustom && Number(liquidarValorCustom) > 0 && Number(liquidarValorCustom) < restante && (
-                    <p className="text-[9px] text-yellow-400 mt-1 font-bold">
-                      ⚠️ Pagamento parcial: ainda restará R$ {(restante - Number(liquidarValorCustom)).toFixed(2)}
+                  {liquidarMetodo === "fidelidade" && (
+                    <p className="text-[10px] text-[#22c55e] font-bold mt-2 bg-[#22c55e]/10 p-2 rounded-xl border border-[#22c55e]/30">
+                      🏆 Cortesia do cartão fidelidade. Cobre R$ {restante.toFixed(2)} (todo o restante). O contador será reduzido em 10 jogos após confirmação.
+                    </p>
+                  )}
+                  {!fidelidadeDisponivel && clienteIdReserva && (
+                    <p className="text-[9px] text-gray-500 mt-2 italic">
+                      Cartão fidelidade indisponível: cliente tem {jogosCompletos}/10 jogos.
                     </p>
                   )}
                 </div>
+
+                {/* Valor (oculto para fidelidade — sempre cobre o restante) */}
+                {liquidarMetodo !== "fidelidade" && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Valor a Receber (R$)</p>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      max={restante}
+                      step="0.01"
+                      placeholder={`Até R$ ${restante.toFixed(2)}`}
+                      value={liquidarValorCustom}
+                      onChange={(e) => setLiquidarValorCustom(e.target.value)}
+                      className="bg-white/5 border-white/10 text-white h-14 rounded-xl text-lg font-black text-center"
+                    />
+                    <button
+                      onClick={() => setLiquidarValorCustom(restante.toFixed(2))}
+                      className="text-[9px] text-[#22c55e] font-bold mt-1 hover:underline"
+                    >
+                      Preencher valor total restante (R$ {restante.toFixed(2)})
+                    </button>
+                    {liquidarValorCustom && Number(liquidarValorCustom) > 0 && Number(liquidarValorCustom) < restante && (
+                      <p className="text-[9px] text-yellow-400 mt-1 font-bold">
+                        ⚠️ Pagamento parcial: ainda restará R$ {(restante - Number(liquidarValorCustom)).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* PIX QR Code quando gerado */}
                 {pixDataFinanceiro && liquidarMetodo === "pix" && (
@@ -2666,9 +2693,18 @@ const AtendenteDashboard = () => {
                 {/* Botão de ação */}
                 {!(pixDataFinanceiro && liquidarMetodo === "pix") && (
                   <Button
-                    disabled={!liquidarValorCustom || Number(liquidarValorCustom) <= 0 || Number(liquidarValorCustom) > restante || isCarregandoPixFinanceiro}
+                    disabled={
+                      liquidarMetodo === "fidelidade"
+                        ? !fidelidadeDisponivel || restante <= 0
+                        : !liquidarValorCustom || Number(liquidarValorCustom) <= 0 || Number(liquidarValorCustom) > restante || isCarregandoPixFinanceiro
+                    }
                     className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
                     onClick={() => {
+                      if (liquidarMetodo === "fidelidade") {
+                        handleLiquidarReserva(darBaixaReserva.id, restante, "fidelidade");
+                        setDarBaixaAberto(false);
+                        return;
+                      }
                       const val = Number(liquidarValorCustom);
                       if (val <= 0 || val > restante) {
                         toast({ variant: "destructive", title: "Valor inválido" });
@@ -2683,6 +2719,7 @@ const AtendenteDashboard = () => {
                     }}
                   >
                     {isCarregandoPixFinanceiro ? "Gerando PIX..." :
+                     liquidarMetodo === "fidelidade" ? `🏆 Aplicar Cortesia Fidelidade — R$ ${restante.toFixed(2)}` :
                      liquidarMetodo === "pix" ? `Gerar PIX — R$ ${liquidarValorCustom || "0.00"}` :
                      `Confirmar Dinheiro — R$ ${liquidarValorCustom || "0.00"}`}
                   </Button>
