@@ -149,6 +149,7 @@ const AtendenteDashboard = () => {
     pago: boolean;
     status?: string;
     cliente_nome?: string;
+    cliente_id?: number | null;
     clientes: { nome: string } | null;
   }
   interface SlotAgenda {
