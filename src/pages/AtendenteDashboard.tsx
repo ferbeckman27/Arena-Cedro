@@ -1864,6 +1864,19 @@ const AtendenteDashboard = () => {
                               </div>
                             )}
 
+                            {/* Cartão Fidelidade = cortesia, reserva criada já paga */}
+                            {metodoPgto === "fidelidade" && reservaCriada && (
+                              <div className="bg-black/40 p-5 rounded-[2rem] border border-[#22c55e]/30 text-center space-y-2">
+                                <p className="text-xs font-black uppercase italic text-[#22c55e]">
+                                  🏆 CORTESIA APLICADA — RESERVA GRÁTIS!
+                                </p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase">
+                                  Cartão fidelidade resgatado. Contador de jogos foi reduzido em 10.
+                                </p>
+                                <p className="text-lg font-black text-[#22c55e]">Valor pago: R$ 0,00</p>
+                              </div>
+                            )}
+
                             {/* Produtos / Consumo */}
                             <div className="space-y-2">
                               <label className="text-[10px] font-bold uppercase text-gray-400">
