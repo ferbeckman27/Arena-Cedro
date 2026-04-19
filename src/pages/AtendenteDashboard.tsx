@@ -2578,11 +2578,25 @@ const AtendenteDashboard = () => {
                       const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
                       const restante = Math.max(Number(r.valor_total || 0) - totalPagoReal, 0);
                       const nomeCliente = r.clientes?.nome || r.cliente_nome || "—";
+                      const cliData = clientes.find((c: any) => c.id === (r as any).cliente_id);
+                      const jogosCli = cliData?.reservas_concluidas || 0;
+                      const fidelOk = jogosCli >= 10;
                       return (
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-black text-sm">{nomeCliente} <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span></p>
+                              <p className="font-black text-sm flex items-center gap-2 flex-wrap">
+                                {nomeCliente}
+                                <span className="text-[9px] text-gray-500 font-normal">#{r.id}</span>
+                                {(r as any).cliente_id && (
+                                  <Badge className={cn(
+                                    "text-[8px] font-black px-2 py-0",
+                                    fidelOk ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/40" : "bg-white/5 text-gray-400"
+                                  )}>
+                                    🏆 {jogosCli}/10
+                                  </Badge>
+                                )}
+                              </p>
                               <p className="text-[10px] text-gray-400">
                                 {r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
                               </p>
