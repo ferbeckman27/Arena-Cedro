@@ -1689,11 +1689,26 @@ const AtendenteDashboard = () => {
                             })()}
 
                             {/* Método de Pagamento */}
-                            <RadioGroup
-                              value={metodoPgto}
-                              onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro" | "antecipado")}
-                              className="grid grid-cols-3 gap-3"
-                            >
+                            {(() => {
+                              const clienteSel = clientes.find((c: any) => c.id === clienteSelecionadoId);
+                              const jogosCli = clienteSel?.reservas_concluidas || 0;
+                              const fidelOk = !!clienteSelecionadoId && jogosCli >= 10;
+                              return (
+                                <>
+                                  {clienteSelecionadoId && (
+                                    <div className={cn(
+                                      "flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold uppercase",
+                                      fidelOk ? "bg-[#22c55e]/10 border border-[#22c55e]/30 text-[#22c55e]" : "bg-white/5 border border-white/5 text-gray-400"
+                                    )}>
+                                      <span>🏆 Fidelidade do cliente</span>
+                                      <span className="font-black">{jogosCli}/10 {fidelOk && "— Cortesia disponível!"}</span>
+                                    </div>
+                                  )}
+                                  <RadioGroup
+                                    value={metodoPgto}
+                                    onValueChange={(v) => setMetodoPgto(v as "pix" | "dinheiro" | "antecipado" | "fidelidade")}
+                                    className="grid grid-cols-2 md:grid-cols-4 gap-2"
+                                  >
                               <div
                                 className={cn(
                                   "flex flex-col items-center justify-center p-3 rounded-2xl border-2 cursor-pointer transition-all gap-2",
@@ -1752,7 +1767,32 @@ const AtendenteDashboard = () => {
                                   ANTES DO JOGO
                                 </Label>
                               </div>
-                            </RadioGroup>
+                              <div
+                                className={cn(
+                                  "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-2",
+                                  !fidelOk && "opacity-40 cursor-not-allowed pointer-events-none",
+                                  fidelOk && "cursor-pointer",
+                                  metodoPgto === "fidelidade" ? "border-[#22c55e] bg-[#22c55e]/10" : "border-white/5",
+                                )}
+                              >
+                                <RadioGroupItem
+                                  value="fidelidade"
+                                  id={`fidelidade-${slot.inicio}`}
+                                  disabled={!fidelOk}
+                                  className="sr-only"
+                                />
+                                <Label
+                                  htmlFor={`fidelidade-${slot.inicio}`}
+                                  className={cn("flex flex-col items-center gap-2 font-black text-[10px] uppercase", fidelOk ? "cursor-pointer" : "cursor-not-allowed")}
+                                >
+                                  <span className="text-lg leading-none">🏆</span>
+                                  FIDELIDADE
+                                </Label>
+                              </div>
+                                  </RadioGroup>
+                                </>
+                              );
+                            })()}
 
                             {/* PIX Section - mostra PixPaymentSection com opções livre/integral */}
                             {metodoPgto === "pix" && reservaCriada && reservaIdAtual && (
