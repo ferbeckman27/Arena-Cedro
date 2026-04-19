@@ -2581,6 +2581,11 @@ const AtendenteDashboard = () => {
                       const cliData = clientes.find((c: any) => c.id === (r as any).cliente_id);
                       const jogosCli = cliData?.reservas_concluidas || 0;
                       const fidelOk = jogosCli >= 10;
+                      const itensReserva = itensReservaMap[r.id] || [];
+                      const aluguéisPendentes = itensReserva.filter((it: any) => it.tipo === "aluguel" && !it.pago);
+                      const temAluguelPendente = aluguéisPendentes.length > 0;
+                      const aluguéisDevolvidos = itensReserva.filter((it: any) => it.tipo === "aluguel" && it.pago);
+                      const temAluguel = itensReserva.some((it: any) => it.tipo === "aluguel");
                       return (
                         <div key={r.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-3">
                           <div className="flex justify-between items-start">
