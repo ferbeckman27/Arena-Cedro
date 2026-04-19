@@ -1,4 +1,4 @@
-import { Trophy, CircleCheck, Circle } from "lucide-react";
+import { CircleCheck, Circle, Volleyball } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ export const FidelityCard = ({ count }: { count: number }) => {
       <div className="flex items-center justify-between mb-8 relative z-10">
         <div>
           <h3 className="font-black italic uppercase tracking-tighter text-white flex items-center gap-2 text-lg">
-            <Trophy className={cn("transition-all duration-500", ganhouBonus ? "text-[#22c55e] scale-125" : "text-gray-600")} />
+            <Volleyball className={cn("transition-all duration-500", ganhouBonus ? "text-[#22c55e] scale-125 animate-spin" : "text-gray-600")} />
             Fidelidade <span className="text-[#22c55e]">Arena</span>
           </h3>
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
