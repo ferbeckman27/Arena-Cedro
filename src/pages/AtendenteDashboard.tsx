@@ -580,7 +580,7 @@ const AtendenteDashboard = () => {
             status: metodoPgto === "pix" ? "pendente" : "confirmada",
             turno_id,
             observacoes: isFidelidade
-              ? "🏆 Cortesia Cartão Fidelidade"
+              ? "⚽ Cortesia Cartão Fidelidade"
               : tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
             data_pagamento: isFidelidade ? new Date().toISOString() : undefined,
           },
@@ -621,7 +621,7 @@ const AtendenteDashboard = () => {
           },
         ]);
         playTorcida();
-        toast({ title: "🏆 Cortesia Aplicada!", description: "Reserva grátis confirmada. Contador de fidelidade reduzido em 10." });
+        toast({ title: "⚽ Cortesia Aplicada!", description: "Reserva grátis confirmada. Contador de fidelidade reduzido em 10." });
       } else if (metodoPgto === "dinheiro") {
         playTorcida();
         setIsTermosAberto(true);
@@ -767,7 +767,7 @@ const AtendenteDashboard = () => {
           })
           .eq("id", id);
 
-        toast({ title: "🏆 Cortesia Aplicada", description: "Cartão fidelidade resgatado. Contador zerado." });
+        toast({ title: "⚽ Cortesia Aplicada", description: "Cartão fidelidade resgatado. Contador zerado." });
         setLiquidarValorCustom("");
         limparPixFinanceiro();
         carregarReservasFinancas();
@@ -1700,7 +1700,7 @@ const AtendenteDashboard = () => {
                                       "flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold uppercase",
                                       fidelOk ? "bg-[#22c55e]/10 border border-[#22c55e]/30 text-[#22c55e]" : "bg-white/5 border border-white/5 text-gray-400"
                                     )}>
-                                      <span>🏆 Fidelidade do cliente</span>
+                                      <span>⚽ Fidelidade do cliente</span>
                                       <span className="font-black">{jogosCli}/10 {fidelOk && "— Cortesia disponível!"}</span>
                                     </div>
                                   )}
@@ -1785,7 +1785,7 @@ const AtendenteDashboard = () => {
                                   htmlFor={`fidelidade-${slot.inicio}`}
                                   className={cn("flex flex-col items-center gap-2 font-black text-[10px] uppercase", fidelOk ? "cursor-pointer" : "cursor-not-allowed")}
                                 >
-                                  <span className="text-lg leading-none">🏆</span>
+                                  <span className="text-lg leading-none">⚽</span>
                                   FIDELIDADE
                                 </Label>
                               </div>
@@ -1868,7 +1868,7 @@ const AtendenteDashboard = () => {
                             {metodoPgto === "fidelidade" && reservaCriada && (
                               <div className="bg-black/40 p-5 rounded-[2rem] border border-[#22c55e]/30 text-center space-y-2">
                                 <p className="text-xs font-black uppercase italic text-[#22c55e]">
-                                  🏆 CORTESIA APLICADA — RESERVA GRÁTIS!
+                                  ⚽ CORTESIA APLICADA — RESERVA GRÁTIS!
                                 </p>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase">
                                   Cartão fidelidade resgatado. Contador de jogos foi reduzido em 10.
@@ -2593,7 +2593,7 @@ const AtendenteDashboard = () => {
                                     "text-[8px] font-black px-2 py-0",
                                     fidelOk ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/40" : "bg-white/5 text-gray-400"
                                   )}>
-                                    🏆 {jogosCli}/10
+                                    ⚽ {jogosCli}/10
                                   </Badge>
                                 )}
                               </p>
@@ -2679,7 +2679,7 @@ const AtendenteDashboard = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Jogos Concluídos:</span>
                       <span className={cn("font-black", fidelidadeDisponivel ? "text-[#22c55e]" : "text-white")}>
-                        {jogosCompletos} / 10 {fidelidadeDisponivel && "🏆"}
+                        {jogosCompletos} / 10 {fidelidadeDisponivel && "⚽"}
                       </span>
                     </div>
                   )}
@@ -2708,7 +2708,7 @@ const AtendenteDashboard = () => {
                     {[
                       { value: "dinheiro" as const, label: "Dinheiro", icon: "💵", disabled: false },
                       { value: "pix" as const, label: "PIX", icon: "📱", disabled: false },
-                      { value: "fidelidade" as const, label: "Fidelidade", icon: "🏆", disabled: !fidelidadeDisponivel },
+                      { value: "fidelidade" as const, label: "Fidelidade", icon: "⚽", disabled: !fidelidadeDisponivel },
                     ].map((m) => (
                       <button
                         key={m.value}
@@ -2729,7 +2729,7 @@ const AtendenteDashboard = () => {
                   </div>
                   {liquidarMetodo === "fidelidade" && (
                     <p className="text-[10px] text-[#22c55e] font-bold mt-2 bg-[#22c55e]/10 p-2 rounded-xl border border-[#22c55e]/30">
-                      🏆 Cortesia do cartão fidelidade. Cobre R$ {restante.toFixed(2)} (todo o restante). O contador será reduzido em 10 jogos após confirmação.
+                      ⚽ Cortesia do cartão fidelidade. Cobre R$ {restante.toFixed(2)} (todo o restante). O contador será reduzido em 10 jogos após confirmação.
                     </p>
                   )}
                   {!fidelidadeDisponivel && clienteIdReserva && (
@@ -2824,7 +2824,7 @@ const AtendenteDashboard = () => {
                     }}
                   >
                     {isCarregandoPixFinanceiro ? "Gerando PIX..." :
-                     liquidarMetodo === "fidelidade" ? `🏆 Aplicar Cortesia Fidelidade — R$ ${restante.toFixed(2)}` :
+                     liquidarMetodo === "fidelidade" ? `⚽ Aplicar Cortesia Fidelidade — R$ ${restante.toFixed(2)}` :
                      liquidarMetodo === "pix" ? `Gerar PIX — R$ ${liquidarValorCustom || "0.00"}` :
                      `Confirmar Dinheiro — R$ ${liquidarValorCustom || "0.00"}`}
                   </Button>
