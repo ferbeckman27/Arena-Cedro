@@ -541,6 +541,24 @@ const AtendenteDashboard = () => {
       const clienteId = clienteIdOverride || clienteSelecionadoId || undefined;
       const formaPgto = metodoPgto === "antecipado" ? "antes_do_jogo" : metodoPgto;
 
+      // CARTÃO FIDELIDADE: valida que o cliente tem 10+ jogos antes de criar a reserva
+      if (metodoPgto === "fidelidade") {
+        if (!clienteId) {
+          toast({ variant: "destructive", title: "Cliente obrigatório", description: "Selecione um cliente cadastrado para usar o cartão fidelidade." });
+          setLoading(false);
+          return;
+        }
+        const clienteAlvo = clientes.find((c: any) => c.id === clienteId);
+        if (!clienteAlvo || (clienteAlvo.reservas_concluidas || 0) < 10) {
+          toast({ variant: "destructive", title: "Cartão indisponível", description: `Cliente tem ${clienteAlvo?.reservas_concluidas || 0}/10 jogos.` });
+          setLoading(false);
+          return;
+        }
+      }
+
+      const isFidelidade = metodoPgto === "fidelidade";
+      const valorFinal = isFidelidade ? 0 : totalGeral;
+
       const { data: reserva, error: resError } = await supabase
         .from("reservas")
         .insert([
@@ -550,18 +568,21 @@ const AtendenteDashboard = () => {
             horario_inicio: slotInicio,
             horario_fim: slotFim,
             duracao: duracaoMin,
-            valor_total: totalGeral,
+            valor_total: valorFinal,
             forma_pagamento: formaPgto,
             tipo: tipoReservaAtendente,
             cliente_id: clienteId,
             funcionario_id: funcionarioId || undefined,
             atendente_id: funcionarioId || undefined,
-            pago: false,
-            valor_restante: totalGeral,
+            pago: isFidelidade,
+            valor_restante: isFidelidade ? 0 : totalGeral,
             valor_pago_sinal: 0,
             status: metodoPgto === "pix" ? "pendente" : "confirmada",
             turno_id,
-            observacoes: tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
+            observacoes: isFidelidade
+              ? "🏆 Cortesia Cartão Fidelidade"
+              : tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
+            data_pagamento: isFidelidade ? new Date().toISOString() : undefined,
           },
         ])
         .select()
@@ -585,7 +606,23 @@ const AtendenteDashboard = () => {
         );
       }
 
-      if (metodoPgto === "dinheiro") {
+      if (isFidelidade) {
+        // Resgatar cortesia: subtrai 10 jogos
+        await supabase.rpc("resgatar_fidelidade_cliente", { cli_id: clienteId });
+        // Registra pagamento "cortesia" R$0 para histórico
+        await supabase.from("pagamentos").insert([
+          {
+            reserva_id: reserva.id,
+            valor: 0,
+            status: "aprovado",
+            tipo: "cortesia",
+            forma_pagamento: "fidelidade",
+            data_confirmacao: new Date().toISOString(),
+          },
+        ]);
+        playTorcida();
+        toast({ title: "🏆 Cortesia Aplicada!", description: "Reserva grátis confirmada. Contador de fidelidade reduzido em 10." });
+      } else if (metodoPgto === "dinheiro") {
         playTorcida();
         setIsTermosAberto(true);
         setAceitouTermos(false);
