@@ -2900,7 +2900,11 @@ const AtendenteDashboard = () => {
                                 )}
                               </p>
                               <p className="text-[10px] text-gray-400">
-                                {r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
+                                {r.tipo === "venda_direta" ? (
+                                  <>🛒 Venda Direta — {r.forma_pagamento || "Aguardando baixa"}</>
+                                ) : (
+                                  <>{r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}</>
+                                )}
                               </p>
                             </div>
                             <div className="text-right">
