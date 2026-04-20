@@ -177,6 +177,10 @@ const AtendenteDashboard = () => {
   const [listaPagamentos, setListaPagamentos] = useState<PagamentoRegistrado[]>([]);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
   const [itensReservaMap, setItensReservaMap] = useState<Record<number, any[]>>({});
+  // Carrinho de venda/aluguel DIRETO (sem reserva de horário)
+  const [vendaDiretaCarrinho, setVendaDiretaCarrinho] = useState<any[]>([]);
+  const [vendaDiretaClienteNome, setVendaDiretaClienteNome] = useState("");
+  const [finalizandoVendaDireta, setFinalizandoVendaDireta] = useState(false);
 
   // --- CARREGAMENTO ---
   const buscarDadosIniciais = async () => {
@@ -464,6 +468,138 @@ const AtendenteDashboard = () => {
   };
 
   const totalCarrinho = useMemo(() => itensCarrinho.reduce((acc, item) => acc + item.preco, 0), [itensCarrinho]);
+
+  // ---- VENDA / ALUGUEL DIRETO (sem reserva de horário) ----
+  const adicionarVendaDireta = (produto: any, modo: "venda" | "aluguel") => {
+    const preco = modo === "venda" ? Number(produto.preco_venda || 0) : Number(produto.preco_aluguel || 0);
+    if (preco <= 0) {
+      toast({ variant: "destructive", title: "Sem preço", description: `Não há preço de ${modo} para este produto.` });
+      return;
+    }
+    if ((produto.estoque ?? 0) <= 0) {
+      toast({ variant: "destructive", title: "Sem estoque" });
+      return;
+    }
+    setVendaDiretaCarrinho((prev) => {
+      const idx = prev.findIndex((it) => it.produto_id === produto.id && it.modo === modo);
+      if (idx >= 0) {
+        const copy = [...prev];
+        if (copy[idx].quantidade + 1 > produto.estoque) {
+          toast({ variant: "destructive", title: "Estoque insuficiente" });
+          return prev;
+        }
+        copy[idx] = { ...copy[idx], quantidade: copy[idx].quantidade + 1 };
+        return copy;
+      }
+      return [
+        ...prev,
+        {
+          idUnico: Date.now() + Math.random(),
+          produto_id: produto.id,
+          nome: produto.nome,
+          modo,
+          preco_unitario: preco,
+          quantidade: 1,
+          estoque_max: produto.estoque,
+        },
+      ];
+    });
+  };
+
+  const removerVendaDireta = (idUnico: number) => {
+    setVendaDiretaCarrinho((prev) => prev.filter((it) => it.idUnico !== idUnico));
+  };
+
+  const ajustarQtdVendaDireta = (idUnico: number, delta: number) => {
+    setVendaDiretaCarrinho((prev) =>
+      prev.map((it) => {
+        if (it.idUnico !== idUnico) return it;
+        const nova = it.quantidade + delta;
+        if (nova < 1) return it;
+        if (nova > it.estoque_max) {
+          toast({ variant: "destructive", title: "Estoque insuficiente" });
+          return it;
+        }
+        return { ...it, quantidade: nova };
+      }),
+    );
+  };
+
+  const totalVendaDireta = useMemo(
+    () => vendaDiretaCarrinho.reduce((acc, it) => acc + it.preco_unitario * it.quantidade, 0),
+    [vendaDiretaCarrinho],
+  );
+
+  const finalizarVendaDireta = async () => {
+    if (vendaDiretaCarrinho.length === 0) {
+      toast({ variant: "destructive", title: "Carrinho vazio" });
+      return;
+    }
+    setFinalizandoVendaDireta(true);
+    try {
+      const nomeCliente = vendaDiretaClienteNome.trim() || "Balcão";
+      const hojeStr = new Date().toLocaleDateString("sv-SE");
+      const agoraHora = new Date().toTimeString().slice(0, 5);
+
+      const { data: reserva, error: resErr } = await supabase
+        .from("reservas")
+        .insert([
+          {
+            cliente_nome: nomeCliente,
+            data_reserva: hojeStr,
+            horario_inicio: agoraHora,
+            horario_fim: agoraHora,
+            duracao: 0,
+            valor_total: totalVendaDireta,
+            valor_restante: totalVendaDireta,
+            valor_pago_sinal: 0,
+            tipo: "venda_direta",
+            status: "confirmada",
+            pago: false,
+            funcionario_id: funcionarioId || undefined,
+            atendente_id: funcionarioId || undefined,
+            observacoes: "🛒 Venda/Aluguel direto de balcão",
+          },
+        ])
+        .select()
+        .single();
+
+      if (resErr) throw resErr;
+
+      const itensPayload = vendaDiretaCarrinho.map((it) => ({
+        reserva_id: reserva.id,
+        produto_id: it.produto_id,
+        tipo: it.modo,
+        quantidade: it.quantidade,
+        preco_unitario: it.preco_unitario,
+        subtotal: it.preco_unitario * it.quantidade,
+        pago: false,
+      }));
+      const { error: itErr } = await supabase.from("itens_reserva").insert(itensPayload);
+      if (itErr) throw itErr;
+
+      // Baixa estoque (venda e aluguel saem do estoque; aluguel volta via devolução)
+      for (const it of vendaDiretaCarrinho) {
+        const prod = produtos.find((p) => p.id === it.produto_id);
+        if (prod) {
+          const novoEst = Math.max((prod.estoque || 0) - it.quantidade, 0);
+          await supabase.from("produtos").update({ quantidade_estoque: novoEst }).eq("id", it.produto_id);
+        }
+      }
+
+      toast({
+        title: "🛒 Venda registrada!",
+        description: `Aguardando baixa no Financeiro — Total R$ ${totalVendaDireta.toFixed(2)}.`,
+      });
+      setVendaDiretaCarrinho([]);
+      setVendaDiretaClienteNome("");
+      buscarDadosIniciais();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao finalizar", description: e.message });
+    } finally {
+      setFinalizandoVendaDireta(false);
+    }
+  };
 
   // Cadastrar novo cliente
   const handleCadastrarCliente = async (): Promise<{
@@ -2132,70 +2268,202 @@ const AtendenteDashboard = () => {
 
           {/* PRODUTOS */}
           <TabsContent value="produtos">
-            <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem]">
-              <h3 className="text-xl font-black italic uppercase flex items-center gap-2 text-white mb-6">
-                <Package className="text-[#22c55e]" /> Produtos / Estoque
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {produtos.map((item) => (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "p-5 bg-white/5 border rounded-[2rem] flex flex-col justify-between transition-all",
-                      item.estoque <= 5 ? "border-red-500/30 bg-red-500/5" : "border-white/10",
-                    )}
-                  >
-                    <div>
-                      <Badge
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* GRID DE PRODUTOS */}
+              <Card className="bg-[#0c120f] border-white/5 p-6 rounded-[2.5rem] lg:col-span-2">
+                <h3 className="text-xl font-black italic uppercase flex items-center gap-2 text-white mb-6">
+                  <Package className="text-[#22c55e]" /> Produtos / Estoque
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {produtos.map((item) => {
+                    const podeVender = (item.tipo === "venda" || item.tipo === "ambos") && Number(item.preco_venda || 0) > 0;
+                    const podeAlugar = (item.tipo === "aluguel" || item.tipo === "ambos") && Number(item.preco_aluguel || 0) > 0;
+                    return (
+                      <div
+                        key={item.id}
                         className={cn(
-                          "text-[9px] font-black uppercase",
-                          item.tipo === "venda" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400",
+                          "p-5 bg-white/5 border rounded-[2rem] flex flex-col justify-between transition-all",
+                          item.estoque <= 5 ? "border-red-500/30 bg-red-500/5" : "border-white/10",
                         )}
                       >
-                        {item.tipo}
-                      </Badge>
-                      <p className="font-black italic uppercase text-white text-lg mt-3">{item.nome}</p>
-                      <div className="mt-2 space-y-1">
-                        {(item.tipo === "venda" || item.tipo === "ambos") &&
-                          item.preco_venda &&
-                          item.preco_venda > 0 && (
-                            <p className="text-[#22c55e] font-black text-sm">
-                              Venda: R$ {Number(item.preco_venda).toFixed(2)}
-                            </p>
+                        <div>
+                          <Badge
+                            className={cn(
+                              "text-[9px] font-black uppercase",
+                              item.tipo === "venda"
+                                ? "bg-blue-500/20 text-blue-400"
+                                : item.tipo === "ambos"
+                                ? "bg-[#22c55e]/20 text-[#22c55e]"
+                                : "bg-purple-500/20 text-purple-400",
+                            )}
+                          >
+                            {item.tipo}
+                          </Badge>
+                          <p className="font-black italic uppercase text-white text-lg mt-3">{item.nome}</p>
+                          <div className="mt-2 space-y-1">
+                            {podeVender && (
+                              <p className="text-[#22c55e] font-black text-sm">
+                                Venda: R$ {Number(item.preco_venda).toFixed(2)}
+                              </p>
+                            )}
+                            {podeAlugar && (
+                              <p className="text-purple-400 font-black text-sm">
+                                Aluguel: R$ {Number(item.preco_aluguel).toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          <div className="flex justify-between items-center px-1">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase">Disponível</span>
+                            <span className={cn("text-sm font-black", item.estoque <= 5 ? "text-red-500" : "text-white")}>
+                              {item.estoque} UN
+                            </span>
+                          </div>
+                          {item.estoque === 0 ? (
+                            <Button disabled className="w-full h-10 rounded-xl font-black uppercase text-xs bg-white/5 text-gray-600">
+                              Esgotado
+                            </Button>
+                          ) : (
+                            <div className="flex gap-2">
+                              {podeVender && (
+                                <Button
+                                  className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] bg-[#22c55e]/15 text-[#22c55e] hover:bg-[#22c55e] hover:text-black"
+                                  onClick={() => adicionarVendaDireta(item, "venda")}
+                                >
+                                  + Vender
+                                </Button>
+                              )}
+                              {podeAlugar && (
+                                <Button
+                                  className="flex-1 h-10 rounded-xl font-black uppercase text-[10px] bg-purple-500/15 text-purple-300 hover:bg-purple-500 hover:text-white"
+                                  onClick={() => adicionarVendaDireta(item, "aluguel")}
+                                >
+                                  + Alugar
+                                </Button>
+                              )}
+                            </div>
                           )}
-                        {(item.tipo === "aluguel" || item.tipo === "ambos") &&
-                          item.preco_aluguel &&
-                          item.preco_aluguel > 0 && (
-                            <p className="text-purple-400 font-black text-sm">
-                              Aluguel: R$ {Number(item.preco_aluguel).toFixed(2)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* CARRINHO LATERAL */}
+              <Card className="bg-[#0c120f] border-white/5 rounded-[2.5rem] p-6 h-fit lg:sticky lg:top-4">
+                <h3 className="text-xl font-black italic uppercase flex items-center gap-2 text-white mb-4">
+                  <ShoppingBag className="text-[#22c55e]" /> Carrinho
+                  {vendaDiretaCarrinho.length > 0 && (
+                    <Badge className="bg-[#22c55e] text-black text-[10px]">{vendaDiretaCarrinho.length}</Badge>
+                  )}
+                </h3>
+
+                <div className="mb-4">
+                  <Label className="text-[10px] uppercase font-black text-gray-400">Cliente (opcional)</Label>
+                  <Input
+                    placeholder="Nome do cliente ou 'Balcão'"
+                    value={vendaDiretaClienteNome}
+                    onChange={(e) => setVendaDiretaClienteNome(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white mt-1"
+                  />
+                </div>
+
+                {vendaDiretaCarrinho.length === 0 ? (
+                  <p className="text-center text-gray-500 text-xs py-8">
+                    Adicione produtos clicando em <span className="text-[#22c55e] font-black">+ Vender</span> ou{" "}
+                    <span className="text-purple-300 font-black">+ Alugar</span>.
+                  </p>
+                ) : (
+                  <ScrollArea className="max-h-[340px] pr-2">
+                    <ul className="space-y-2">
+                      {vendaDiretaCarrinho.map((it) => (
+                        <li
+                          key={it.idUnico}
+                          className="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col gap-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-black text-white truncate">{it.nome}</p>
+                              <Badge
+                                className={cn(
+                                  "text-[8px] font-black mt-1",
+                                  it.modo === "venda"
+                                    ? "bg-[#22c55e]/20 text-[#22c55e]"
+                                    : "bg-purple-500/20 text-purple-300",
+                                )}
+                              >
+                                {it.modo === "venda" ? "VENDA" : "ALUGUEL"}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                              onClick={() => removerVendaDireta(it.idUnico)}
+                              title="Remover"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-7 w-7 border-white/10 bg-white/5 text-white hover:bg-white/10"
+                                onClick={() => ajustarQtdVendaDireta(it.idUnico, -1)}
+                              >
+                                −
+                              </Button>
+                              <span className="text-sm font-black text-white w-6 text-center">{it.quantidade}</span>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-7 w-7 border-white/10 bg-white/5 text-white hover:bg-white/10"
+                                onClick={() => ajustarQtdVendaDireta(it.idUnico, 1)}
+                              >
+                                +
+                              </Button>
+                            </div>
+                            <p className="text-sm font-black text-[#22c55e]">
+                              R$ {(it.preco_unitario * it.quantidade).toFixed(2)}
                             </p>
-                          )}
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex justify-between items-center px-1 mb-2">
-                        <span className="text-[10px] font-bold text-gray-500 uppercase">Disponível</span>
-                        <span className={cn("text-sm font-black", item.estoque <= 5 ? "text-red-500" : "text-white")}>
-                          {item.estoque} UN
-                        </span>
-                      </div>
-                      <Button
-                        disabled={item.estoque === 0}
-                        className={cn(
-                          "w-full h-12 rounded-xl font-black uppercase text-xs",
-                          item.estoque === 0
-                            ? "bg-white/5 text-gray-600"
-                            : "bg-white/10 hover:bg-[#22c55e] hover:text-black",
-                        )}
-                        onClick={() => adicionarAoCarrinho(item)}
-                      >
-                        {item.estoque === 0 ? "Esgotado" : "Adicionar"}
-                      </Button>
-                    </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                )}
+
+                <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs uppercase font-black text-gray-400">Total</span>
+                    <span className="text-2xl font-black text-[#22c55e]">R$ {totalVendaDireta.toFixed(2)}</span>
                   </div>
-                ))}
-              </div>
-            </Card>
+                  <Button
+                    disabled={vendaDiretaCarrinho.length === 0 || finalizandoVendaDireta}
+                    className="w-full h-12 rounded-xl font-black uppercase text-xs bg-[#22c55e] text-black hover:bg-[#16a34a]"
+                    onClick={finalizarVendaDireta}
+                  >
+                    {finalizandoVendaDireta ? "Processando..." : "🛒 Finalizar — Ir p/ Financeiro"}
+                  </Button>
+                  {vendaDiretaCarrinho.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      className="w-full h-9 text-[10px] uppercase font-bold text-gray-400 hover:text-red-400 hover:bg-red-500/10"
+                      onClick={() => setVendaDiretaCarrinho([])}
+                    >
+                      <Trash2 size={12} className="mr-1" /> Esvaziar carrinho
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[9px] text-gray-500 text-center mt-3">
+                  ℹ️ A venda gerará uma entrada no <b>Financeiro</b> para baixa do pagamento. Aluguéis precisarão ser devolvidos depois.
+                </p>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* CLIENTES com cores/fidelidade */}
@@ -2632,7 +2900,11 @@ const AtendenteDashboard = () => {
                                 )}
                               </p>
                               <p className="text-[10px] text-gray-400">
-                                {r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}
+                                {r.tipo === "venda_direta" ? (
+                                  <>🛒 Venda Direta — {r.forma_pagamento || "Aguardando baixa"}</>
+                                ) : (
+                                  <>{r.horario_inicio?.slice(0, 5)} às {r.horario_fim?.slice(0, 5) || "--:--"} — {r.tipo === "pacote" ? "Pacote" : "Avulsa"} — {r.forma_pagamento || "—"}</>
+                                )}
                               </p>
                             </div>
                             <div className="text-right">
