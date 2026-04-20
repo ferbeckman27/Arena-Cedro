@@ -813,14 +813,23 @@ const AtendenteDashboard = () => {
 
       // Recalcular total pago a partir de TODOS os pagamentos confirmados
       // (PIX = "pago" via webhook MP, dinheiro = "aprovado")
+      // DEDUPLICA por id_mercado_pago para evitar somar PIX duplicados
       const { data: pagamentos } = await supabase
         .from("pagamentos")
-        .select("valor")
+        .select("valor, forma_pagamento, id_mercado_pago")
         .eq("reserva_id", id)
         .in("status", ["aprovado", "pago"]);
-      const totalJaPago = pagamentos?.reduce((a, p) => a + Number(p.valor), 0) || 0;
+      const seenMP = new Set<string>();
+      const pagamentosUnicos = (pagamentos || []).filter((p: any) => {
+        if (p.forma_pagamento === "pix" && p.id_mercado_pago) {
+          if (seenMP.has(p.id_mercado_pago)) return false;
+          seenMP.add(p.id_mercado_pago);
+        }
+        return true;
+      });
+      const totalJaPago = pagamentosUnicos.reduce((a, p: any) => a + Number(p.valor), 0);
       const valorRestante = Math.max(Number(reserva?.valor_total || 0) - totalJaPago, 0);
-      const pagamentoCompleto = valorRestante <= 0;
+      const pagamentoCompleto = valorRestante <= 0 && totalJaPago > 0;
 
       const updateData: any = {
         valor_pago_sinal: totalJaPago,
