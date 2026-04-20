@@ -469,6 +469,138 @@ const AtendenteDashboard = () => {
 
   const totalCarrinho = useMemo(() => itensCarrinho.reduce((acc, item) => acc + item.preco, 0), [itensCarrinho]);
 
+  // ---- VENDA / ALUGUEL DIRETO (sem reserva de horário) ----
+  const adicionarVendaDireta = (produto: any, modo: "venda" | "aluguel") => {
+    const preco = modo === "venda" ? Number(produto.preco_venda || 0) : Number(produto.preco_aluguel || 0);
+    if (preco <= 0) {
+      toast({ variant: "destructive", title: "Sem preço", description: `Não há preço de ${modo} para este produto.` });
+      return;
+    }
+    if ((produto.estoque ?? 0) <= 0) {
+      toast({ variant: "destructive", title: "Sem estoque" });
+      return;
+    }
+    setVendaDiretaCarrinho((prev) => {
+      const idx = prev.findIndex((it) => it.produto_id === produto.id && it.modo === modo);
+      if (idx >= 0) {
+        const copy = [...prev];
+        if (copy[idx].quantidade + 1 > produto.estoque) {
+          toast({ variant: "destructive", title: "Estoque insuficiente" });
+          return prev;
+        }
+        copy[idx] = { ...copy[idx], quantidade: copy[idx].quantidade + 1 };
+        return copy;
+      }
+      return [
+        ...prev,
+        {
+          idUnico: Date.now() + Math.random(),
+          produto_id: produto.id,
+          nome: produto.nome,
+          modo,
+          preco_unitario: preco,
+          quantidade: 1,
+          estoque_max: produto.estoque,
+        },
+      ];
+    });
+  };
+
+  const removerVendaDireta = (idUnico: number) => {
+    setVendaDiretaCarrinho((prev) => prev.filter((it) => it.idUnico !== idUnico));
+  };
+
+  const ajustarQtdVendaDireta = (idUnico: number, delta: number) => {
+    setVendaDiretaCarrinho((prev) =>
+      prev.map((it) => {
+        if (it.idUnico !== idUnico) return it;
+        const nova = it.quantidade + delta;
+        if (nova < 1) return it;
+        if (nova > it.estoque_max) {
+          toast({ variant: "destructive", title: "Estoque insuficiente" });
+          return it;
+        }
+        return { ...it, quantidade: nova };
+      }),
+    );
+  };
+
+  const totalVendaDireta = useMemo(
+    () => vendaDiretaCarrinho.reduce((acc, it) => acc + it.preco_unitario * it.quantidade, 0),
+    [vendaDiretaCarrinho],
+  );
+
+  const finalizarVendaDireta = async () => {
+    if (vendaDiretaCarrinho.length === 0) {
+      toast({ variant: "destructive", title: "Carrinho vazio" });
+      return;
+    }
+    setFinalizandoVendaDireta(true);
+    try {
+      const nomeCliente = vendaDiretaClienteNome.trim() || "Balcão";
+      const hojeStr = new Date().toLocaleDateString("sv-SE");
+      const agoraHora = new Date().toTimeString().slice(0, 5);
+
+      const { data: reserva, error: resErr } = await supabase
+        .from("reservas")
+        .insert([
+          {
+            cliente_nome: nomeCliente,
+            data_reserva: hojeStr,
+            horario_inicio: agoraHora,
+            horario_fim: agoraHora,
+            duracao: 0,
+            valor_total: totalVendaDireta,
+            valor_restante: totalVendaDireta,
+            valor_pago_sinal: 0,
+            tipo: "venda_direta",
+            status: "confirmada",
+            pago: false,
+            funcionario_id: funcionarioId || undefined,
+            atendente_id: funcionarioId || undefined,
+            observacoes: "🛒 Venda/Aluguel direto de balcão",
+          },
+        ])
+        .select()
+        .single();
+
+      if (resErr) throw resErr;
+
+      const itensPayload = vendaDiretaCarrinho.map((it) => ({
+        reserva_id: reserva.id,
+        produto_id: it.produto_id,
+        tipo: it.modo,
+        quantidade: it.quantidade,
+        preco_unitario: it.preco_unitario,
+        subtotal: it.preco_unitario * it.quantidade,
+        pago: false,
+      }));
+      const { error: itErr } = await supabase.from("itens_reserva").insert(itensPayload);
+      if (itErr) throw itErr;
+
+      // Baixa estoque (venda e aluguel saem do estoque; aluguel volta via devolução)
+      for (const it of vendaDiretaCarrinho) {
+        const prod = produtos.find((p) => p.id === it.produto_id);
+        if (prod) {
+          const novoEst = Math.max((prod.estoque || 0) - it.quantidade, 0);
+          await supabase.from("produtos").update({ quantidade_estoque: novoEst }).eq("id", it.produto_id);
+        }
+      }
+
+      toast({
+        title: "🛒 Venda registrada!",
+        description: `Aguardando baixa no Financeiro — Total R$ ${totalVendaDireta.toFixed(2)}.`,
+      });
+      setVendaDiretaCarrinho([]);
+      setVendaDiretaClienteNome("");
+      buscarDadosIniciais();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao finalizar", description: e.message });
+    } finally {
+      setFinalizandoVendaDireta(false);
+    }
+  };
+
   // Cadastrar novo cliente
   const handleCadastrarCliente = async (): Promise<{
     id: number;
