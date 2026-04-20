@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
         "X-Idempotency-Key": `arena-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       },
       body: JSON.stringify({
-        transaction_amount: valorComDesconto > 0 ? valorComDesconto : valorOriginal,
+        transaction_amount: valorComDesconto,
         description: descricaoFinal,
         payment_method_id: "pix",
         installments: 1,
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     }
 
     const mpData = await mpResponse.json();
-    const valorFinalPago = valorComDesconto > 0 ? valorComDesconto : valorOriginal;
+    const valorFinalPago = valorComDesconto;
 
     // Salva o pagamento no banco
     if (reserva_id) {
@@ -117,10 +117,11 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
 
-      // Para pagamento PARCIAL (dar baixa do financeiro), NÃO sobrescrever
-      // valor_total nem valor_restante — o valor da reserva já está correto
-      // e o restante será calculado a partir dos pagamentos.
-      if (tipo_pagamento !== "parcial") {
+      // SOMENTE para pagamento "integral" (PIX integral com desconto), atualiza
+      // valor_sinal/valor_restante/valor_total da reserva.
+      // Para "adiantamento" e "parcial": NÃO mexer no valor_total para preservar
+      // o valor original da reserva.
+      if (tipo_pagamento === "integral") {
         await supabase
           .from("reservas")
           .update({
