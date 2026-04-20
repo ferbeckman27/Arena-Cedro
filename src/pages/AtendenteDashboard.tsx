@@ -304,7 +304,27 @@ const AtendenteDashboard = () => {
       .order("created_at", { ascending: false });
     if (data) setListaReservas(data as unknown as ReservaCompleta[]);
     const { data: pgtos } = await supabase.from("pagamentos").select("*").in("status", ["aprovado", "pago"]);
-    if (pgtos) setListaPagamentos(pgtos as unknown as PagamentoRegistrado[]);
+    if (pgtos) {
+      // DEDUPLICAÇÃO: Evita contar PIX duplicados (mesmo id_mercado_pago aparecendo
+      // como "pago" via webhook e como "aprovado" inserido manualmente).
+      const seenMP = new Set<string>();
+      const seenOrphanPix = new Set<number>();
+      const dedup = (pgtos as any[]).filter((p) => {
+        if (p.forma_pagamento === "pix") {
+          if (p.id_mercado_pago) {
+            const key = `${p.reserva_id}-${p.id_mercado_pago}`;
+            if (seenMP.has(key)) return false;
+            seenMP.add(key);
+            return true;
+          }
+          // PIX sem id_mercado_pago = legado/órfão: conta só 1 por reserva
+          if (seenOrphanPix.has(p.reserva_id)) return false;
+          seenOrphanPix.add(p.reserva_id);
+        }
+        return true;
+      });
+      setListaPagamentos(dedup as unknown as PagamentoRegistrado[]);
+    }
   };
 
   useEffect(() => {
@@ -793,14 +813,23 @@ const AtendenteDashboard = () => {
 
       // Recalcular total pago a partir de TODOS os pagamentos confirmados
       // (PIX = "pago" via webhook MP, dinheiro = "aprovado")
+      // DEDUPLICA por id_mercado_pago para evitar somar PIX duplicados
       const { data: pagamentos } = await supabase
         .from("pagamentos")
-        .select("valor")
+        .select("valor, forma_pagamento, id_mercado_pago")
         .eq("reserva_id", id)
         .in("status", ["aprovado", "pago"]);
-      const totalJaPago = pagamentos?.reduce((a, p) => a + Number(p.valor), 0) || 0;
+      const seenMP = new Set<string>();
+      const pagamentosUnicos = (pagamentos || []).filter((p: any) => {
+        if (p.forma_pagamento === "pix" && p.id_mercado_pago) {
+          if (seenMP.has(p.id_mercado_pago)) return false;
+          seenMP.add(p.id_mercado_pago);
+        }
+        return true;
+      });
+      const totalJaPago = pagamentosUnicos.reduce((a, p: any) => a + Number(p.valor), 0);
       const valorRestante = Math.max(Number(reserva?.valor_total || 0) - totalJaPago, 0);
-      const pagamentoCompleto = valorRestante <= 0;
+      const pagamentoCompleto = valorRestante <= 0 && totalJaPago > 0;
 
       const updateData: any = {
         valor_pago_sinal: totalJaPago,
@@ -2770,10 +2799,22 @@ const AtendenteDashboard = () => {
                       <button
                         key={m.value}
                         disabled={m.disabled}
-                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); if (m.value === "fidelidade") setLiquidarValorCustom(restante.toFixed(2)); }}
+                        onClick={() => {
+                          if (m.value === "fidelidade" && !fidelidadeDisponivel) {
+                            if (!clienteIdReserva) {
+                              toast({ variant: "destructive", title: "Sem cliente cadastrado", description: "Esta reserva não tem atleta cadastrado. Cartão fidelidade só funciona com clientes cadastrados." });
+                            } else {
+                              toast({ variant: "destructive", title: "⚽ Cartão indisponível", description: `${nomeCliente} tem ${jogosCompletos}/10 jogos. Faltam ${10 - jogosCompletos} jogos para liberar a cortesia.` });
+                            }
+                            return;
+                          }
+                          setLiquidarMetodo(m.value);
+                          limparPixFinanceiro();
+                          if (m.value === "fidelidade") setLiquidarValorCustom(restante.toFixed(2));
+                        }}
                         className={cn(
                           "p-3 rounded-xl border-2 text-center transition-all",
-                          m.disabled && "opacity-40 cursor-not-allowed",
+                          m.disabled && "opacity-40",
                           liquidarMetodo === m.value
                             ? "border-[#22c55e] bg-[#22c55e]/10"
                             : "border-white/10 hover:border-white/20"
@@ -2781,12 +2822,20 @@ const AtendenteDashboard = () => {
                       >
                         <p className="text-lg">{m.icon}</p>
                         <p className="text-[9px] font-black uppercase text-white">{m.label}</p>
+                        {m.value === "fidelidade" && !fidelidadeDisponivel && clienteIdReserva && (
+                          <p className="text-[7px] text-yellow-400 font-bold mt-0.5">{jogosCompletos}/10</p>
+                        )}
                       </button>
                     ))}
                   </div>
-                  {liquidarMetodo === "fidelidade" && (
+                  {liquidarMetodo === "fidelidade" && fidelidadeDisponivel && (
                     <p className="text-[10px] text-[#22c55e] font-bold mt-2 bg-[#22c55e]/10 p-2 rounded-xl border border-[#22c55e]/30">
                       ⚽ Cortesia do cartão fidelidade. Cobre R$ {restante.toFixed(2)} (todo o restante). O contador será reduzido em 10 jogos após confirmação.
+                    </p>
+                  )}
+                  {!fidelidadeDisponivel && clienteIdReserva && (
+                    <p className="text-[10px] text-yellow-400 font-bold mt-2 bg-yellow-500/5 p-2 rounded-xl border border-yellow-500/20">
+                      ⚽ Fidelidade: {nomeCliente} tem {jogosCompletos}/10 jogos. Faltam {10 - jogosCompletos} jogos para liberar cortesia.
                     </p>
                   )}
                   {!fidelidadeDisponivel && clienteIdReserva && (
