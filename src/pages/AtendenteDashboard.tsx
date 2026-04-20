@@ -304,7 +304,27 @@ const AtendenteDashboard = () => {
       .order("created_at", { ascending: false });
     if (data) setListaReservas(data as unknown as ReservaCompleta[]);
     const { data: pgtos } = await supabase.from("pagamentos").select("*").in("status", ["aprovado", "pago"]);
-    if (pgtos) setListaPagamentos(pgtos as unknown as PagamentoRegistrado[]);
+    if (pgtos) {
+      // DEDUPLICAÇÃO: Evita contar PIX duplicados (mesmo id_mercado_pago aparecendo
+      // como "pago" via webhook e como "aprovado" inserido manualmente).
+      const seenMP = new Set<string>();
+      const seenOrphanPix = new Set<number>();
+      const dedup = (pgtos as any[]).filter((p) => {
+        if (p.forma_pagamento === "pix") {
+          if (p.id_mercado_pago) {
+            const key = `${p.reserva_id}-${p.id_mercado_pago}`;
+            if (seenMP.has(key)) return false;
+            seenMP.add(key);
+            return true;
+          }
+          // PIX sem id_mercado_pago = legado/órfão: conta só 1 por reserva
+          if (seenOrphanPix.has(p.reserva_id)) return false;
+          seenOrphanPix.add(p.reserva_id);
+        }
+        return true;
+      });
+      setListaPagamentos(dedup as unknown as PagamentoRegistrado[]);
+    }
   };
 
   useEffect(() => {
