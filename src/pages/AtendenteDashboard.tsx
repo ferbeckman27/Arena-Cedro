@@ -177,6 +177,10 @@ const AtendenteDashboard = () => {
   const [listaPagamentos, setListaPagamentos] = useState<PagamentoRegistrado[]>([]);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
   const [itensReservaMap, setItensReservaMap] = useState<Record<number, any[]>>({});
+  // Carrinho de venda/aluguel DIRETO (sem reserva de horário)
+  const [vendaDiretaCarrinho, setVendaDiretaCarrinho] = useState<any[]>([]);
+  const [vendaDiretaClienteNome, setVendaDiretaClienteNome] = useState("");
+  const [finalizandoVendaDireta, setFinalizandoVendaDireta] = useState(false);
 
   // --- CARREGAMENTO ---
   const buscarDadosIniciais = async () => {
