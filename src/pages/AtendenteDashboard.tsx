@@ -2799,10 +2799,22 @@ const AtendenteDashboard = () => {
                       <button
                         key={m.value}
                         disabled={m.disabled}
-                        onClick={() => { setLiquidarMetodo(m.value); limparPixFinanceiro(); if (m.value === "fidelidade") setLiquidarValorCustom(restante.toFixed(2)); }}
+                        onClick={() => {
+                          if (m.value === "fidelidade" && !fidelidadeDisponivel) {
+                            if (!clienteIdReserva) {
+                              toast({ variant: "destructive", title: "Sem cliente cadastrado", description: "Esta reserva não tem atleta cadastrado. Cartão fidelidade só funciona com clientes cadastrados." });
+                            } else {
+                              toast({ variant: "destructive", title: "⚽ Cartão indisponível", description: `${nomeCliente} tem ${jogosCompletos}/10 jogos. Faltam ${10 - jogosCompletos} jogos para liberar a cortesia.` });
+                            }
+                            return;
+                          }
+                          setLiquidarMetodo(m.value);
+                          limparPixFinanceiro();
+                          if (m.value === "fidelidade") setLiquidarValorCustom(restante.toFixed(2));
+                        }}
                         className={cn(
                           "p-3 rounded-xl border-2 text-center transition-all",
-                          m.disabled && "opacity-40 cursor-not-allowed",
+                          m.disabled && "opacity-40",
                           liquidarMetodo === m.value
                             ? "border-[#22c55e] bg-[#22c55e]/10"
                             : "border-white/10 hover:border-white/20"
@@ -2810,12 +2822,20 @@ const AtendenteDashboard = () => {
                       >
                         <p className="text-lg">{m.icon}</p>
                         <p className="text-[9px] font-black uppercase text-white">{m.label}</p>
+                        {m.value === "fidelidade" && !fidelidadeDisponivel && clienteIdReserva && (
+                          <p className="text-[7px] text-yellow-400 font-bold mt-0.5">{jogosCompletos}/10</p>
+                        )}
                       </button>
                     ))}
                   </div>
-                  {liquidarMetodo === "fidelidade" && (
+                  {liquidarMetodo === "fidelidade" && fidelidadeDisponivel && (
                     <p className="text-[10px] text-[#22c55e] font-bold mt-2 bg-[#22c55e]/10 p-2 rounded-xl border border-[#22c55e]/30">
                       ⚽ Cortesia do cartão fidelidade. Cobre R$ {restante.toFixed(2)} (todo o restante). O contador será reduzido em 10 jogos após confirmação.
+                    </p>
+                  )}
+                  {!fidelidadeDisponivel && clienteIdReserva && (
+                    <p className="text-[10px] text-yellow-400 font-bold mt-2 bg-yellow-500/5 p-2 rounded-xl border border-yellow-500/20">
+                      ⚽ Fidelidade: {nomeCliente} tem {jogosCompletos}/10 jogos. Faltam {10 - jogosCompletos} jogos para liberar cortesia.
                     </p>
                   )}
                   {!fidelidadeDisponivel && clienteIdReserva && (
