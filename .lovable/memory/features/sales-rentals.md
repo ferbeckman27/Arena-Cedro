@@ -16,3 +16,8 @@ Produtos podem ser vendidos/alugados de duas formas:
    - Aluguéis pendentes mostram botão "📦 Devolver ao Estoque" no Financeiro, que chama RPC `devolver_estoque_aluguel` (incrementa estoque + marca itens como `pago=true`).
 
 Label no Financeiro: reservas com `tipo='venda_direta'` aparecem como "🛒 Venda Direta" em vez do horário.
+
+## Pacote 4 jogos — regra de desconto
+- Desconto de R$40 (R$10 por jogo) **só** se aplica quando o método é **PIX** ou **Dinheiro** (pagamento antecipado/no ato).
+- **"Antes do jogo"** (pagamento na hora) e **"Fidelidade"** **NÃO** recebem desconto: cobra o valor cheio do pacote.
+- Cálculo em `handleAgendar` e UI de resumo usam `aplicaDescontoPacote = tipo === 'pacote' && (metodo === 'pix' || metodo === 'dinheiro')`.
