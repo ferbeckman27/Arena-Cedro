@@ -429,14 +429,6 @@ const AtendenteDashboard = () => {
       const reservaEncontrada = listaReservas?.find((r) => {
         if (r.data_reserva === dataFormatada && r.horario_inicio === slot.inicio && r.status !== "cancelada")
           return true;
-        if (r.tipo === "pacote" && r.horario_inicio === slot.inicio && r.status !== "cancelada") {
-          const reservaDate = new Date(r.data_reserva + "T00:00:00");
-          const slotDate = new Date(dataFormatada + "T00:00:00");
-          if (reservaDate.getDay() === slotDate.getDay()) {
-            const diffDays = Math.abs((slotDate.getTime() - reservaDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays > 0 && diffDays <= 28 && diffDays % 7 === 0) return true;
-          }
-        }
         return false;
       });
       let slotStatus = "livre";
@@ -719,40 +711,64 @@ const AtendenteDashboard = () => {
       const isFidelidade = metodoPgto === "fidelidade";
       const valorFinal = isFidelidade ? 0 : totalGeral;
 
-      const { data: reserva, error: resError } = await supabase
+      // Para pacote, gerar 4 datas (mesmo dia do mês, próximos 4 meses incluindo a data escolhida)
+      const isPacote = tipoReservaAtendente === "pacote";
+      const datasReserva: string[] = [];
+      if (isPacote) {
+        const baseDate = new Date(diaSelecionado);
+        const diaOriginal = baseDate.getDate();
+        for (let i = 0; i < 4; i++) {
+          const novaData = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, diaOriginal);
+          // Se o mês não tem o dia (ex: 31), pula para o último dia válido (já tratado pelo Date)
+          datasReserva.push(novaData.toLocaleDateString("sv-SE"));
+        }
+      } else {
+        datasReserva.push(diaSelecionado.toLocaleDateString("sv-SE"));
+      }
+
+      // Valor por jogo (pacote) ou valor total (avulsa)
+      const valorPorJogo = isPacote ? valorFinal / 4 : valorFinal;
+      const restantePorJogo = isPacote ? totalGeral / 4 : totalGeral;
+      // Tag única para vincular as 4 reservas do mesmo pacote
+      const pacoteTag = isPacote ? `[PACOTE-${Date.now()}]` : "";
+
+      const reservasParaInserir = datasReserva.map((dataRes, idx) => ({
+        cliente_nome: clienteNome,
+        data_reserva: dataRes,
+        horario_inicio: slotInicio,
+        horario_fim: slotFim,
+        duracao: duracaoMin,
+        valor_total: valorPorJogo,
+        forma_pagamento: formaPgto,
+        tipo: tipoReservaAtendente,
+        cliente_id: clienteId,
+        funcionario_id: funcionarioId || undefined,
+        atendente_id: funcionarioId || undefined,
+        pago: isFidelidade,
+        valor_restante: isFidelidade ? 0 : restantePorJogo,
+        valor_pago_sinal: 0,
+        status: metodoPgto === "pix" ? "pendente" : "confirmada",
+        turno_id,
+        observacoes: isFidelidade
+          ? "⚽ Cortesia Cartão Fidelidade"
+          : isPacote
+            ? `Pacote 4 jogos - Jogo ${idx + 1}/4 ${pacoteTag}`
+            : undefined,
+        data_pagamento: isFidelidade ? new Date().toISOString() : undefined,
+      }));
+
+      const { data: reservasInseridas, error: resError } = await supabase
         .from("reservas")
-        .insert([
-          {
-            cliente_nome: clienteNome,
-            data_reserva: diaSelecionado.toLocaleDateString("sv-SE"),
-            horario_inicio: slotInicio,
-            horario_fim: slotFim,
-            duracao: duracaoMin,
-            valor_total: valorFinal,
-            forma_pagamento: formaPgto,
-            tipo: tipoReservaAtendente,
-            cliente_id: clienteId,
-            funcionario_id: funcionarioId || undefined,
-            atendente_id: funcionarioId || undefined,
-            pago: isFidelidade,
-            valor_restante: isFidelidade ? 0 : totalGeral,
-            valor_pago_sinal: 0,
-            status: metodoPgto === "pix" ? "pendente" : "confirmada",
-            turno_id,
-            observacoes: isFidelidade
-              ? "⚽ Cortesia Cartão Fidelidade"
-              : tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : undefined,
-            data_pagamento: isFidelidade ? new Date().toISOString() : undefined,
-          },
-        ])
-        .select()
-        .single();
+        .insert(reservasParaInserir)
+        .select();
 
       if (resError) throw resError;
 
+      const reserva = reservasInseridas[0];
       setReservaIdAtual(reserva.id);
       setReservaCriada(true);
 
+      // Itens de carrinho vinculados apenas à primeira reserva (jogo 1)
       if (itensCarrinho.length > 0) {
         await supabase.from("itens_reserva").insert(
           itensCarrinho.map((item) => ({
