@@ -429,14 +429,6 @@ const AtendenteDashboard = () => {
       const reservaEncontrada = listaReservas?.find((r) => {
         if (r.data_reserva === dataFormatada && r.horario_inicio === slot.inicio && r.status !== "cancelada")
           return true;
-        if (r.tipo === "pacote" && r.horario_inicio === slot.inicio && r.status !== "cancelada") {
-          const reservaDate = new Date(r.data_reserva + "T00:00:00");
-          const slotDate = new Date(dataFormatada + "T00:00:00");
-          if (reservaDate.getDay() === slotDate.getDay()) {
-            const diffDays = Math.abs((slotDate.getTime() - reservaDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays > 0 && diffDays <= 28 && diffDays % 7 === 0) return true;
-          }
-        }
         return false;
       });
       let slotStatus = "livre";
