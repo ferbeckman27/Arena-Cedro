@@ -688,7 +688,11 @@ const AtendenteDashboard = () => {
       const valorReserva = (valorBaseHora * duracaoMin) / 60;
       const totalProdutos = itensCarrinho.reduce((acc: number, item: any) => acc + item.preco, 0);
       const valorTotalReserva = tipoReservaAtendente === "pacote" ? valorReserva * 4 : valorReserva;
-      const descontoPacote = tipoReservaAtendente === "pacote" ? 40 : 0;
+      // Desconto do pacote SOMENTE para pagamento antecipado (PIX ou dinheiro no ato).
+      // Para "antes do jogo" (pagamento na hora) e "fidelidade", NÃO aplica desconto.
+      const aplicaDescontoPacote =
+        tipoReservaAtendente === "pacote" && (metodoPgto === "pix" || metodoPgto === "dinheiro");
+      const descontoPacote = aplicaDescontoPacote ? 40 : 0;
       const totalGeral = valorTotalReserva + totalProdutos - descontoPacote;
 
       const slotInicio = typeof slot === "string" ? slot : slot.inicio;
@@ -1818,7 +1822,12 @@ const AtendenteDashboard = () => {
                               const valorReserva = slot.valor;
                               const qtdJogos = tipoReservaAtendente === "pacote" ? 4 : 1;
                               const valorBase = tipoReservaAtendente === "pacote" ? valorReserva * 4 : valorReserva;
-                              const descontoAtual = tipoReservaAtendente === "pacote" ? 40 : 10;
+                              // Desconto do pacote SOMENTE para PIX/Dinheiro (pagamento antecipado).
+                              // "Antes do jogo" e "Fidelidade" NÃO recebem desconto.
+                              const aplicaDescPacote =
+                                tipoReservaAtendente === "pacote" &&
+                                (metodoPgto === "pix" || metodoPgto === "dinheiro");
+                              const descontoAtual = aplicaDescPacote ? 40 : 0;
                               const totalComProdutos = valorBase + totalCarrinho;
                               return (
                                 <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2">
@@ -1837,7 +1846,7 @@ const AtendenteDashboard = () => {
                                       <span className="text-white font-bold">R$ {totalCarrinho.toFixed(2)}</span>
                                     </div>
                                   )}
-                                  {tipoReservaAtendente === "pacote" && (
+                                  {aplicaDescPacote && (
                                     <div className="flex justify-between text-sm items-center">
                                       <span className="flex items-center gap-1 text-[#22c55e] font-bold">
                                         🏷️ Desconto Pacote (R$10 x 4):
@@ -1845,9 +1854,14 @@ const AtendenteDashboard = () => {
                                       <span className="font-black text-[#22c55e]">- R$ {descontoAtual.toFixed(2)}</span>
                                     </div>
                                   )}
+                                  {tipoReservaAtendente === "pacote" && metodoPgto === "antecipado" && (
+                                    <div className="text-[10px] text-yellow-400/90 font-bold uppercase italic bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-2 py-1.5 leading-tight">
+                                      ⚠️ Pagamento na hora do jogo: valor cheio do pacote, sem desconto.
+                                    </div>
+                                  )}
                                   <div className="border-t border-white/10 pt-2 flex justify-between font-black text-lg italic">
                                     <span className="text-gray-400">Total:</span>
-                                    <span className="text-[#22c55e]">R$ {(totalComProdutos - (tipoReservaAtendente === "pacote" ? descontoAtual : 0)).toFixed(2)}</span>
+                                    <span className="text-[#22c55e]">R$ {(totalComProdutos - descontoAtual).toFixed(2)}</span>
                                   </div>
                                 </div>
                               );
