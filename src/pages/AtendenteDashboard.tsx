@@ -433,11 +433,10 @@ const AtendenteDashboard = () => {
       });
       let slotStatus = "livre";
       if (reservaEncontrada) {
-        slotStatus = reservaEncontrada.pago
-          ? "reservado"
-          : reservaEncontrada.status === "pendente"
-            ? "pendente"
-            : "reservado";
+        // Verde (reservado) só quando efetivamente pago.
+        // Amarelo (pendente) para qualquer reserva ativa ainda não paga
+        // (inclui status 'pendente' e 'confirmada' aguardando pagamento na hora).
+        slotStatus = reservaEncontrada.pago ? "reservado" : "pendente";
       }
       return { ...slot, status: slotStatus, detalhes: reservaEncontrada || null };
     });
