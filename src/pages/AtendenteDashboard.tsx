@@ -394,6 +394,21 @@ const AtendenteDashboard = () => {
     return days;
   }, [mesAtual]);
 
+  const selecionarDia = useCallback((date: Date) => {
+    setDiaSelecionado(date);
+    setMesAtual(new Date(date.getFullYear(), date.getMonth(), 1));
+  }, []);
+
+  const alterarDiaSelecionado = useCallback((dias: number) => {
+    setDiaSelecionado((atual) => {
+      const novoDia = new Date(atual.getFullYear(), atual.getMonth(), atual.getDate() + dias);
+      setMesAtual(new Date(novoDia.getFullYear(), novoDia.getMonth(), 1));
+      return novoDia;
+    });
+  }, []);
+
+  const dataFinanceiroInput = diaSelecionado.toLocaleDateString("sv-SE");
+
   const gerarSlotsAgenda = (duracaoMinutos: number): SlotAgenda[] => {
     const slots: SlotAgenda[] = [];
     const periodos = [
@@ -1499,7 +1514,7 @@ const AtendenteDashboard = () => {
                   <button
                     key={i}
                     disabled={!date}
-                    onClick={() => date && setDiaSelecionado(date)}
+                    onClick={() => date && selecionarDia(date)}
                     className={cn(
                       "h-14 rounded-2xl flex items-center justify-center font-black text-sm transition-all border",
                       !date ? "opacity-0" : "hover:bg-[#22c55e]/10 border-white/5",
