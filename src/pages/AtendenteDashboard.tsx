@@ -394,6 +394,21 @@ const AtendenteDashboard = () => {
     return days;
   }, [mesAtual]);
 
+  const selecionarDia = useCallback((date: Date) => {
+    setDiaSelecionado(date);
+    setMesAtual(new Date(date.getFullYear(), date.getMonth(), 1));
+  }, []);
+
+  const alterarDiaSelecionado = useCallback((dias: number) => {
+    setDiaSelecionado((atual) => {
+      const novoDia = new Date(atual.getFullYear(), atual.getMonth(), atual.getDate() + dias);
+      setMesAtual(new Date(novoDia.getFullYear(), novoDia.getMonth(), 1));
+      return novoDia;
+    });
+  }, []);
+
+  const dataFinanceiroInput = diaSelecionado.toLocaleDateString("sv-SE");
+
   const gerarSlotsAgenda = (duracaoMinutos: number): SlotAgenda[] => {
     const slots: SlotAgenda[] = [];
     const periodos = [
@@ -1499,7 +1514,7 @@ const AtendenteDashboard = () => {
                   <button
                     key={i}
                     disabled={!date}
-                    onClick={() => date && setDiaSelecionado(date)}
+                    onClick={() => date && selecionarDia(date)}
                     className={cn(
                       "h-14 rounded-2xl flex items-center justify-center font-black text-sm transition-all border",
                       !date ? "opacity-0" : "hover:bg-[#22c55e]/10 border-white/5",
@@ -2857,6 +2872,46 @@ const AtendenteDashboard = () => {
           </TabsContent>
           {/* FINANCEIRO */}
           <TabsContent value="financeiro" className="space-y-8">
+            <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
+              <div className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Data do Financeiro</p>
+                  <p className="text-lg font-black text-white">{diaSelecionado.toLocaleDateString("pt-BR")}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 bg-white/5 border-white/10 text-white hover:bg-white/10"
+                    onClick={() => alterarDiaSelecionado(-1)}
+                    aria-label="Dia anterior"
+                  >
+                    <ChevronLeft size={16} />
+                  </Button>
+                  <Input
+                    type="date"
+                    value={dataFinanceiroInput}
+                    onChange={(event) => {
+                      const [ano, mes, dia] = event.target.value.split("-").map(Number);
+                      if (ano && mes && dia) selecionarDia(new Date(ano, mes - 1, dia));
+                    }}
+                    className="h-10 w-[150px] bg-white/5 border-white/10 text-white font-bold"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 bg-white/5 border-white/10 text-white hover:bg-white/10"
+                    onClick={() => alterarDiaSelecionado(1)}
+                    aria-label="Próximo dia"
+                  >
+                    <ChevronRight size={16} />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
             {/* Resumo do dia */}
             <Card className="bg-[#0c120f] border-white/5 rounded-[2.5rem] overflow-hidden">
               <div className="bg-[#22c55e] p-4 flex items-center gap-2 text-black font-black uppercase text-sm italic">
