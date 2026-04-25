@@ -711,15 +711,14 @@ const AtendenteDashboard = () => {
       const isFidelidade = metodoPgto === "fidelidade";
       const valorFinal = isFidelidade ? 0 : totalGeral;
 
-      // Para pacote, gerar 4 datas (mesmo dia do mês, próximos 4 meses incluindo a data escolhida)
+      // Para pacote, gerar 4 datas semanais (mesmo dia da semana, +7 dias entre cada jogo)
       const isPacote = tipoReservaAtendente === "pacote";
       const datasReserva: string[] = [];
       if (isPacote) {
-        const baseDate = new Date(diaSelecionado);
-        const diaOriginal = baseDate.getDate();
+        const baseDate = new Date(diaSelecionado.getFullYear(), diaSelecionado.getMonth(), diaSelecionado.getDate());
         for (let i = 0; i < 4; i++) {
-          const novaData = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, diaOriginal);
-          // Se o mês não tem o dia (ex: 31), pula para o último dia válido (já tratado pelo Date)
+          const novaData = new Date(baseDate);
+          novaData.setDate(baseDate.getDate() + i * 7);
           datasReserva.push(novaData.toLocaleDateString("sv-SE"));
         }
       } else {
