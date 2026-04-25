@@ -2936,9 +2936,19 @@ const AtendenteDashboard = () => {
                               </p>
                             </div>
                             <div className="text-right">
-                              <Badge className={totalPagoReal >= Number(r.valor_total || 0) && totalPagoReal > 0 ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === "cancelada" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}>
-                                {totalPagoReal >= Number(r.valor_total || 0) && totalPagoReal > 0 ? "Pago" : r.status === "cancelada" ? "Cancelada" : "Pendente"}
-                              </Badge>
+                              {(() => {
+                                // Considera pago quando: (a) o registro de reserva já está marcado como pago,
+                                // (b) há pagamento cobrindo o valor total, ou (c) é cortesia fidelidade (valor 0 + pagamento fidelidade registrado).
+                                const ehFidelidadeQuitada = pagamentosReserva.some((p: any) => p.forma_pagamento === "fidelidade");
+                                const estaPago = (r as any).pago === true
+                                  || (totalPagoReal >= Number(r.valor_total || 0) && totalPagoReal > 0)
+                                  || (Number(r.valor_total || 0) === 0 && ehFidelidadeQuitada);
+                                return (
+                                  <Badge className={estaPago ? "bg-[#22c55e]/20 text-[#22c55e]" : r.status === "cancelada" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}>
+                                    {estaPago ? "Pago" : r.status === "cancelada" ? "Cancelada" : "Pendente"}
+                                  </Badge>
+                                );
+                              })()}
                             </div>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-[10px]">
