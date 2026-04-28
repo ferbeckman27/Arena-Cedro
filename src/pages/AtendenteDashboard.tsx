@@ -1617,13 +1617,13 @@ const AtendenteDashboard = () => {
                         </button>
                       </DialogTrigger>
                       {isLivre ? (
-                        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
-                              <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {slot.inicio}
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4 pt-4">
+                         <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none max-h-[90vh] overflow-y-auto overscroll-contain pb-8">
+                           <DialogHeader>
+                             <DialogTitle className="italic uppercase flex items-center gap-2 text-xl font-black">
+                               <Plus className="text-[#22c55e]" size={20} /> NOVO JOGO - {slot.inicio}
+                             </DialogTitle>
+                           </DialogHeader>
+                           <div className="space-y-4 pt-4 pb-4">
                             {/* Nome do cliente com autocomplete + cadastro */}
                             <div className="space-y-2 relative">
                               <div className="flex items-center justify-between">
