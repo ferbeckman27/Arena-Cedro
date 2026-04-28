@@ -2090,7 +2090,7 @@ const AtendenteDashboard = () => {
                               <label className="text-[10px] font-bold uppercase text-gray-400">
                                 Consumo (Venda / Aluguel)
                               </label>
-                              <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto overscroll-contain">
                                 {produtos
                                   .filter((p) => p.estoque > 0)
                                   .map((p) => {
