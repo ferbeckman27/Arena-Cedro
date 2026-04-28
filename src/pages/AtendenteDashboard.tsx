@@ -1344,7 +1344,7 @@ const AtendenteDashboard = () => {
                 Painel Operacional
               </span>
               <span className="text-xl font-black italic uppercase text-white">
-                Bem Vindo, {funcionarioNome || "Atendente"}
+                BEM VINDO, {(funcionarioNome || "Atendente").toUpperCase()}
               </span>
             </div>
           </div>
