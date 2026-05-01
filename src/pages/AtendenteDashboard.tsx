@@ -1295,17 +1295,24 @@ const AtendenteDashboard = () => {
     }
   };
 
-  // Financeiro real - usa SOMENTE a tabela pagamentos para evitar dupla contagem
+  // Financeiro real - soma apenas pagamentos EFETIVAMENTE RECEBIDOS no dia selecionado
+  // (usa data_confirmacao ou created_at do pagamento, NÃO a data do jogo).
+  // Isso evita que pagamentos antecipados de outros dias entrem no caixa do dia do jogo.
   const resumoFinanceiro = useMemo(() => {
-    const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
+    const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
 
-    // Pagamentos aprovados do dia (da tabela pagamentos)
-    const pagsDoDia = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
+    const pagsRecebidosNoDia = listaPagamentos.filter((p) => {
+      const ref = p.data_confirmacao || p.created_at;
+      if (!ref) return false;
+      // Converte para data local YYYY-MM-DD
+      const dataPag = new Date(ref).toLocaleDateString("sv-SE");
+      return dataPag === dataStr;
+    });
 
     let pix = 0;
     let dinheiro = 0;
 
-    pagsDoDia.forEach((p) => {
+    pagsRecebidosNoDia.forEach((p) => {
       const val = Number(p.valor);
       if (p.forma_pagamento === "pix") pix += val;
       else if (p.forma_pagamento === "dinheiro") dinheiro += val;
@@ -1315,10 +1322,13 @@ const AtendenteDashboard = () => {
       } else if (p.forma_pagamento === "antecipado" || p.forma_pagamento === "antes_do_jogo") dinheiro += val;
     });
 
-    // Calcular restante baseado em valor_total - total de pagamentos aprovados
+    // "A receber" = soma do que falta pagar nas reservas cujo JOGO é hoje
+    // (independente de quando o pagamento foi/será feito)
+    const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
+    const todosPagsDessasReservas = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
     let restante = 0;
     reservasFinanceiroAtivasDoDia.forEach((r) => {
-      const totalPag = pagsDoDia
+      const totalPag = todosPagsDessasReservas
         .filter((p) => p.reserva_id === r.id)
         .reduce((a, p) => a + Number(p.valor), 0);
       const diff = Math.max(Number(r.valor_total || 0) - totalPag, 0);
@@ -1326,7 +1336,7 @@ const AtendenteDashboard = () => {
     });
 
     return { pix, dinheiro, restante };
-  }, [reservasFinanceiroAtivasDoDia, listaPagamentos]);
+  }, [reservasFinanceiroAtivasDoDia, listaPagamentos, diaSelecionado]);
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
