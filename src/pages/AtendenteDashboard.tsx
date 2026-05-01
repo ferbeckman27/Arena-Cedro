@@ -1266,14 +1266,19 @@ const AtendenteDashboard = () => {
         data: { user },
       } = await supabase.auth.getUser();
       const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
-      // Reservas com pagamentos aprovados = "pagas"
-      const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
-      const pagsDoDia = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
-      const reservasComPagamento = reservasFinanceiroAtivasDoDia.filter((r) => {
-        const totalPag = pagsDoDia.filter((p) => p.reserva_id === r.id).reduce((a, p) => a + Number(p.valor), 0);
-        return totalPag > 0;
+
+      // Pagamentos efetivamente recebidos NO DIA (mesma regra do resumoFinanceiro)
+      const pagsRecebidosNoDia = listaPagamentos.filter((p) => {
+        const ref = p.data_confirmacao || p.created_at;
+        if (!ref) return false;
+        const dataPag = new Date(ref).toLocaleDateString("sv-SE");
+        return dataPag === dataStr;
       });
-      const reservasDoDia = reservasComPagamento;
+
+      // Reservas que aparecem no relatório = reservas que tiveram pagamento recebido hoje
+      const reservaIdsRecebidosHoje = new Set(pagsRecebidosNoDia.map((p) => p.reserva_id));
+      const reservasDoDia = listaReservas.filter((r) => reservaIdsRecebidosHoje.has(r.id));
+
       const pix = resumoFinanceiro.pix;
       const dinheiro = resumoFinanceiro.dinheiro;
 
