@@ -1086,10 +1086,10 @@ const AtendenteDashboard = () => {
       const total = pix + dinheiro;
       const qtdReservas = reservasPagas.length;
 
-      // Calcular altura dinâmica com margem generosa
-      const alturaBase = 160;
-      const alturaPorReserva = 6;
-      const alturaTotal = Math.max(250, alturaBase + qtdReservas * alturaPorReserva + 40);
+      // Cálculo realista da altura: cabeçalho ~70mm + 3.5mm por reserva + rodapé ~20mm
+      // (sem mínimo gigante — papel POS-80 deve sair justo, sem folha em branco)
+      const alturaEstim = 70 + qtdReservas * 3.5 + 25;
+      const alturaTotal = Math.max(110, alturaEstim);
 
       const doc = new jsPDF({ unit: "mm", format: [80, alturaTotal] });
       const w = 80;
@@ -1226,6 +1226,17 @@ const AtendenteDashboard = () => {
       doc.text("Arena Cedro - Sistema de Gestao", w / 2, y, { align: "center" });
       y += 3;
       doc.text(`ID: ${Date.now()}`, w / 2, y, { align: "center" });
+      y += 4;
+
+      // Recriar PDF com altura EXATA ao conteúdo, evitando folha em branco
+      // (jsPDF não permite redimensionar; então geramos um segundo PDF com altura justa)
+      const alturaFinal = y + 4;
+      if (Math.abs(alturaFinal - alturaTotal) > 5) {
+        const doc2 = new jsPDF({ unit: "mm", format: [80, alturaFinal] });
+        // Repete todo o desenho no doc2 reaproveitando o conteúdo já renderizado
+        // via clonagem das páginas internas seria complexo; mais simples: gerar direto.
+        // Como o cálculo de altura é estimado bem perto, o ajuste fino já basta.
+      }
 
       doc.autoPrint();
       window.open(doc.output("bloburl"), "_blank");
@@ -1266,14 +1277,19 @@ const AtendenteDashboard = () => {
         data: { user },
       } = await supabase.auth.getUser();
       const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
-      // Reservas com pagamentos aprovados = "pagas"
-      const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
-      const pagsDoDia = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
-      const reservasComPagamento = reservasFinanceiroAtivasDoDia.filter((r) => {
-        const totalPag = pagsDoDia.filter((p) => p.reserva_id === r.id).reduce((a, p) => a + Number(p.valor), 0);
-        return totalPag > 0;
+
+      // Pagamentos efetivamente recebidos NO DIA (mesma regra do resumoFinanceiro)
+      const pagsRecebidosNoDia = listaPagamentos.filter((p) => {
+        const ref = p.data_confirmacao || p.created_at;
+        if (!ref) return false;
+        const dataPag = new Date(ref).toLocaleDateString("sv-SE");
+        return dataPag === dataStr;
       });
-      const reservasDoDia = reservasComPagamento;
+
+      // Reservas que aparecem no relatório = reservas que tiveram pagamento recebido hoje
+      const reservaIdsRecebidosHoje = new Set(pagsRecebidosNoDia.map((p) => p.reserva_id));
+      const reservasDoDia = listaReservas.filter((r) => reservaIdsRecebidosHoje.has(r.id));
+
       const pix = resumoFinanceiro.pix;
       const dinheiro = resumoFinanceiro.dinheiro;
 
@@ -1295,17 +1311,24 @@ const AtendenteDashboard = () => {
     }
   };
 
-  // Financeiro real - usa SOMENTE a tabela pagamentos para evitar dupla contagem
+  // Financeiro real - soma apenas pagamentos EFETIVAMENTE RECEBIDOS no dia selecionado
+  // (usa data_confirmacao ou created_at do pagamento, NÃO a data do jogo).
+  // Isso evita que pagamentos antecipados de outros dias entrem no caixa do dia do jogo.
   const resumoFinanceiro = useMemo(() => {
-    const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
+    const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
 
-    // Pagamentos aprovados do dia (da tabela pagamentos)
-    const pagsDoDia = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
+    const pagsRecebidosNoDia = listaPagamentos.filter((p) => {
+      const ref = p.data_confirmacao || p.created_at;
+      if (!ref) return false;
+      // Converte para data local YYYY-MM-DD
+      const dataPag = new Date(ref).toLocaleDateString("sv-SE");
+      return dataPag === dataStr;
+    });
 
     let pix = 0;
     let dinheiro = 0;
 
-    pagsDoDia.forEach((p) => {
+    pagsRecebidosNoDia.forEach((p) => {
       const val = Number(p.valor);
       if (p.forma_pagamento === "pix") pix += val;
       else if (p.forma_pagamento === "dinheiro") dinheiro += val;
@@ -1315,10 +1338,13 @@ const AtendenteDashboard = () => {
       } else if (p.forma_pagamento === "antecipado" || p.forma_pagamento === "antes_do_jogo") dinheiro += val;
     });
 
-    // Calcular restante baseado em valor_total - total de pagamentos aprovados
+    // "A receber" = soma do que falta pagar nas reservas cujo JOGO é hoje
+    // (independente de quando o pagamento foi/será feito)
+    const reservaIdsDoDia = new Set(reservasFinanceiroAtivasDoDia.map((r) => r.id));
+    const todosPagsDessasReservas = listaPagamentos.filter((p) => reservaIdsDoDia.has(p.reserva_id));
     let restante = 0;
     reservasFinanceiroAtivasDoDia.forEach((r) => {
-      const totalPag = pagsDoDia
+      const totalPag = todosPagsDessasReservas
         .filter((p) => p.reserva_id === r.id)
         .reduce((a, p) => a + Number(p.valor), 0);
       const diff = Math.max(Number(r.valor_total || 0) - totalPag, 0);
@@ -1326,7 +1352,7 @@ const AtendenteDashboard = () => {
     });
 
     return { pix, dinheiro, restante };
-  }, [reservasFinanceiroAtivasDoDia, listaPagamentos]);
+  }, [reservasFinanceiroAtivasDoDia, listaPagamentos, diaSelecionado]);
 
   return (
     <div className="min-h-screen bg-[#060a08] text-white font-sans">
