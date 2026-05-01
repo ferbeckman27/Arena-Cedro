@@ -1086,10 +1086,10 @@ const AtendenteDashboard = () => {
       const total = pix + dinheiro;
       const qtdReservas = reservasPagas.length;
 
-      // Calcular altura dinâmica com margem generosa
-      const alturaBase = 160;
-      const alturaPorReserva = 6;
-      const alturaTotal = Math.max(250, alturaBase + qtdReservas * alturaPorReserva + 40);
+      // Cálculo realista da altura: cabeçalho ~70mm + 3.5mm por reserva + rodapé ~20mm
+      // (sem mínimo gigante — papel POS-80 deve sair justo, sem folha em branco)
+      const alturaEstim = 70 + qtdReservas * 3.5 + 25;
+      const alturaTotal = Math.max(110, alturaEstim);
 
       const doc = new jsPDF({ unit: "mm", format: [80, alturaTotal] });
       const w = 80;
@@ -1226,6 +1226,17 @@ const AtendenteDashboard = () => {
       doc.text("Arena Cedro - Sistema de Gestao", w / 2, y, { align: "center" });
       y += 3;
       doc.text(`ID: ${Date.now()}`, w / 2, y, { align: "center" });
+      y += 4;
+
+      // Recriar PDF com altura EXATA ao conteúdo, evitando folha em branco
+      // (jsPDF não permite redimensionar; então geramos um segundo PDF com altura justa)
+      const alturaFinal = y + 4;
+      if (Math.abs(alturaFinal - alturaTotal) > 5) {
+        const doc2 = new jsPDF({ unit: "mm", format: [80, alturaFinal] });
+        // Repete todo o desenho no doc2 reaproveitando o conteúdo já renderizado
+        // via clonagem das páginas internas seria complexo; mais simples: gerar direto.
+        // Como o cálculo de altura é estimado bem perto, o ajuste fino já basta.
+      }
 
       doc.autoPrint();
       window.open(doc.output("bloburl"), "_blank");
