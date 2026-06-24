@@ -292,41 +292,41 @@ const censurarTexto = (texto: string) => {
               Agendar Agora <ChevronRight className="ml-1 w-5 h-5" />
             </Button>
             <div className="flex justify-center gap-6 mt-6 text-center">
-  {/* CARD DIURNO */}
-  <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
-    <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">☀️ Diurno</p>
-    <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-      R$ 100
-      <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
-    </p>
-  </div>
+              {/* CARD DIURNO */}
+              <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
+                <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">☀️ Diurno</p>
+                <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                  R$ 100
+                  <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
+                </p>
+              </div>
 
-  {/* CARD NOTURNO */}
-  <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
-    <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">🌙 Noturno</p>
-    <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-      R$ 140
-      <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
-    </p>
-  </div>
+              {/* CARD NOTURNO */}
+              <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
+                <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">🌙 Noturno</p>
+                <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                  R$ 140
+                  <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* 2. POR QUE ESCOLHER */}
-<section className="py-24 container mx-auto px-4 text-center">
-  <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
-    POR QUE ESCOLHER A <span className="text-[#22c55e]">ARENA CEDRO?</span>
-  </h2>
-  <p className="text-gray-500 mb-16 font-medium">Infraestrutura completa para suas partidas.</p>
-  
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-    {/* AGENDAMENTO */}
-    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
-      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
-        <Calendar className="text-black" />
-      </div>
+      <section className="py-24 container mx-auto px-4 text-center">
+        <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
+          POR QUE ESCOLHER A <span className="text-[#22c55e]">ARENA CEDRO?</span>
+        </h2>
+        <p className="text-gray-500 mb-16 font-medium">Infraestrutura completa para suas partidas.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {/* AGENDAMENTO */}
+          <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
+            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+              <Calendar className="text-black" />
+            </div>
       <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Agendamento Fácil</h3>
       <p className="text-gray-500 text-sm mb-6">Reserve seu horário online em segundos, sem complicações ou espera.</p>
       
