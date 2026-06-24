@@ -574,12 +574,12 @@ const censurarTexto = (texto: string) => {
             <div className="space-y-4">
               <h4 className="text-[20px] uppercase font-black text-gray-500">Acesso Restrito</h4>
               <Button 
-  className="bg-[#22c55e] hover:bg-[#1db053] text-black text-[10px] md:text-xs py-5 px-6 rounded-xl font-black uppercase italic transition-all active:scale-95 shadow-[0_5px_20px_-5px_rgba(34,197,94,0.4)]" 
-  onClick={() => navigate("/adminlogin")}
->
-  <ShieldCheck className="mr-1.5 w-3.5 h-3.5" />
-  Área Administrativa
-</Button>
+                className="bg-[#22c55e] hover:bg-[#1db053] text-black text-[10px] md:text-xs py-5 px-6 rounded-xl font-black uppercase italic transition-all active:scale-95 shadow-[0_5px_20px_-5px_rgba(34,197,94,0.4)]" 
+                onClick={() => navigate("/adminlogin")}
+              >
+                <ShieldCheck className="mr-1.5 w-3.5 h-3.5" />
+                Área Administrativa
+              </Button>
             </div>
           </div>
           <p className="mt-20 text-[10px] text-gray-800 font-bold uppercase italic tracking-widest">© 2026 Arena Cedro. Todos os direitos reservados.</p>
