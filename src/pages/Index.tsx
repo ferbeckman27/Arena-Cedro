@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import bannerVideo from "@/assets/banner-arena.mp4.asset.json";
+import bannerJulho from "@/assets/banner-julho.mp4.asset.json";
 import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
 import { supabase } from '@/integrations/supabase/client';
@@ -278,6 +279,27 @@ const censurarTexto = (texto: string) => {
         Seu navegador não suporta vídeos.
       </video>
     </div>
+    {/* Banner promocional - exibe até 31/07/2026 */}
+    {new Date() <= new Date("2026-07-31T23:59:59") && (
+      <div className="w-full max-w-[320px] md:max-w-[500px] mb-8 relative group">
+        <div className="absolute -inset-1 bg-[#22c55e]/30 rounded-[2rem] blur opacity-40 group-hover:opacity-60 transition duration-1000"></div>
+        <div className="relative">
+          <span className="absolute top-3 left-3 z-10 px-3 py-1 bg-[#22c55e] text-black text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
+            Promoção Julho
+          </span>
+          <video 
+            className="relative w-full rounded-[2rem] border border-[#22c55e]/30 shadow-2xl"
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+          >
+            <source src={bannerJulho.url} type="video/mp4" />
+            Seu navegador não suporta vídeos.
+          </video>
+        </div>
+      </div>
+    )}
           <div className="relative mb-6">
             <img src="/logo-arena.png" onError={(e) => { e.currentTarget.src = "/media/logo-arena.png" }} alt="Arena Cedro" className="w-[450px] md:w-[850px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
           </div>
