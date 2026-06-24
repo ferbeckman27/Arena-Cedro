@@ -9,6 +9,7 @@ import {
   MessageCircle
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
+import bannerVideo from "@/assets/banner-arena.mp4.asset.json";
 import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
 import { supabase } from '@/integrations/supabase/client';
@@ -273,7 +274,7 @@ const censurarTexto = (texto: string) => {
         muted 
         playsInline
       >
-        <source src="/media/venha-conhecer.mp4" />
+        <source src={bannerVideo.url} type="video/mp4" />
         Seu navegador não suporta vídeos.
       </video>
     </div>
