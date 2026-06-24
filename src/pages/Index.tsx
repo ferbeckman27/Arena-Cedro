@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import heroArena from "@/assets/hero-arena.jpg";
 import bannerVideo from "@/assets/banner-arena.mp4.asset.json";
-import bannerJulho from "@/assets/banner-julho.mp4.asset.json";
 import { Badge } from "@/components/ui/badge";
 import  TestimonialForm  from "@/components/home/TestimonialForm";
 import { supabase } from '@/integrations/supabase/client';
@@ -266,40 +265,19 @@ const censurarTexto = (texto: string) => {
               </div>
             </div>
           )}
-         <div className="w-full max-w-[320px] md:max-w-[500px] mb-8 relative group">
-      <div className="absolute -inset-1 bg-[#22c55e]/20 rounded-[2rem] blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
-      <video 
-        className="relative w-full rounded-[2rem] border border-white/10 shadow-2xl"
-        autoPlay 
-        loop 
-        muted 
-        playsInline
-      >
-        <source src={bannerVideo.url} type="video/mp4" />
-        Seu navegador não suporta vídeos.
-      </video>
-    </div>
-    {/* Banner promocional - exibe até 31/07/2026 */}
-    {new Date() <= new Date("2026-07-31T23:59:59") && (
-      <div className="w-full max-w-[320px] md:max-w-[500px] mb-8 relative group">
-        <div className="absolute -inset-1 bg-[#22c55e]/30 rounded-[2rem] blur opacity-40 group-hover:opacity-60 transition duration-1000"></div>
-        <div className="relative">
-          <span className="absolute top-3 left-3 z-10 px-3 py-1 bg-[#22c55e] text-black text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
-            Promoção Julho
-          </span>
-          <video 
-            className="relative w-full rounded-[2rem] border border-[#22c55e]/30 shadow-2xl"
-            autoPlay 
-            loop 
-            muted 
-            playsInline
-          >
-            <source src={bannerJulho.url} type="video/mp4" />
-            Seu navegador não suporta vídeos.
-          </video>
-        </div>
-      </div>
-    )}
+          <div className="w-full max-w-[320px] md:max-w-[500px] mb-8 relative group">
+            <div className="absolute -inset-1 bg-[#22c55e]/20 rounded-[2rem] blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+            <video 
+              className="relative w-full rounded-[2rem] border border-white/10 shadow-2xl"
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+            >
+              <source src={bannerVideo.url} type="video/mp4" />
+              Seu navegador não suporta vídeos.
+            </video>
+          </div>
           <div className="relative mb-6">
             <img src="/logo-arena.png" onError={(e) => { e.currentTarget.src = "/media/logo-arena.png" }} alt="Arena Cedro" className="w-[450px] md:w-[850px] h-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)] animate-float" />
           </div>
@@ -314,147 +292,147 @@ const censurarTexto = (texto: string) => {
               Agendar Agora <ChevronRight className="ml-1 w-5 h-5" />
             </Button>
             <div className="flex justify-center gap-6 mt-6 text-center">
-  {/* CARD DIURNO */}
-  <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
-    <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">☀️ Diurno</p>
-    <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-      R$ 100
-      <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
-    </p>
-  </div>
+              {/* CARD DIURNO */}
+              <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
+                <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">☀️ Diurno</p>
+                <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                  R$ 100
+                  <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
+                </p>
+              </div>
 
-  {/* CARD NOTURNO */}
-  <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
-    <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">🌙 Noturno</p>
-    <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-      R$ 140
-      <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
-    </p>
-  </div>
+              {/* CARD NOTURNO */}
+              <div className="bg-white/5 border border-white/10 px-8 py-5 rounded-[2rem] min-w-[140px] backdrop-blur-sm transition-transform hover:scale-105">
+                <p className="text-xs text-gray-400 font-black uppercase tracking-widest mb-1">🌙 Noturno</p>
+                <p className="text-[#22c55e] font-black italic text-3xl drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                  R$ 140
+                  <span className="text-[10px] text-gray-500 not-italic ml-1 uppercase">/h</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* 2. POR QUE ESCOLHER */}
-<section className="py-24 container mx-auto px-4 text-center">
-  <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
-    POR QUE ESCOLHER A <span className="text-[#22c55e]">ARENA CEDRO?</span>
-  </h2>
-  <p className="text-gray-500 mb-16 font-medium">Infraestrutura completa para suas partidas.</p>
-  
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-    {/* AGENDAMENTO */}
-    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
-      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
-        <Calendar className="text-black" />
-      </div>
-      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Agendamento Fácil</h3>
-      <p className="text-gray-500 text-sm mb-6">Reserve seu horário online em segundos, sem complicações ou espera.</p>
-      
-      <Button 
-        onClick={() => navigate("/login")} 
-        className="w-full bg-[#22c55e] hover:bg-[#1db053] text-black font-black uppercase italic py-6 rounded-xl mb-4"
-      >
-        Fazer Reserva
-      </Button>
-      
-      <a href="tel:98999910535" className="text-[#22c55e]/50 font-bold text-xs hover:text-[#22c55e] transition-colors tracking-widest">
-        OU LIGUE: (98) 99991-0535
-      </a>
-    </div>
-
-    {/* CARD HORÁRIOS FLEXÍVEIS (ESTILO IGUAL À HERO) */}
-    <div className={`bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center transition-all ${mostrarAgenda ? 'md:col-span-1 border-[#22c55e]/30' : 'hover:border-[#22c55e]/30'}`}>
-      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
-        <Clock className="text-black" />
-      </div>
-      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
-      <p className="text-gray-500 text-sm mb-8 text-center">
-        Funcionamos todos os dias, das 09h às 22h, para o seu racha nunca parar.
-      </p>
-
-      {/* BOTÃO CLICÁVEL IGUAL À HERO */}
-      <button 
-        onClick={() => {
-          setMostrarAgenda(!mostrarAgenda);
-          if (!mostrarAgenda) {
-            // Pequeno scroll suave para focar na agenda se necessário
-            const el = document.getElementById('secao-por-que');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }
-        }}
-        className={`px-6 py-2.5 rounded-full border flex items-center gap-2 transition-all active:scale-95 group ${
-          mostrarAgenda ? 'border-red-500/30 bg-red-500/10' : 'border-[#22c55e]/30 bg-[#22c55e]/10'
-        }`}
-      >
-        <span className={`w-2 h-2 rounded-full animate-pulse ${mostrarAgenda ? 'bg-red-500' : 'bg-[#22c55e]'}`} />
-        <span className={`text-[10px] uppercase tracking-widest font-extrabold ${mostrarAgenda ? 'text-red-500' : 'text-[#22c55e]'}`}>
-          {mostrarAgenda ? "FECHAR AGENDA" : "VER AGENDA COMPLETA"}
-        </span>
-        {mostrarAgenda ? (
-          <ArrowDown className="w-4 h-4 text-red-500 rotate-180 transition-transform duration-300" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-[#22c55e]" />
-        )}
-      </button>
-
-      {/* CONTEÚDO DA AGENDA DINÂMICA (APARECE DENTRO DO CARD) */}
-      {mostrarAgenda && (
-        <div className="w-full mt-8 animate-in fade-in zoom-in duration-500">
-          <div className="bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded-[2rem] shadow-2xl">
+      <section className="py-24 container mx-auto px-4 text-center">
+        <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
+          POR QUE ESCOLHER A <span className="text-[#22c55e]">ARENA CEDRO?</span>
+        </h2>
+        <p className="text-gray-500 mb-16 font-medium">Infraestrutura completa para suas partidas.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {/* AGENDAMENTO */}
+          <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
+            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+              <Calendar className="text-black" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Agendamento Fácil</h3>
+            <p className="text-gray-500 text-sm mb-6">Reserve seu horário online em segundos, sem complicações ou espera.</p>
             
-            {/* SELETOR DE MINUTOS */}
-            <div className="flex justify-center gap-1 mb-6 bg-white/5 p-1 rounded-xl w-fit mx-auto">
-              {[30, 60, 90].map(m => (
-                <button 
-                  key={m} 
-                  onClick={() => setDuracaoFiltro(m)} 
-                  className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${duracaoFiltro === m ? 'bg-[#22c55e] text-black' : 'text-gray-500'}`}
-                >
-                  {m} MIN
-                </button>
-              ))}
-            </div>
+            <Button 
+              onClick={() => navigate("/login")} 
+              className="w-full bg-[#22c55e] hover:bg-[#1db053] text-black font-black uppercase italic py-6 rounded-xl mb-4"
+            >
+              Fazer Reserva
+            </Button>
+            
+            <a href="tel:98999910535" className="text-[#22c55e]/50 font-bold text-xs hover:text-[#22c55e] transition-colors tracking-widest">
+              OU LIGUE: (98) 99991-0535
+            </a>
+          </div>
 
-            {/* GRID DE HORÁRIOS REAL */}
-            <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-              {slotsCalculados.slice(0, 8).map((slot, i) => ( // Mostra os 8 primeiros ou todos
-                <button
-                  key={i}
-                  disabled={slot.status === 'reservado'} 
-                  onClick={() => navigate("/login")}
-                  className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all 
-                    ${slot.status === 'reservado' 
-                      ? 'border-red-500/20 bg-red-500/5 opacity-40 cursor-not-allowed' 
-                      : 'border-[#22c55e]/30 bg-[#22c55e]/5 hover:bg-[#22c55e] hover:text-black group'}`}
-                >
-                  <span className="text-[10px] font-black italic">{slot.inicio}</span>
-                  <span className={`text-[7px] font-bold uppercase ${slot.status === 'reservado' ? 'text-red-500' : 'text-[#22c55e] group-hover:text-black'}`}>
-                    {slot.status === 'reservado' ? 'Ocupado' : 'Livre'}
-                  </span>
-                </button>
-              ))}
+          {/* CARD HORÁRIOS FLEXÍVEIS (ESTILO IGUAL À HERO) */}
+          <div className={`bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center transition-all ${mostrarAgenda ? 'md:col-span-1 border-[#22c55e]/30' : 'hover:border-[#22c55e]/30'}`}>
+            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+              <Clock className="text-black" />
             </div>
+            <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Horários Flexíveis</h3>
+            <p className="text-gray-500 text-sm mb-8 text-center">
+              Funcionamos todos os dias, das 09h às 22h, para o seu racha nunca parar.
+            </p>
+
+            {/* BOTÃO CLICÁVEL IGUAL À HERO */}
+            <button 
+              onClick={() => {
+                setMostrarAgenda(!mostrarAgenda);
+                if (!mostrarAgenda) {
+                  // Pequeno scroll suave para focar na agenda se necessário
+                  const el = document.getElementById('secao-por-que');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+              className={`px-6 py-2.5 rounded-full border flex items-center gap-2 transition-all active:scale-95 group ${
+                mostrarAgenda ? 'border-red-500/30 bg-red-500/10' : 'border-[#22c55e]/30 bg-[#22c55e]/10'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full animate-pulse ${mostrarAgenda ? 'bg-red-500' : 'bg-[#22c55e]'}`} />
+              <span className={`text-[10px] uppercase tracking-widest font-extrabold ${mostrarAgenda ? 'text-red-500' : 'text-[#22c55e]'}`}>
+                {mostrarAgenda ? "FECHAR AGENDA" : "VER AGENDA COMPLETA"}
+              </span>
+              {mostrarAgenda ? (
+                <ArrowDown className="w-4 h-4 text-red-500 rotate-180 transition-transform duration-300" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-[#22c55e]" />
+              )}
+            </button>
+
+            {/* CONTEÚDO DA AGENDA DINÂMICA (APARECE DENTRO DO CARD) */}
+            {mostrarAgenda && (
+              <div className="w-full mt-8 animate-in fade-in zoom-in duration-500">
+                <div className="bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded-[2rem] shadow-2xl">
+                  
+                  {/* SELETOR DE MINUTOS */}
+                  <div className="flex justify-center gap-1 mb-6 bg-white/5 p-1 rounded-xl w-fit mx-auto">
+                    {[30, 60, 90].map(m => (
+                      <button 
+                        key={m} 
+                        onClick={() => setDuracaoFiltro(m)} 
+                        className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${duracaoFiltro === m ? 'bg-[#22c55e] text-black' : 'text-gray-500'}`}
+                      >
+                        {m} MIN
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* GRID DE HORÁRIOS REAL */}
+                  <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                    {slotsCalculados.slice(0, 8).map((slot, i) => ( // Mostra os 8 primeiros ou todos
+                      <button
+                        key={i}
+                        disabled={slot.status === 'reservado'} 
+                        onClick={() => navigate("/login")}
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center transition-all 
+                          ${slot.status === 'reservado' 
+                            ? 'border-red-500/20 bg-red-500/5 opacity-40 cursor-not-allowed' 
+                            : 'border-[#22c55e]/30 bg-[#22c55e]/5 hover:bg-[#22c55e] hover:text-black group'}`}
+                      >
+                        <span className="text-[10px] font-black italic">{slot.inicio}</span>
+                        <span className={`text-[7px] font-bold uppercase ${slot.status === 'reservado' ? 'text-red-500' : 'text-[#22c55e] group-hover:text-black'}`}>
+                          {slot.status === 'reservado' ? 'Ocupado' : 'Livre'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ESTRUTURA */}
+          <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
+            <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
+              <Users className="text-black" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Campo Society</h3>
+            <p className="text-gray-500 text-sm mb-6">Grama sintética premium e iluminação profissional para o seu melhor jogo.</p>
+            
+            <button onClick={() => document.getElementById('estrutura')?.scrollIntoView({ behavior: 'smooth' })} className="p-4 rounded-full bg-white/5 border border-white/10 hover:bg-[#22c55e] hover:text-black transition-all">
+              <ArrowDown />
+            </button>
           </div>
         </div>
-      )}
-    </div>
-
-    {/* ESTRUTURA */}
-    <div className="bg-[#111614] border border-white/5 p-8 rounded-[2rem] flex flex-col items-center group hover:border-[#22c55e]/30 transition-all">
-      <div className="w-16 h-16 bg-[#22c55e] rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-[#22c55e]/20">
-        <Users className="text-black" />
-      </div>
-      <h3 className="text-xl font-bold mb-2 uppercase italic text-white">Campo Society</h3>
-      <p className="text-gray-500 text-sm mb-6">Grama sintética premium e iluminação profissional para o seu melhor jogo.</p>
-      
-      <button onClick={() => document.getElementById('estrutura')?.scrollIntoView({ behavior: 'smooth' })} className="p-4 rounded-full bg-white/5 border border-white/10 hover:bg-[#22c55e] hover:text-black transition-all">
-        <ArrowDown />
-      </button>
-    </div>
-  </div>
-</section>
+      </section>
 
       {/* 4. ESTRUTURA (VÍDEOS E FOTOS ATUALIZADOS) */}
       <section id="estrutura" className="py-24 bg-[#0a0f0d] border-y border-white/5">
@@ -488,45 +466,45 @@ const censurarTexto = (texto: string) => {
       </section>
 
       {/* 5. DEPOIMENTOS */}
-<section className="py-24 bg-black/20">
-  <div className="container mx-auto px-4">
-    <div className="text-center mb-16">
-      <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
-        O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
-      </h2>
-      <p className="text-gray-500 font-medium">Quem joga na Arena Cedro, aprova.</p>
-    </div>
-    </div>
+      <section className="py-24 bg-black/20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
+              O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
+            </h2>
+            <p className="text-gray-500 font-medium">Quem joga na Arena Cedro, aprova.</p>
+          </div>
+        </div>
 
-    {/* Grid de Depoimentos - From DB approved */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-      {comentarios.length > 0 ? comentarios.map((review: any, i: number) => (
-        <div key={review.id || i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
-          <div className="flex gap-1 mb-4 text-[#22c55e]">
-            {Array.from({ length: review.estrelas || 5 }).map((_: any, s: number) => (
-              <Star key={s} size={14} fill="currentColor" />
-            ))}
-          </div>
-          <p className="text-gray-300 italic mb-6">"{review.comentario}"</p>
-          <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.autor}</p>
-        </div>
-      )) : [
-        { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente.", estrelas: 5 },
-        { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado.", estrelas: 5 },
-        { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total.", estrelas: 5 }
-      ].map((review, i) => (
-        <div key={i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
-          <div className="flex gap-1 mb-4 text-[#22c55e]">
-            {Array.from({ length: review.estrelas }).map((_: any, s: number) => (
-              <Star key={s} size={14} fill="currentColor" />
-            ))}
-          </div>
-          <p className="text-gray-300 italic mb-6">"{review.texto}"</p>
-          <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.nome}</p>
-        </div>
-      ))}
-    </div> {/* FIM DA GRID */}
-</section> {/* FIM DA SECTION */}
+        {/* Grid de Depoimentos - From DB approved */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {comentarios.length > 0 ? comentarios.map((review: any, i: number) => (
+            <div key={review.id || i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
+              <div className="flex gap-1 mb-4 text-[#22c55e]">
+                {Array.from({ length: review.estrelas || 5 }).map((_: any, s: number) => (
+                  <Star key={s} size={14} fill="currentColor" />
+                ))}
+              </div>
+              <p className="text-gray-300 italic mb-6">"{review.comentario}"</p>
+              <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.autor}</p>
+            </div>
+          )) : [
+            { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente.", estrelas: 5 },
+            { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado.", estrelas: 5 },
+            { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total.", estrelas: 5 }
+          ].map((review, i) => (
+            <div key={i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
+              <div className="flex gap-1 mb-4 text-[#22c55e]">
+                {Array.from({ length: review.estrelas }).map((_: any, s: number) => (
+                  <Star key={s} size={14} fill="currentColor" />
+                ))}
+              </div>
+              <p className="text-gray-300 italic mb-6">"{review.texto}"</p>
+              <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.nome}</p>
+            </div>
+          ))}
+        </div> {/* FIM DA GRID */}
+      </section> {/* FIM DA SECTION */}
 
       {/* 6. PRONTO PARA JOGAR? */}
       <section className="py-24 container mx-auto px-4 text-center">
@@ -596,12 +574,12 @@ const censurarTexto = (texto: string) => {
             <div className="space-y-4">
               <h4 className="text-[20px] uppercase font-black text-gray-500">Acesso Restrito</h4>
               <Button 
-  className="bg-[#22c55e] hover:bg-[#1db053] text-black text-[10px] md:text-xs py-5 px-6 rounded-xl font-black uppercase italic transition-all active:scale-95 shadow-[0_5px_20px_-5px_rgba(34,197,94,0.4)]" 
-  onClick={() => navigate("/adminlogin")}
->
-  <ShieldCheck className="mr-1.5 w-3.5 h-3.5" />
-  Área Administrativa
-</Button>
+                className="bg-[#22c55e] hover:bg-[#1db053] text-black text-[10px] md:text-xs py-5 px-6 rounded-xl font-black uppercase italic transition-all active:scale-95 shadow-[0_5px_20px_-5px_rgba(34,197,94,0.4)]" 
+                onClick={() => navigate("/adminlogin")}
+              >
+                <ShieldCheck className="mr-1.5 w-3.5 h-3.5" />
+                Área Administrativa
+              </Button>
             </div>
           </div>
           <p className="mt-20 text-[10px] text-gray-800 font-bold uppercase italic tracking-widest">© 2026 Arena Cedro. Todos os direitos reservados.</p>
