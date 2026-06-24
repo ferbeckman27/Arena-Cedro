@@ -466,45 +466,45 @@ const censurarTexto = (texto: string) => {
       </section>
 
       {/* 5. DEPOIMENTOS */}
-<section className="py-24 bg-black/20">
-  <div className="container mx-auto px-4">
-    <div className="text-center mb-16">
-      <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
-        O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
-      </h2>
-      <p className="text-gray-500 font-medium">Quem joga na Arena Cedro, aprova.</p>
-    </div>
-    </div>
+      <section className="py-24 bg-black/20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black mb-4 italic uppercase tracking-tighter text-white">
+              O QUE OS NOSSOS <span className="text-[#22c55e]">CLIENTES</span> DIZEM
+            </h2>
+            <p className="text-gray-500 font-medium">Quem joga na Arena Cedro, aprova.</p>
+          </div>
+        </div>
 
-    {/* Grid de Depoimentos - From DB approved */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-      {comentarios.length > 0 ? comentarios.map((review: any, i: number) => (
-        <div key={review.id || i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
-          <div className="flex gap-1 mb-4 text-[#22c55e]">
-            {Array.from({ length: review.estrelas || 5 }).map((_: any, s: number) => (
-              <Star key={s} size={14} fill="currentColor" />
-            ))}
-          </div>
-          <p className="text-gray-300 italic mb-6">"{review.comentario}"</p>
-          <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.autor}</p>
-        </div>
-      )) : [
-        { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente.", estrelas: 5 },
-        { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado.", estrelas: 5 },
-        { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total.", estrelas: 5 }
-      ].map((review, i) => (
-        <div key={i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
-          <div className="flex gap-1 mb-4 text-[#22c55e]">
-            {Array.from({ length: review.estrelas }).map((_: any, s: number) => (
-              <Star key={s} size={14} fill="currentColor" />
-            ))}
-          </div>
-          <p className="text-gray-300 italic mb-6">"{review.texto}"</p>
-          <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.nome}</p>
-        </div>
-      ))}
-    </div> {/* FIM DA GRID */}
-</section> {/* FIM DA SECTION */}
+        {/* Grid de Depoimentos - From DB approved */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {comentarios.length > 0 ? comentarios.map((review: any, i: number) => (
+            <div key={review.id || i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
+              <div className="flex gap-1 mb-4 text-[#22c55e]">
+                {Array.from({ length: review.estrelas || 5 }).map((_: any, s: number) => (
+                  <Star key={s} size={14} fill="currentColor" />
+                ))}
+              </div>
+              <p className="text-gray-300 italic mb-6">"{review.comentario}"</p>
+              <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.autor}</p>
+            </div>
+          )) : [
+            { nome: "MARCOS OLIVEIRA", texto: "Grama muito boa e iluminação excelente.", estrelas: 5 },
+            { nome: "FELIPE SANTOS", texto: "Ambiente familiar e muito organizado.", estrelas: 5 },
+            { nome: "ANDRÉ COSTA", texto: "Jogo aqui toda semana. Praticidade total.", estrelas: 5 }
+          ].map((review, i) => (
+            <div key={i} className="bg-[#111614] p-8 rounded-[2rem] border border-white/5 relative">
+              <div className="flex gap-1 mb-4 text-[#22c55e]">
+                {Array.from({ length: review.estrelas }).map((_: any, s: number) => (
+                  <Star key={s} size={14} fill="currentColor" />
+                ))}
+              </div>
+              <p className="text-gray-300 italic mb-6">"{review.texto}"</p>
+              <p className="text-[#22c55e] font-black text-xs tracking-widest uppercase">{review.nome}</p>
+            </div>
+          ))}
+        </div> {/* FIM DA GRID */}
+      </section> {/* FIM DA SECTION */}
 
       {/* 6. PRONTO PARA JOGAR? */}
       <section className="py-24 container mx-auto px-4 text-center">
