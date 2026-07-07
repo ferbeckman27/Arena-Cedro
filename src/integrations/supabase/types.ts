@@ -604,6 +604,7 @@ export type Database = {
           observacoes: string | null
           pago: boolean | null
           pix_copia_e_cola: string | null
+          presenca: string | null
           reserva_fixa_id: number | null
           status: string | null
           tipo: string | null
@@ -632,6 +633,7 @@ export type Database = {
           observacoes?: string | null
           pago?: boolean | null
           pix_copia_e_cola?: string | null
+          presenca?: string | null
           reserva_fixa_id?: number | null
           status?: string | null
           tipo?: string | null
@@ -660,6 +662,7 @@ export type Database = {
           observacoes?: string | null
           pago?: boolean | null
           pix_copia_e_cola?: string | null
+          presenca?: string | null
           reserva_fixa_id?: number | null
           status?: string | null
           tipo?: string | null
