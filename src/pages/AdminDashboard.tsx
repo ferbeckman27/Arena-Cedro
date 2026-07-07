@@ -61,6 +61,9 @@ function AdminDashboard() {
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
 
   const [vipsReais, setVipsReais] = useState<any[]>([]);
+  const [todosClientes, setTodosClientes] = useState<any[]>([]);
+  const [todasReservas, setTodasReservas] = useState<any[]>([]);
+  const [filtroClienteVip, setFiltroClienteVip] = useState("");
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [listaEquipe, setListaEquipe] = useState<any[]>([]);
 
@@ -132,6 +135,14 @@ function AdminDashboard() {
   const carregarDadosIniciais = async () => {
     const { data: vips } = await supabase.from("clientes").select("*").eq("tipo", "mensalista");
     if (vips) setVipsReais(vips);
+    const { data: todosCli } = await supabase.from("clientes").select("*").order("nome");
+    if (todosCli) setTodosClientes(todosCli);
+    const { data: todasRes } = await supabase
+      .from("reservas")
+      .select("*, clientes(nome, telefone)")
+      .order("data_reserva", { ascending: false })
+      .limit(2000);
+    if (todasRes) setTodasReservas(todasRes);
     const { data: equipe } = await supabase.from("funcionarios").select("*").order("nome");
     if (equipe) setListaEquipe(equipe);
     const { data: config } = await supabase.from("configuracoes").select("valor").eq("chave", "manutencao").single();
@@ -859,51 +870,239 @@ function AdminDashboard() {
             </div>
           </TabsContent>
 
-          {/* VIP */}
+          {/* VIP + CLIENTES */}
           <TabsContent value="vip">
-            <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-white/5 uppercase font-black text-[10px]">
-                    <TableHead>Grupo/Nome</TableHead><TableHead>Dia/Hora</TableHead><TableHead>Status</TableHead><TableHead>Fidelidade</TableHead><TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vipsReais.length > 0 ? (
-                    vipsReais.map((vip: any, i) => {
-                      const progressoFidelidade = (vip.reservas_concluidas || 0) % 10;
-                      const ganhouGratuidade = vip.reservas_concluidas > 0 && vip.reservas_concluidas % 10 === 0;
-                      return (
-                        <TableRow key={i} className="border-white/5 hover:bg-white/[0.02]">
-                          <TableCell className="font-black italic uppercase text-[#22c55e]">{vip.nome}</TableCell>
-                          <TableCell className="text-gray-300 font-medium">{vip.dia_fixo || "—"} às {vip.horario_fixo ? vip.horario_fixo.substring(0, 5) : "--:--"}</TableCell>
-                          <TableCell><Badge className={vip.status_pagamento === "em_atraso" ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1" : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"}>{vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}</Badge></TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1.5 min-w-[120px]">
-                              <div className="flex justify-between items-center text-[9px] font-black uppercase">
-                                <span className={ganhouGratuidade ? "text-yellow-500 animate-pulse" : "text-gray-500"}>{ganhouGratuidade ? "★ Próximo Grátis" : "Progresso"}</span>
-                                <span className="text-white">{progressoFidelidade}/10</span>
+            <div className="space-y-8">
+              {/* Busca */}
+              <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-black italic uppercase text-white">Base de Clientes</h2>
+                  <p className="text-[11px] text-gray-500 font-bold uppercase mt-1">
+                    {vipsReais.length} VIP · {todosClientes.filter(c => c.tipo !== "mensalista").length} Avulsos · {todasReservas.length} reservas
+                  </p>
+                </div>
+                <div className="relative w-full md:w-72">
+                  <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
+                  <input
+                    placeholder="Buscar por nome ou telefone..."
+                    value={filtroClienteVip}
+                    onChange={(e) => setFiltroClienteVip(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white outline-none text-sm"
+                  />
+                </div>
+              </Card>
+
+              {/* Mensalistas / VIPs */}
+              <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center gap-3">
+                  <Star className="text-yellow-500" size={20} />
+                  <h3 className="text-lg font-black italic uppercase text-white">Clientes VIP / Mensalistas</h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-white/5 uppercase font-black text-[10px]">
+                      <TableHead>Nome</TableHead><TableHead>Contato</TableHead><TableHead>Dia/Hora Fixo</TableHead><TableHead>Status</TableHead><TableHead>Fidelidade</TableHead><TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vipsReais.filter((v: any) =>
+                      !filtroClienteVip ||
+                      v.nome?.toLowerCase().includes(filtroClienteVip.toLowerCase()) ||
+                      v.telefone?.includes(filtroClienteVip)
+                    ).length > 0 ? (
+                      vipsReais.filter((v: any) =>
+                        !filtroClienteVip ||
+                        v.nome?.toLowerCase().includes(filtroClienteVip.toLowerCase()) ||
+                        v.telefone?.includes(filtroClienteVip)
+                      ).map((vip: any, i) => {
+                        const progressoFidelidade = (vip.reservas_concluidas || 0) % 10;
+                        const ganhouGratuidade = vip.reservas_concluidas > 0 && vip.reservas_concluidas % 10 === 0;
+                        return (
+                          <TableRow key={i} className="border-white/5 hover:bg-white/[0.02]">
+                            <TableCell className="font-black italic uppercase text-[#22c55e]">{vip.nome}</TableCell>
+                            <TableCell className="text-gray-400 text-xs font-bold">{vip.telefone || "—"}</TableCell>
+                            <TableCell className="text-gray-300 font-medium">{vip.dia_fixo || "—"} às {vip.horario_fixo ? vip.horario_fixo.substring(0, 5) : "--:--"}</TableCell>
+                            <TableCell><Badge className={vip.status_pagamento === "em_atraso" ? "bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1" : "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 px-3 py-1"}>{vip.status_pagamento === "em_atraso" ? "Em atraso" : "Em dia"}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1.5 min-w-[120px]">
+                                <div className="flex justify-between items-center text-[9px] font-black uppercase">
+                                  <span className={ganhouGratuidade ? "text-yellow-500 animate-pulse" : "text-gray-500"}>{ganhouGratuidade ? "★ Próximo Grátis" : "Progresso"}</span>
+                                  <span className="text-white">{progressoFidelidade}/10</span>
+                                </div>
+                                <div className="w-full bg-white/5 h-2 rounded-full border border-white/5 overflow-hidden">
+                                  <div className={`h-full transition-all ${ganhouGratuidade ? "bg-yellow-500" : "bg-[#22c55e]"}`} style={{ width: `${ganhouGratuidade ? 100 : progressoFidelidade * 10}%` }} />
+                                </div>
                               </div>
-                              <div className="w-full bg-white/5 h-2 rounded-full border border-white/5 overflow-hidden">
-                                <div className={`h-full transition-all ${ganhouGratuidade ? "bg-yellow-500" : "bg-[#22c55e]"}`} style={{ width: `${ganhouGratuidade ? 100 : progressoFidelidade * 10}%` }} />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {vip.status_pagamento === "em_atraso" && (
+                                <Button size="sm" onClick={() => handlePagarVip(vip.id)} className="bg-[#22c55e] text-black font-black text-[9px] uppercase h-8 rounded-xl">Confirmar Pgto</Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow><TableCell colSpan={6} className="text-center py-16 text-gray-500 italic">Nenhum cliente VIP encontrado.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+
+              {/* Todos os clientes com histórico (sincronizado com painel do atendente) */}
+              <Card className="bg-[#0c120f] border-white/5 rounded-[2rem] p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <Users className="text-[#22c55e]" size={20} />
+                  <h3 className="text-lg font-black italic uppercase text-white">Todos os Clientes & Histórico</h3>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {todosClientes
+                    .filter((c: any) =>
+                      !filtroClienteVip ||
+                      c.nome?.toLowerCase().includes(filtroClienteVip.toLowerCase()) ||
+                      c.telefone?.includes(filtroClienteVip)
+                    )
+                    .map((c: any) => {
+                      const isVip = c.tipo === "mensalista";
+                      const reservasCliente = todasReservas.filter(
+                        (r: any) => r.clientes?.nome?.toLowerCase() === c.nome?.toLowerCase()
+                      );
+                      const total = Number(c.reservas_concluidas || 0);
+                      const progresso = total % 10;
+                      const temPremio = total > 0 && total % 10 === 0;
+
+                      const horariosContagem: Record<string, number> = {};
+                      reservasCliente.forEach((r: any) => {
+                        const h = r.horario_inicio?.slice(0, 5);
+                        if (h) horariosContagem[h] = (horariosContagem[h] || 0) + 1;
+                      });
+                      const horarioPref = Object.entries(horariosContagem).sort((a, b) => b[1] - a[1])[0];
+                      const horaPref = horarioPref?.[0];
+                      const horaPrefQt = horarioPref?.[1] || 0;
+                      const isPrefNoturno = horaPref ? parseInt(horaPref) >= 18 : false;
+
+                      const temPendente = reservasCliente.some((r: any) => !r.pago && r.status !== "cancelada");
+                      const temAtrasada = reservasCliente.some(
+                        (r: any) => !r.pago && r.status !== "cancelada" && new Date(r.data_reserva + "T00:00:00") < new Date()
+                      );
+                      const statusColor = temAtrasada
+                        ? "border-red-500/40 bg-red-500/5"
+                        : temPendente
+                          ? "border-yellow-500/40 bg-yellow-500/5"
+                          : "border-[#22c55e]/20 bg-[#22c55e]/5";
+                      const statusBadge = temAtrasada
+                        ? { text: "EM ATRASO", cls: "bg-red-500/20 text-red-400" }
+                        : temPendente
+                          ? { text: "PENDENTE", cls: "bg-yellow-500/20 text-yellow-400" }
+                          : { text: "EM DIA", cls: "bg-[#22c55e]/20 text-[#22c55e]" };
+                      const totalGasto = reservasCliente
+                        .filter((r: any) => r.pago)
+                        .reduce((acc: number, r: any) => acc + Number(r.valor_total || 0), 0);
+
+                      return (
+                        <div key={c.id} className={cn("p-5 rounded-[1.75rem] border-2 transition-all", statusColor)}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "p-2.5 rounded-full border",
+                                isVip ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-500" :
+                                temAtrasada ? "bg-red-500/10 border-red-500/20 text-red-400" :
+                                temPendente ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
+                                "bg-[#22c55e]/10 border-[#22c55e]/20 text-[#22c55e]"
+                              )}>
+                                {isVip ? <Star size={18} /> : <Users size={18} />}
+                              </div>
+                              <div>
+                                <p className="font-black uppercase italic text-white text-sm leading-tight">{c.nome}</p>
+                                <p className="text-[10px] text-gray-500 font-bold">{c.telefone || "—"}</p>
                               </div>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {vip.status_pagamento === "em_atraso" && (
-                              <Button size="sm" onClick={() => handlePagarVip(vip.id)} className="bg-[#22c55e] text-black font-black text-[9px] uppercase h-8 rounded-xl">Confirmar Pgto</Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
+                            <div className="flex flex-col items-end gap-1">
+                              {isVip && <Badge className="bg-yellow-500 text-black font-black text-[8px]">VIP</Badge>}
+                              <Badge className={cn("text-[8px] font-black border-none", statusBadge.cls)}>{statusBadge.text}</Badge>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 mb-3">
+                            <div className="bg-black/40 rounded-lg p-2 border border-white/5">
+                              <p className="text-[8px] font-black text-gray-500 uppercase">Reservas</p>
+                              <p className="text-sm font-black text-white">{reservasCliente.length}</p>
+                            </div>
+                            <div className="bg-black/40 rounded-lg p-2 border border-white/5">
+                              <p className="text-[8px] font-black text-gray-500 uppercase">Total Gasto</p>
+                              <p className="text-sm font-black text-[#22c55e]">R$ {totalGasto.toFixed(0)}</p>
+                            </div>
+                          </div>
+
+                          <div className="mb-3 space-y-1.5">
+                            <div className="flex justify-between items-end">
+                              <p className="text-[9px] font-black text-gray-500 uppercase">Fidelidade</p>
+                              <p className={`text-xs font-black ${temPremio ? "text-yellow-500 animate-pulse" : "text-white"}`}>
+                                {temPremio ? "★ 10/10" : `${progresso}/10`}
+                              </p>
+                            </div>
+                            <div className="w-full bg-black/40 h-2 rounded-full border border-white/5 overflow-hidden">
+                              <div className={`h-full transition-all ${temPremio ? "bg-yellow-500" : "bg-[#22c55e]"}`} style={{ width: `${temPremio ? 100 : progresso * 10}%` }} />
+                            </div>
+                          </div>
+
+                          {horaPref && (
+                            <div className={cn(
+                              "mb-3 p-2 rounded-xl border flex items-center justify-between text-[10px] font-black uppercase",
+                              isPrefNoturno
+                                ? "bg-red-500/10 border-red-500/30 text-red-300"
+                                : "bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e]"
+                            )}>
+                              <span className="flex items-center gap-1"><Clock size={12} /> Horário preferido</span>
+                              <span>{horaPref} ({horaPrefQt}x)</span>
+                            </div>
+                          )}
+
+                          {reservasCliente.length > 0 ? (
+                            <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
+                              <p className="text-[8px] font-black text-gray-600 uppercase mb-1">Histórico ({reservasCliente.length})</p>
+                              <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+                                {reservasCliente.slice(0, 30).map((r: any) => {
+                                  const pres = r.presenca || "pendente";
+                                  const presCfg: Record<string, { txt: string; cls: string }> = {
+                                    compareceu: { txt: "✓ JOGOU", cls: "bg-[#22c55e]/20 text-[#22c55e]" },
+                                    faltou: { txt: "✗ FALTOU", cls: "bg-red-500/20 text-red-400" },
+                                    cancelou: { txt: "⊘ CANCELOU", cls: "bg-red-700/30 text-red-300" },
+                                    pendente: { txt: "—", cls: "bg-gray-500/20 text-gray-400" },
+                                  };
+                                  const cfg = presCfg[pres] || presCfg.pendente;
+                                  return (
+                                    <div key={r.id} className="bg-white/[0.02] rounded-lg p-2 border border-white/5">
+                                      <div className="flex justify-between items-center text-[9px]">
+                                        <span className="text-gray-300 font-bold">
+                                          {new Date(r.data_reserva + "T00:00:00").toLocaleDateString("pt-BR")}{" "}
+                                          <span className="text-gray-500">{r.horario_inicio?.slice(0, 5)}</span>
+                                        </span>
+                                        <Badge className={cn("text-[7px] font-black border-none", cfg.cls)}>{cfg.txt}</Badge>
+                                      </div>
+                                      <div className="flex justify-between items-center mt-1 text-[9px]">
+                                        <span className="text-gray-500 uppercase font-bold">{r.forma_pagamento || "—"}</span>
+                                        <span className="text-white font-black">R$ {Number(r.valor_total || 0).toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-600 italic text-center py-3">Sem reservas ainda</p>
+                          )}
+                        </div>
                       );
-                    })
-                  ) : (
-                    <TableRow><TableCell colSpan={5} className="text-center py-24 text-gray-500 italic">Nenhum cliente VIP encontrado.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
+                    })}
+                </div>
+                {todosClientes.length === 0 && (
+                  <p className="text-center py-16 text-gray-500 italic">Nenhum cliente cadastrado.</p>
+                )}
+              </Card>
+            </div>
           </TabsContent>
+
 
           {/* FINANCEIRO */}
           <TabsContent value="financeiro">
