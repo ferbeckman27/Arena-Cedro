@@ -151,6 +151,7 @@ const AtendenteDashboard = () => {
     cliente_nome?: string;
     cliente_id?: number | null;
     clientes: { nome: string } | null;
+    presenca?: string | null;
   }
   interface SlotAgenda {
     inicio: string;
