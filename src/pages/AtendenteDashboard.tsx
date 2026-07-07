@@ -151,6 +151,7 @@ const AtendenteDashboard = () => {
     cliente_nome?: string;
     cliente_id?: number | null;
     clientes: { nome: string } | null;
+    presenca?: string | null;
   }
   interface SlotAgenda {
     inicio: string;
@@ -683,6 +684,17 @@ const AtendenteDashboard = () => {
     if (!clienteNomeBusca.trim()) return [];
     return clientes.filter((c) => c.nome.toLowerCase().includes(clienteNomeBusca.toLowerCase())).slice(0, 8);
   }, [clientes, clienteNomeBusca]);
+
+  // Marca presença do cliente numa reserva (compareceu | faltou | cancelou | pendente)
+  const marcarPresenca = async (reservaId: number, presenca: string) => {
+    const { error } = await supabase.from("reservas").update({ presenca }).eq("id", reservaId);
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao atualizar presença", description: error.message });
+      return;
+    }
+    setListaReservas((prev) => prev.map((r) => (r.id === reservaId ? { ...r, presenca } : r)));
+    toast({ title: "Presença atualizada", description: presenca.toUpperCase() });
+  };
 
   async function handleAgendar(slot: any, clienteNome: string, turno_id: number, clienteIdOverride?: number) {
     if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
@@ -2559,6 +2571,18 @@ const AtendenteDashboard = () => {
                     const reservasCliente = listaReservas.filter(
                       (r) => r.clientes?.nome?.toLowerCase() === c.nome.toLowerCase(),
                     );
+                    // Horário preferencial (mais frequente)
+                    const horariosContagem: Record<string, number> = {};
+                    reservasCliente.forEach((r) => {
+                      const h = r.horario_inicio?.slice(0, 5);
+                      if (h) horariosContagem[h] = (horariosContagem[h] || 0) + 1;
+                    });
+                    const horarioPreferido = Object.entries(horariosContagem).sort(
+                      (a, b) => b[1] - a[1],
+                    )[0];
+                    const horaPref = horarioPreferido?.[0];
+                    const horaPrefQt = horarioPreferido?.[1] || 0;
+                    const isPrefNoturno = horaPref ? parseInt(horaPref) >= 18 : false;
                     const temPendente = reservasCliente.some((r) => !r.pago && r.status !== "cancelada");
                     const temAtrasada = reservasCliente.some(
                       (r) => !r.pago && r.status !== "cancelada" && new Date(r.data_reserva + "T00:00:00") < new Date(),
@@ -2622,29 +2646,95 @@ const AtendenteDashboard = () => {
                             </p>
                           )}
                         </div>
+                        {horaPref && (
+                          <div
+                            className={cn(
+                              "mb-3 p-2 rounded-xl border flex items-center justify-between text-[10px] font-black uppercase",
+                              isPrefNoturno
+                                ? "bg-red-500/10 border-red-500/30 text-red-300"
+                                : "bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e]",
+                            )}
+                          >
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} /> Horário preferido
+                            </span>
+                            <span>
+                              {horaPref} ({horaPrefQt}x)
+                            </span>
+                          </div>
+                        )}
                         {reservasCliente.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
-                            <p className="text-[8px] font-black text-gray-600 uppercase">Últimas reservas</p>
-                            {reservasCliente.slice(0, 3).map((r) => (
-                              <div key={r.id} className="flex justify-between items-center text-[9px]">
-                                <span className="text-gray-400">
-                                  {new Date(r.data_reserva + "T00:00:00").toLocaleDateString("pt-BR")}{" "}
-                                  {r.horario_inicio?.slice(0, 5)}
-                                </span>
-                                <Badge
-                                  className={cn(
-                                    "text-[7px] font-black border-none",
-                                    r.pago
-                                      ? "bg-[#22c55e]/20 text-[#22c55e]"
-                                      : r.status === "cancelada"
-                                        ? "bg-red-500/20 text-red-400"
-                                        : "bg-yellow-500/20 text-yellow-400",
-                                  )}
-                                >
-                                  {r.pago ? "PAGO" : (r.status || "PENDENTE").toUpperCase()}
-                                </Badge>
-                              </div>
-                            ))}
+                            <p className="text-[8px] font-black text-gray-600 uppercase">
+                              Histórico ({reservasCliente.length})
+                            </p>
+                            <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                              {reservasCliente.slice(0, 20).map((r) => {
+                                const pres = r.presenca || "pendente";
+                                const presCfg: Record<string, { txt: string; cls: string }> = {
+                                  compareceu: { txt: "✓ JOGOU", cls: "bg-[#22c55e]/20 text-[#22c55e]" },
+                                  faltou: { txt: "✗ FALTOU", cls: "bg-red-500/20 text-red-400" },
+                                  cancelou: { txt: "⊘ CANCELOU", cls: "bg-red-700/30 text-red-300" },
+                                  pendente: { txt: "—", cls: "bg-gray-500/20 text-gray-400" },
+                                };
+                                const cfg = presCfg[pres] || presCfg.pendente;
+                                return (
+                                  <div
+                                    key={r.id}
+                                    className="flex flex-col gap-1 bg-white/[0.02] rounded-lg p-2 border border-white/5"
+                                  >
+                                    <div className="flex justify-between items-center text-[9px]">
+                                      <span className="text-gray-300 font-bold">
+                                        {new Date(r.data_reserva + "T00:00:00").toLocaleDateString("pt-BR")}{" "}
+                                        <span className="text-gray-500">
+                                          {r.horario_inicio?.slice(0, 5)}
+                                        </span>
+                                      </span>
+                                      <Badge
+                                        className={cn("text-[7px] font-black border-none", cfg.cls)}
+                                      >
+                                        {cfg.txt}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={() => marcarPresenca(r.id, "compareceu")}
+                                        className={cn(
+                                          "flex-1 text-[8px] font-black uppercase py-1 rounded border transition-all",
+                                          pres === "compareceu"
+                                            ? "bg-[#22c55e] text-black border-[#22c55e]"
+                                            : "bg-transparent text-[#22c55e] border-[#22c55e]/40 hover:bg-[#22c55e]/10",
+                                        )}
+                                      >
+                                        Jogou
+                                      </button>
+                                      <button
+                                        onClick={() => marcarPresenca(r.id, "faltou")}
+                                        className={cn(
+                                          "flex-1 text-[8px] font-black uppercase py-1 rounded border transition-all",
+                                          pres === "faltou"
+                                            ? "bg-red-500 text-white border-red-500"
+                                            : "bg-transparent text-red-400 border-red-500/40 hover:bg-red-500/10",
+                                        )}
+                                      >
+                                        Faltou
+                                      </button>
+                                      <button
+                                        onClick={() => marcarPresenca(r.id, "cancelou")}
+                                        className={cn(
+                                          "flex-1 text-[8px] font-black uppercase py-1 rounded border transition-all",
+                                          pres === "cancelou"
+                                            ? "bg-red-700 text-white border-red-700"
+                                            : "bg-transparent text-red-300 border-red-700/40 hover:bg-red-700/10",
+                                        )}
+                                      >
+                                        Cancel.
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2653,6 +2743,7 @@ const AtendenteDashboard = () => {
               </div>
             </Card>
           </TabsContent>
+
 
           {/* VIP/PACOTES */}
           <TabsContent value="vip">
