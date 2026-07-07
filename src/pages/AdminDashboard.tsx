@@ -135,6 +135,14 @@ function AdminDashboard() {
   const carregarDadosIniciais = async () => {
     const { data: vips } = await supabase.from("clientes").select("*").eq("tipo", "mensalista");
     if (vips) setVipsReais(vips);
+    const { data: todosCli } = await supabase.from("clientes").select("*").order("nome");
+    if (todosCli) setTodosClientes(todosCli);
+    const { data: todasRes } = await supabase
+      .from("reservas")
+      .select("*, clientes(nome, telefone)")
+      .order("data_reserva", { ascending: false })
+      .limit(2000);
+    if (todasRes) setTodasReservas(todasRes);
     const { data: equipe } = await supabase.from("funcionarios").select("*").order("nome");
     if (equipe) setListaEquipe(equipe);
     const { data: config } = await supabase.from("configuracoes").select("valor").eq("chave", "manutencao").single();
