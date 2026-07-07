@@ -685,6 +685,17 @@ const AtendenteDashboard = () => {
     return clientes.filter((c) => c.nome.toLowerCase().includes(clienteNomeBusca.toLowerCase())).slice(0, 8);
   }, [clientes, clienteNomeBusca]);
 
+  // Marca presença do cliente numa reserva (compareceu | faltou | cancelou | pendente)
+  const marcarPresenca = async (reservaId: number, presenca: string) => {
+    const { error } = await supabase.from("reservas").update({ presenca }).eq("id", reservaId);
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao atualizar presença", description: error.message });
+      return;
+    }
+    setListaReservas((prev) => prev.map((r) => (r.id === reservaId ? { ...r, presenca } : r)));
+    toast({ title: "Presença atualizada", description: presenca.toUpperCase() });
+  };
+
   async function handleAgendar(slot: any, clienteNome: string, turno_id: number, clienteIdOverride?: number) {
     if (!clienteNome) return toast({ variant: "destructive", title: "Nome obrigatório" });
     const duracaoMin = parseInt(duracao, 10);
