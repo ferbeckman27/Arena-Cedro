@@ -489,6 +489,9 @@ function AdminDashboard() {
   };
 
   const [relatorioComissoes, setRelatorioComissoes] = useState<any[]>([]);
+  const [totalComissoesPeriodo, setTotalComissoesPeriodo] = useState(0);
+  const [funcRelatorio, setFuncRelatorio] = useState<any | null>(null);
+  const [reservasFuncRelatorio, setReservasFuncRelatorio] = useState<any[]>([]);
 
   const carregarComissoes = async () => {
     const { data } = await supabase.from("reservas").select("comissao_valor, atendente_id, funcionario_id, data_reserva, horario_inicio").gt("comissao_valor", 0).gte("data_reserva", comissaoInicio).lte("data_reserva", comissaoFim);
@@ -500,12 +503,26 @@ function AdminDashboard() {
       const agrupado = data.reduce((acc: any, curr: any) => {
         const id = curr.atendente_id || curr.funcionario_id;
         const info = funcMap[id] || { nome: "Atendente", turno: "—" };
-        if (!acc[id]) acc[id] = { nome: info.nome, turno: info.turno, total: 0 };
+        if (!acc[id]) acc[id] = { id, nome: info.nome, turno: info.turno, total: 0, qtd: 0 };
         acc[id].total += Number(curr.comissao_valor);
+        acc[id].qtd += 1;
         return acc;
       }, {});
-      setRelatorioComissoes(Object.values(agrupado));
+      const lista = Object.values(agrupado) as any[];
+      const totalGeral = lista.reduce((s, x) => s + x.total, 0);
+      setTotalComissoesPeriodo(totalGeral);
+      setRelatorioComissoes(lista);
     }
+  };
+
+  const abrirRelatorioFuncionario = async (membro: any) => {
+    setFuncRelatorio(membro);
+    const { data } = await supabase
+      .from("reservas")
+      .select("id, data_reserva, horario_inicio, valor_total, comissao_valor, forma_pagamento, status, pago, presenca, cliente_nome, clientes ( nome, telefone )")
+      .or(`atendente_id.eq.${membro.id},funcionario_id.eq.${membro.id}`)
+      .order("data_reserva", { ascending: false });
+    setReservasFuncRelatorio(data || []);
   };
 
   useEffect(() => { carregarComissoes(); }, [comissaoInicio, comissaoFim]);
