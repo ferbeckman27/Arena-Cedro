@@ -61,6 +61,9 @@ function AdminDashboard() {
   const [isModalDetalheAberto, setIsModalDetalheAberto] = useState(false);
 
   const [vipsReais, setVipsReais] = useState<any[]>([]);
+  const [todosClientes, setTodosClientes] = useState<any[]>([]);
+  const [todasReservas, setTodasReservas] = useState<any[]>([]);
+  const [filtroClienteVip, setFiltroClienteVip] = useState("");
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [listaEquipe, setListaEquipe] = useState<any[]>([]);
 
