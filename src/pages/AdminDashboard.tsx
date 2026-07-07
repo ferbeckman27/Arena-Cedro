@@ -1009,6 +1009,9 @@ function AdminDashboard() {
                         <TableCell className="text-[10px] font-black text-gray-500 uppercase">{membro.turno || "—"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm" className="h-8 rounded-xl border border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e]/10" onClick={() => abrirRelatorioFuncionario(membro)}>
+                              <FileText size={14} /><span className="ml-1 text-[9px] font-black uppercase">Relatório</span>
+                            </Button>
                             <Button variant="ghost" size="sm" className="h-8 rounded-xl border border-white/10 text-blue-400 hover:bg-blue-500/10" onClick={() => editarFuncionario(membro)}>
                               <span className="text-[9px] font-black uppercase">Editar</span>
                             </Button>
