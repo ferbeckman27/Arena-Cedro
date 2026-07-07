@@ -2571,6 +2571,18 @@ const AtendenteDashboard = () => {
                     const reservasCliente = listaReservas.filter(
                       (r) => r.clientes?.nome?.toLowerCase() === c.nome.toLowerCase(),
                     );
+                    // Horário preferencial (mais frequente)
+                    const horariosContagem: Record<string, number> = {};
+                    reservasCliente.forEach((r) => {
+                      const h = r.horario_inicio?.slice(0, 5);
+                      if (h) horariosContagem[h] = (horariosContagem[h] || 0) + 1;
+                    });
+                    const horarioPreferido = Object.entries(horariosContagem).sort(
+                      (a, b) => b[1] - a[1],
+                    )[0];
+                    const horaPref = horarioPreferido?.[0];
+                    const horaPrefQt = horarioPreferido?.[1] || 0;
+                    const isPrefNoturno = horaPref ? parseInt(horaPref) >= 18 : false;
                     const temPendente = reservasCliente.some((r) => !r.pago && r.status !== "cancelada");
                     const temAtrasada = reservasCliente.some(
                       (r) => !r.pago && r.status !== "cancelada" && new Date(r.data_reserva + "T00:00:00") < new Date(),
