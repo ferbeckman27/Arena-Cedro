@@ -1112,6 +1112,86 @@ function AdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL RELATÓRIO DE COMISSÃO POR FUNCIONÁRIO */}
+      <Dialog open={!!funcRelatorio} onOpenChange={(o) => { if (!o) { setFuncRelatorio(null); setReservasFuncRelatorio([]); } }}>
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="italic uppercase font-black text-[#22c55e] flex items-center gap-2">
+              <FileText size={20} /> Relatório · {funcRelatorio?.nome} {funcRelatorio?.sobrenome}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            if (!funcRelatorio) return null;
+            const totalValor = reservasFuncRelatorio.reduce((s, r) => s + Number(r.valor_total || 0), 0);
+            const totalComissao = reservasFuncRelatorio.reduce((s, r) => s + Number(r.comissao_valor || 0), 0);
+            const percentualFunc = totalValor > 0 ? (totalComissao / totalValor) * 100 : 0;
+            const shareTotal = totalComissoesPeriodo > 0 ? (totalComissao / totalComissoesPeriodo) * 100 : 0;
+            return (
+              <div className="flex-1 overflow-auto space-y-4 pt-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p className="text-[9px] font-black uppercase text-gray-500">Reservas</p>
+                    <p className="text-2xl font-black text-white">{reservasFuncRelatorio.length}</p>
+                  </div>
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p className="text-[9px] font-black uppercase text-gray-500">Faturado</p>
+                    <p className="text-xl font-black text-blue-400">{formatarMoeda(totalValor)}</p>
+                  </div>
+                  <div className="p-4 bg-[#22c55e]/10 rounded-2xl border border-[#22c55e]/30">
+                    <p className="text-[9px] font-black uppercase text-[#22c55e]">Comissão (2%)</p>
+                    <p className="text-xl font-black text-[#22c55e]">{formatarMoeda(totalComissao)}</p>
+                    <p className="text-[9px] text-gray-500 font-bold">{percentualFunc.toFixed(1)}% sobre vendas</p>
+                  </div>
+                  <div className="p-4 bg-yellow-500/10 rounded-2xl border border-yellow-500/30">
+                    <p className="text-[9px] font-black uppercase text-yellow-400">% do Time</p>
+                    <p className="text-xl font-black text-yellow-400">{shareTotal.toFixed(1)}%</p>
+                    <p className="text-[9px] text-gray-500 font-bold">da comissão total no período</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Reservas atendidas (histórico completo)</p>
+                  <div className="border border-white/5 rounded-2xl overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-white/5">
+                        <TableRow className="border-white/5 text-[9px] uppercase font-black">
+                          <TableHead>Data</TableHead><TableHead>Hora</TableHead><TableHead>Cliente</TableHead>
+                          <TableHead>Pgto</TableHead><TableHead>Presença</TableHead>
+                          <TableHead className="text-right">Valor</TableHead><TableHead className="text-right">Comissão</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reservasFuncRelatorio.map((r: any) => {
+                          const pres = r.presenca || "pendente";
+                          const presCls =
+                            pres === "compareceu" ? "bg-[#22c55e]/20 text-[#22c55e]"
+                            : pres === "faltou" ? "bg-red-500/20 text-red-400"
+                            : pres === "cancelou" ? "bg-red-700/30 text-red-300"
+                            : "bg-gray-500/20 text-gray-400";
+                          return (
+                            <TableRow key={r.id} className="border-white/5 text-[11px]">
+                              <TableCell>{new Date(r.data_reserva + "T00:00:00").toLocaleDateString("pt-BR")}</TableCell>
+                              <TableCell>{r.horario_inicio?.slice(0, 5)}</TableCell>
+                              <TableCell className="font-bold">{r.clientes?.nome || r.cliente_nome || "—"}</TableCell>
+                              <TableCell className="uppercase text-[9px]">{r.forma_pagamento || "—"}</TableCell>
+                              <TableCell><Badge className={cn("text-[8px] font-black border-none", presCls)}>{pres.toUpperCase()}</Badge></TableCell>
+                              <TableCell className="text-right">{formatarMoeda(Number(r.valor_total || 0))}</TableCell>
+                              <TableCell className="text-right text-[#22c55e] font-black">{formatarMoeda(Number(r.comissao_valor || 0))}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {reservasFuncRelatorio.length === 0 && (
+                          <TableRow><TableCell colSpan={7} className="text-center py-6 italic text-gray-500">Nenhuma reserva atendida por esta funcionária.</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
