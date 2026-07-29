@@ -1097,163 +1097,146 @@ const AtendenteDashboard = () => {
       const reservasPagas = reservasDoDia.filter((r) => r.pago);
       const total = pix + dinheiro;
       const qtdReservas = reservasPagas.length;
-
-      // Cálculo realista da altura: cabeçalho ~70mm + 3.5mm por reserva + rodapé ~20mm
-      // (sem mínimo gigante — papel POS-80 deve sair justo, sem folha em branco)
-      const alturaEstim = 70 + qtdReservas * 3.5 + 25;
-      const alturaTotal = Math.max(110, alturaEstim);
-
-      const doc = new jsPDF({ unit: "mm", format: [80, alturaTotal] });
       const w = 80;
-      let y = 6;
+      const ML = 5;              // margem esquerda
+      const MR = w - 5;          // margem direita
 
-      // === CABEÇALHO ===
-      doc.setFont("courier", "bold");
-      doc.setFontSize(12);
-      doc.text("ARENA CEDRO", w / 2, y, { align: "center" });
-      y += 4;
-      doc.setFontSize(7);
-      doc.setFont("courier", "normal");
-      doc.text("Beach Tennis & Society", w / 2, y, { align: "center" });
-      y += 5;
+      // Desenha todo o cupom e devolve a altura final usada (mm).
+      const desenhar = (doc: any) => {
+        let y = 7;
+        // TUDO EM NEGRITO para impressão térmica mais nítida
+        doc.setFont("courier", "bold");
 
-      doc.setLineWidth(0.4);
-      doc.line(4, y, w - 4, y);
-      y += 1;
-      doc.setLineWidth(0.2);
-      doc.line(4, y, w - 4, y);
-      y += 4;
-
-      doc.setFont("courier", "bold");
-      doc.setFontSize(9);
-      doc.text("FECHAMENTO DE CAIXA", w / 2, y, { align: "center" });
-      y += 5;
-
-      // === INFORMACOES ===
-      doc.setFont("courier", "normal");
-      doc.setFontSize(7);
-      doc.text(`Data:     ${new Date(dataStr + "T00:00:00").toLocaleDateString("pt-BR")}`, 4, y);
-      y += 3.5;
-      doc.text(`Emissao:  ${new Date().toLocaleString("pt-BR")}`, 4, y);
-      y += 3.5;
-      doc.text(`Operador: ${funcionarioNome}`, 4, y);
-      y += 4;
-
-      doc.setLineWidth(0.2);
-      doc.line(4, y, w - 4, y);
-      y += 4;
-
-      // === RESUMO FINANCEIRO ===
-      doc.setFont("courier", "bold");
-      doc.setFontSize(8);
-      doc.text("RESUMO FINANCEIRO", w / 2, y, { align: "center" });
-      y += 5;
-
-      doc.setFont("courier", "normal");
-      doc.setFontSize(8);
-
-      doc.text("PIX:", 6, y);
-      doc.text(`R$ ${pix.toFixed(2)}`, w - 6, y, { align: "right" });
-      y += 4;
-
-      doc.text("Dinheiro:", 6, y);
-      doc.text(`R$ ${dinheiro.toFixed(2)}`, w - 6, y, { align: "right" });
-      y += 4;
-
-      doc.setLineWidth(0.3);
-      doc.line(4, y, w - 4, y);
-      y += 4;
-
-      doc.setFont("courier", "bold");
-      doc.setFontSize(11);
-      doc.text("TOTAL:", 6, y);
-      doc.text(`R$ ${total.toFixed(2)}`, w - 6, y, { align: "right" });
-      y += 5;
-
-      doc.setFontSize(7);
-      doc.setFont("courier", "normal");
-      doc.text(`(${qtdReservas} reserva${qtdReservas !== 1 ? "s" : ""} paga${qtdReservas !== 1 ? "s" : ""})`, w / 2, y, { align: "center" });
-      y += 4;
-
-      doc.setLineWidth(0.4);
-      doc.line(4, y, w - 4, y);
-      y += 1;
-      doc.setLineWidth(0.2);
-      doc.line(4, y, w - 4, y);
-      y += 4;
-
-      // === DETALHAMENTO DAS RESERVAS ===
-      doc.setFont("courier", "bold");
-      doc.setFontSize(8);
-      doc.text("RESERVAS PAGAS", w / 2, y, { align: "center" });
-      y += 4;
-
-      doc.setFont("courier", "normal");
-      doc.setFontSize(6);
-
-      // Cabeçalho da tabela
-      doc.setFont("courier", "bold");
-      doc.text("HORA", 4, y);
-      doc.text("CLIENTE", 16, y);
-      doc.text("PGTO", 46, y);
-      doc.text("VALOR", w - 4, y, { align: "right" });
-      y += 1;
-      doc.line(4, y, w - 4, y);
-      y += 3;
-
-      doc.setFont("courier", "normal");
-      reservasPagas.forEach((r) => {
-        const nome = (r.clientes?.nome || r.cliente_nome || "Atleta").substring(0, 12);
-        const hora = r.horario_inicio ? String(r.horario_inicio).substring(0, 5) : "--:--";
-        const pgto = (r.forma_pagamento || "---").substring(0, 6).toUpperCase();
-        // Usar pagamentos aprovados para valor real pago
-        const pagamentosReserva = listaPagamentos.filter((p) => p.reserva_id === r.id);
-        const valorPago = pagamentosReserva.length > 0
-          ? pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0)
-          : Number(r.valor_pago_sinal || r.valor_total || 0);
-        const valor = valorPago.toFixed(2);
-
-        doc.text(hora, 4, y);
-        doc.text(nome, 16, y);
-        doc.text(pgto, 46, y);
-        doc.text(`R$${valor}`, w - 4, y, { align: "right" });
-        y += 3.5;
-      });
-
-      if (reservasPagas.length === 0) {
-        doc.text("Nenhuma reserva paga no dia.", w / 2, y, { align: "center" });
+        // === CABEÇALHO ===
+        doc.setFontSize(12);
+        doc.text("ARENA CEDRO", w / 2, y, { align: "center" });
+        y += 4.5;
+        doc.setFontSize(7);
+        doc.text("Beach Tennis & Society", w / 2, y, { align: "center" });
         y += 4;
-      }
 
-      y += 2;
-      doc.setLineWidth(0.2);
-      doc.line(4, y, w - 4, y);
-      y += 4;
+        doc.setLineWidth(0.5);
+        doc.line(ML, y, MR, y);
+        y += 4;
 
-      // === RODAPE ===
-      doc.setFontSize(6);
-      doc.setFont("courier", "normal");
-      doc.text("Documento nao fiscal", w / 2, y, { align: "center" });
-      y += 3;
-      doc.text("Arena Cedro - Sistema de Gestao", w / 2, y, { align: "center" });
-      y += 3;
-      doc.text(`ID: ${Date.now()}`, w / 2, y, { align: "center" });
-      y += 4;
+        doc.setFontSize(9);
+        doc.text("FECHAMENTO DE CAIXA", w / 2, y, { align: "center" });
+        y += 5;
 
-      // Recriar PDF com altura EXATA ao conteúdo, evitando folha em branco
-      // (jsPDF não permite redimensionar; então geramos um segundo PDF com altura justa)
-      const alturaFinal = y + 4;
-      if (Math.abs(alturaFinal - alturaTotal) > 5) {
-        const doc2 = new jsPDF({ unit: "mm", format: [80, alturaFinal] });
-        // Repete todo o desenho no doc2 reaproveitando o conteúdo já renderizado
-        // via clonagem das páginas internas seria complexo; mais simples: gerar direto.
-        // Como o cálculo de altura é estimado bem perto, o ajuste fino já basta.
-      }
+        // === INFORMACOES ===
+        doc.setFontSize(7);
+        doc.text(`Data:     ${new Date(dataStr + "T00:00:00").toLocaleDateString("pt-BR")}`, ML, y);
+        y += 3.5;
+        doc.text(`Emissao:  ${new Date().toLocaleString("pt-BR")}`, ML, y);
+        y += 3.5;
+        doc.text(`Operador: ${funcionarioNome}`, ML, y);
+        y += 3.5;
+
+        doc.setLineWidth(0.3);
+        doc.line(ML, y, MR, y);
+        y += 4;
+
+        // === RESUMO FINANCEIRO ===
+        doc.setFontSize(8);
+        doc.text("RESUMO FINANCEIRO", w / 2, y, { align: "center" });
+        y += 4.5;
+
+        doc.text("PIX:", ML, y);
+        doc.text(`R$ ${pix.toFixed(2)}`, MR, y, { align: "right" });
+        y += 3.8;
+
+        doc.text("Dinheiro:", ML, y);
+        doc.text(`R$ ${dinheiro.toFixed(2)}`, MR, y, { align: "right" });
+        y += 3.5;
+
+        doc.setLineWidth(0.4);
+        doc.line(ML, y, MR, y);
+        y += 4.5;
+
+        doc.setFontSize(11);
+        doc.text("TOTAL:", ML, y);
+        doc.text(`R$ ${total.toFixed(2)}`, MR, y, { align: "right" });
+        y += 4.5;
+
+        doc.setFontSize(7);
+        doc.text(
+          `(${qtdReservas} reserva${qtdReservas !== 1 ? "s" : ""} paga${qtdReservas !== 1 ? "s" : ""})`,
+          w / 2,
+          y,
+          { align: "center" },
+        );
+        y += 3.5;
+
+        doc.setLineWidth(0.5);
+        doc.line(ML, y, MR, y);
+        y += 4;
+
+        // === DETALHAMENTO DAS RESERVAS ===
+        doc.setFontSize(8);
+        doc.text("RESERVAS PAGAS", w / 2, y, { align: "center" });
+        y += 4;
+
+        doc.setFontSize(6);
+        doc.text("HORA", ML, y);
+        doc.text("CLIENTE", ML + 12, y);
+        doc.text("PGTO", ML + 40, y);
+        doc.text("VALOR", MR, y, { align: "right" });
+        y += 1.2;
+        doc.setLineWidth(0.3);
+        doc.line(ML, y, MR, y);
+        y += 3;
+
+        reservasPagas.forEach((r) => {
+          const nome = (r.clientes?.nome || r.cliente_nome || "Atleta").substring(0, 12);
+          const hora = r.horario_inicio ? String(r.horario_inicio).substring(0, 5) : "--:--";
+          const pgto = (r.forma_pagamento || "---").substring(0, 6).toUpperCase();
+          const pagamentosReserva = listaPagamentos.filter((p) => p.reserva_id === r.id);
+          const valorPago =
+            pagamentosReserva.length > 0
+              ? pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0)
+              : Number(r.valor_pago_sinal || r.valor_total || 0);
+
+          doc.text(hora, ML, y);
+          doc.text(nome, ML + 12, y);
+          doc.text(pgto, ML + 40, y);
+          doc.text(`R$${valorPago.toFixed(2)}`, MR, y, { align: "right" });
+          y += 3.2;
+        });
+
+        if (reservasPagas.length === 0) {
+          doc.text("Nenhuma reserva paga no dia.", w / 2, y, { align: "center" });
+          y += 3.2;
+        }
+
+        y += 1.5;
+        doc.setLineWidth(0.3);
+        doc.line(ML, y, MR, y);
+        y += 3.5;
+
+        // === RODAPE ===
+        doc.setFontSize(6);
+        doc.text("Documento nao fiscal", w / 2, y, { align: "center" });
+        y += 3;
+        doc.text("Arena Cedro - Sistema de Gestao", w / 2, y, { align: "center" });
+        y += 3;
+        doc.text(`ID: ${Date.now()}`, w / 2, y, { align: "center" });
+
+        return y + 4; // margem inferior mínima
+      };
+
+      // 1ª passada: medir a altura real do conteúdo (documento descartado)
+      const docMedida = new jsPDF({ unit: "mm", format: [w, 400] });
+      const alturaFinal = Math.max(40, desenhar(docMedida));
+
+      // 2ª passada: gerar o cupom com a altura EXATA do conteúdo
+      const doc = new jsPDF({ unit: "mm", format: [w, alturaFinal] });
+      desenhar(doc);
 
       doc.autoPrint();
       window.open(doc.output("bloburl"), "_blank");
     });
   };
+
 
   const reservasFinanceiroDoDia = useMemo(() => {
     const dataStr = diaSelecionado.toLocaleDateString("sv-SE");
