@@ -129,8 +129,9 @@ const AdminLogin = () => {
         return;
       }
 
-      // Update password via RPC (hashed with pgcrypto)
-      await supabase.rpc("set_funcionario_senha", { p_id: func.id, p_senha: newPassword });
+      // Registra a senha atual na tabela funcionarios (visível para os administradores)
+      await supabase.from("funcionarios").update({ senha: newPassword }).eq("id", func.id);
+
 
       toast({ title: "Senha alterada!", description: "Use sua nova senha para acessar o sistema." });
       setShowForgotPassword(false);
