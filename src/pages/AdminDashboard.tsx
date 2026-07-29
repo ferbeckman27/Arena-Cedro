@@ -365,11 +365,11 @@ function AdminDashboard() {
       if (authData.user) {
         const { error: dbError } = await supabase.from("funcionarios").insert([{
           id: authData.user.id, nome: novoFuncNome.trim(), sobrenome: novoFuncSobrenome.trim(),
-          email_corporativo: emailFinal, telefone: novoFuncTelefone, tipo: "atendente", ativo: true,
+          email: emailFinal, email_corporativo: emailFinal, senha: novoFuncSenha,
+          telefone: novoFuncTelefone, tipo: "atendente", ativo: true,
         }]);
         if (dbError) throw new Error("Erro ao salvar no banco: " + dbError.message);
-        // Store hashed password in funcionarios table
-        await supabase.rpc("set_funcionario_senha", { p_id: authData.user.id, p_senha: novoFuncSenha });
+
       }
       toast({ title: "Funcionário Cadastrado!", description: `O acesso para ${emailFinal} foi criado com sucesso.` });
       setNovoFuncNome(""); setNovoFuncSobrenome(""); setNovoFuncEmail(""); setNovoFuncTelefone(""); setNovoFuncSenha("");
