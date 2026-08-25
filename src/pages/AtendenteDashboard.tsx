@@ -3404,6 +3404,7 @@ const AtendenteDashboard = () => {
               </div>
             );
           })()}
+          </div>
         </DialogContent>
       </Dialog>
 
