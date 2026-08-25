@@ -3203,13 +3203,13 @@ const AtendenteDashboard = () => {
 
       {/* MODAL DAR BAIXA */}
       <Dialog open={darBaixaAberto} onOpenChange={(open) => { if (!open) { setDarBaixaAberto(false); limparPixFinanceiro(); } }}>
-        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-[2rem] max-w-md outline-none p-0 gap-0 flex flex-col max-h-[92dvh] overflow-hidden">
+        <DialogContent className="bg-[#0c120f] border-white/10 text-white rounded-2xl sm:rounded-[2rem] w-[calc(100%-1rem)] max-w-md outline-none p-0 gap-0 flex flex-col h-[calc(100dvh-1rem)] sm:h-auto sm:max-h-[92dvh] overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle className="italic uppercase flex items-center gap-2 text-lg font-black">
               <DollarSign className="text-[#22c55e]" size={20} /> Dar Baixa
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-8 custom-scrollbar">
+          <div className="flex-1 min-h-0 overflow-y-scroll overscroll-contain touch-pan-y px-4 sm:px-6 pb-28 custom-scrollbar [-webkit-overflow-scrolling:touch]">
           {darBaixaReserva && (() => {
             const pagamentosReserva = listaPagamentos.filter((p) => p.reserva_id === darBaixaReserva.id);
             const totalPagoReal = pagamentosReserva.reduce((a, p) => a + Number(p.valor), 0);
@@ -3356,7 +3356,7 @@ const AtendenteDashboard = () => {
                     )}
                     <Button
                       size="sm"
-                      className="w-full bg-[#22c55e] text-black font-black uppercase h-10 rounded-xl"
+                      className="fixed z-[60] bottom-4 sm:bottom-[calc(4dvh+1rem)] left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-[24rem] bg-[#22c55e] text-black font-black uppercase h-14 rounded-xl shadow-2xl"
                       onClick={() => {
                         handleLiquidarReserva(darBaixaReserva.id, pixDataFinanceiro.valorPago, "pix");
                         setDarBaixaAberto(false);
@@ -3375,7 +3375,7 @@ const AtendenteDashboard = () => {
                         ? !fidelidadeDisponivel || restante <= 0
                         : !liquidarValorCustom || Number(liquidarValorCustom) <= 0 || Number(liquidarValorCustom) > restante || isCarregandoPixFinanceiro
                     }
-                    className="w-full bg-[#22c55e] text-black font-black uppercase h-14 rounded-2xl"
+                    className="fixed z-[60] bottom-4 sm:bottom-[calc(4dvh+1rem)] left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-[24rem] bg-[#22c55e] text-black font-black uppercase h-14 rounded-xl shadow-2xl"
                     onClick={() => {
                       if (liquidarMetodo === "fidelidade") {
                         handleLiquidarReserva(darBaixaReserva.id, restante, "fidelidade");
