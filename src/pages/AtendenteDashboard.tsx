@@ -53,7 +53,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { usePixPayment, calcularPrecoReserva } from "@/hooks/usePixPayment";
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
-import { enviarConfirmacoesReserva, enviarConfirmacaoArena, enviarConfirmacaoCliente } from "@/lib/whatsapp";
+import { enviarConfirmacoesReserva } from "@/lib/whatsapp";
 
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
