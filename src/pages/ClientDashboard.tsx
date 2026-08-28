@@ -355,6 +355,23 @@ const ClienteDashboard = () => {
     if (data) setListaReservas(data as Reserva[]);
   };
 
+  // --- CONFIRMAÇÃO POR WHATSAPP ---
+  const dadosReservaWhatsApp = (): ReservaWhatsApp => ({
+    clienteNome: userData.nome,
+    clienteTelefone: clienteTelefone,
+    data: diaSelecionado.toLocaleDateString('pt-BR'),
+    horario: horarioSelecionado || '',
+    duracao: selectedDuration,
+    tipo: tipoReserva === 'pacote' ? `Pacote ${quantidadeJogosPacote} jogos` : 'Avulsa',
+    valorTotal: totalGeral,
+    valorPago: metodoPagamento === 'pix' ? pixData?.valorPago : 0,
+    formaPagamento: metodoPagamento === 'pix' ? 'PIX' : 'No local (na arena)',
+    status: metodoPagamento === 'pix' ? 'Pago via PIX' : 'Pré-confirmada (pagar na arena)',
+    itens: cart.map((i: any) => ({ nome: i.nome, quantidade: 1, tipo: i.tipo })),
+    reservaId: reservaIdAtual,
+  });
+
+
   // Remarcação
   const handleRemarcar = async () => {
     if (!remarcarReserva?.id || !remarcarData) return;
