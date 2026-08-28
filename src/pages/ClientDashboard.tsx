@@ -272,6 +272,7 @@ const ClienteDashboard = () => {
 
       setReservaIdAtual(reservaId);
       setReservaCriada(true);
+      setItensConfirmados(cart);
       setCart([]);
       return reservaId;
     } catch (error: any) {
