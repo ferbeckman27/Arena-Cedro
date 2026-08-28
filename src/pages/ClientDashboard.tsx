@@ -373,6 +373,16 @@ const ClienteDashboard = () => {
     reservaId: reservaIdAtual,
   });
 
+  // Ao confirmar a reserva, avisa a arena automaticamente (uma vez por reserva)
+  const avisoArenaEnviado = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isConfirmacaoAberta || !horarioSelecionado) return;
+    const chave = reservaIdAtual ?? -1;
+    if (avisoArenaEnviado.current === chave) return;
+    avisoArenaEnviado.current = chave;
+    enviarConfirmacaoArena(dadosReservaWhatsApp());
+  }, [isConfirmacaoAberta, reservaIdAtual]);
+
 
   // Remarcação
   const handleRemarcar = async () => {
