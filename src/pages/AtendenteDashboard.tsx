@@ -53,6 +53,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { usePixPayment, calcularPrecoReserva } from "@/hooks/usePixPayment";
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
+import { enviarConfirmacoesReserva } from "@/lib/whatsapp";
 
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
@@ -2182,26 +2183,36 @@ const AtendenteDashboard = () => {
                                     clienteSelecionadoId || undefined,
                                   );
 
-                                  // Enviar WhatsApp com detalhes da reserva se cliente tem telefone
-                                  if (clienteSelecionadoId) {
-                                    const cli = clientes.find((c) => c.id === clienteSelecionadoId);
-                                    if (cli?.telefone) {
-                                      const tel = cli.telefone.replace(/\D/g, "");
-                                      const valorReserva = slot.valor;
-                                      const valorBase =
-                                        tipoReservaAtendente === "pacote" ? valorReserva * 4 : valorReserva;
-                                      const total = valorBase + totalCarrinho;
-                                      const msg =
-                                        `*ARENA CEDRO - RESERVA CONFIRMADA* ⚽%0A%0A` +
-                                        `📅 *Data:* ${diaSelecionado.toLocaleDateString("pt-BR")}%0A` +
-                                        `⏰ *Horário:* ${slot.inicio}%0A` +
-                                        `💰 *Valor:* R$ ${total.toFixed(2)}%0A` +
-                                        `📋 *Tipo:* ${tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : "Avulsa"}%0A` +
-                                        `💳 *Pagamento:* ${metodoPgto === "antecipado" ? "Antes do Jogo" : metodoPgto === "pix" ? "PIX" : "No local"}%0A%0A` +
-                                        `📖 Regras: ${window.location.origin}/regras-arena.pdf`;
-                                      window.open(`https://wa.me/55${tel}?text=${msg}`, "_blank");
-                                    }
-                                  }
+                                  // Confirmação via WhatsApp (cliente + arena)
+                                  const cli = clienteSelecionadoId
+                                    ? clientes.find((c) => c.id === clienteSelecionadoId)
+                                    : undefined;
+                                  const valorReserva = slot.valor;
+                                  const valorBase =
+                                    tipoReservaAtendente === "pacote" ? valorReserva * 4 : valorReserva;
+                                  enviarConfirmacoesReserva({
+                                    clienteNome: cli?.nome || nome || "Não informado",
+                                    clienteTelefone: cli?.telefone,
+                                    data: diaSelecionado.toLocaleDateString("pt-BR"),
+                                    horario: slot.inicio,
+                                    horarioFim: slot.fim,
+                                    tipo: tipoReservaAtendente === "pacote" ? "Pacote 4 jogos" : "Avulsa",
+                                    valorTotal: valorBase + totalCarrinho,
+                                    formaPagamento:
+                                      metodoPgto === "antecipado"
+                                        ? "Antes do jogo"
+                                        : metodoPgto === "pix"
+                                          ? "PIX"
+                                          : metodoPgto === "dinheiro"
+                                            ? "Dinheiro"
+                                            : metodoPgto,
+                                    itens: itensCarrinho.map((i: any) => ({
+                                      nome: i.nome,
+                                      quantidade: 1,
+                                      tipo: i.tipo,
+                                    })),
+                                  });
+
                                 }}
                               >
                                 {loading ? "Processando..." : "Fazer Reserva"}

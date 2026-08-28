@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePixPayment, calcularPrecoReserva } from '@/hooks/usePixPayment';
 import { FidelityCard } from "@/components/dashboard/FidelityCard";
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
+import { enviarConfirmacoesReserva, enviarConfirmacaoArena, enviarConfirmacaoCliente, type ReservaWhatsApp } from "@/lib/whatsapp";
 
 // --- TIPOS ---
 interface Product {
@@ -59,6 +60,8 @@ const ClienteDashboard = () => {
   const [pixChaveEstatica, setPixChaveEstatica] = useState("");
   const [reservaIdAtual, setReservaIdAtual] = useState<number | null>(null);
   const [reservaCriada, setReservaCriada] = useState(false);
+  const [clienteTelefone, setClienteTelefone] = useState<string>("");
+  const [itensConfirmados, setItensConfirmados] = useState<any[]>([]);
 
   // Remarcação
   const [remarcarModal, setRemarcarModal] = useState(false);
@@ -95,8 +98,11 @@ const ClienteDashboard = () => {
       })));
 
       if (userData.id) {
-        const { data: user } = await supabase.from('clientes').select('reservas_concluidas').eq('id', Number(userData.id)).single();
-        if (user) setProgressoFidelidade(user.reservas_concluidas || 0);
+        const { data: user } = await supabase.from('clientes').select('reservas_concluidas, telefone').eq('id', Number(userData.id)).single();
+        if (user) {
+          setProgressoFidelidade(user.reservas_concluidas || 0);
+          setClienteTelefone(user.telefone || "");
+        }
 
         const { data: historico } = await supabase.from('reservas').select('*').eq('cliente_id', Number(userData.id)).order('data_reserva', { ascending: false }).limit(20);
         if (historico) setHistoricoReservas(historico);
@@ -266,6 +272,7 @@ const ClienteDashboard = () => {
 
       setReservaIdAtual(reservaId);
       setReservaCriada(true);
+      setItensConfirmados(cart);
       setCart([]);
       return reservaId;
     } catch (error: any) {
@@ -349,6 +356,33 @@ const ClienteDashboard = () => {
     const { data } = await supabase.from('reservas').select('horario_inicio, data_reserva, status, cliente_nome, id').eq('data_reserva', diaSelecionado.toLocaleDateString('sv-SE'));
     if (data) setListaReservas(data as Reserva[]);
   };
+
+  // --- CONFIRMAÇÃO POR WHATSAPP ---
+  const dadosReservaWhatsApp = (): ReservaWhatsApp => ({
+    clienteNome: userData.nome,
+    clienteTelefone: clienteTelefone,
+    data: diaSelecionado.toLocaleDateString('pt-BR'),
+    horario: horarioSelecionado || '',
+    duracao: selectedDuration,
+    tipo: tipoReserva === 'pacote' ? `Pacote ${quantidadeJogosPacote} jogos` : 'Avulsa',
+    valorTotal: totalGeral,
+    valorPago: metodoPagamento === 'pix' ? pixData?.valorPago : 0,
+    formaPagamento: metodoPagamento === 'pix' ? 'PIX' : 'No local (na arena)',
+    status: metodoPagamento === 'pix' ? 'Pago via PIX' : 'Pré-confirmada (pagar na arena)',
+    itens: itensConfirmados.map((i: any) => ({ nome: i.nome, quantidade: 1, tipo: i.tipo })),
+    reservaId: reservaIdAtual,
+  });
+
+  // Ao confirmar a reserva, avisa a arena automaticamente (uma vez por reserva)
+  const avisoArenaEnviado = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isConfirmacaoAberta || !horarioSelecionado) return;
+    const chave = reservaIdAtual ?? -1;
+    if (avisoArenaEnviado.current === chave) return;
+    avisoArenaEnviado.current = chave;
+    enviarConfirmacaoArena(dadosReservaWhatsApp());
+  }, [isConfirmacaoAberta, reservaIdAtual]);
+
 
   // Remarcação
   const handleRemarcar = async () => {
@@ -847,6 +881,30 @@ const ClienteDashboard = () => {
               </p>
             </div>
             <a href="/regras-arena.pdf" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-[#22c55e] text-sm font-black uppercase underline hover:text-white transition-colors">📄 Ver Regras da Arena Cedro</a>
+
+            {/* Confirmação por WhatsApp */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+              <p className="text-[10px] font-black uppercase text-gray-400">Confirmação por WhatsApp</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => {
+                    const ok = enviarConfirmacaoCliente(dadosReservaWhatsApp());
+                    if (!ok) toast({ variant: "destructive", title: "Sem telefone cadastrado", description: "Cadastre seu WhatsApp no perfil para receber a confirmação." });
+                  }}
+                  className="bg-[#22c55e]/20 border border-[#22c55e]/40 text-[#22c55e] font-black uppercase text-[10px] h-12 rounded-xl hover:bg-[#22c55e]/30"
+                >
+                  📲 Meu WhatsApp
+                </Button>
+                <Button
+                  onClick={() => enviarConfirmacaoArena(dadosReservaWhatsApp())}
+                  className="bg-white/10 border border-white/20 text-white font-black uppercase text-[10px] h-12 rounded-xl hover:bg-white/20"
+                >
+                  🏟️ Enviar p/ Arena
+                </Button>
+              </div>
+              <p className="text-[9px] text-gray-500 font-bold">A arena já foi notificada automaticamente com todos os dados da sua reserva.</p>
+            </div>
+
             <label className="flex items-start gap-3 cursor-pointer bg-white/5 p-4 rounded-2xl border border-white/10 hover:border-[#22c55e]/30 transition-all">
               <input type="checkbox" checked={aceitouTermos} onChange={(e) => setAceitouTermos(e.target.checked)} className="mt-1 accent-[#22c55e] w-5 h-5" />
               <span className="text-xs font-bold text-gray-300 uppercase leading-relaxed">Estou ciente e concordo com os termos e regras da Arena Cedro.</span>
