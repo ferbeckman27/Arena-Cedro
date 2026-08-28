@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePixPayment, calcularPrecoReserva } from '@/hooks/usePixPayment';
 import { FidelityCard } from "@/components/dashboard/FidelityCard";
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
+import { enviarConfirmacoesReserva, enviarConfirmacaoArena, enviarConfirmacaoCliente, type ReservaWhatsApp } from "@/lib/whatsapp";
 
 // --- TIPOS ---
 interface Product {
