@@ -61,6 +61,7 @@ const ClienteDashboard = () => {
   const [reservaIdAtual, setReservaIdAtual] = useState<number | null>(null);
   const [reservaCriada, setReservaCriada] = useState(false);
   const [clienteTelefone, setClienteTelefone] = useState<string>("");
+  const [itensConfirmados, setItensConfirmados] = useState<any[]>([]);
 
   // Remarcação
   const [remarcarModal, setRemarcarModal] = useState(false);
