@@ -60,6 +60,7 @@ const ClienteDashboard = () => {
   const [pixChaveEstatica, setPixChaveEstatica] = useState("");
   const [reservaIdAtual, setReservaIdAtual] = useState<number | null>(null);
   const [reservaCriada, setReservaCriada] = useState(false);
+  const [clienteTelefone, setClienteTelefone] = useState<string>("");
 
   // Remarcação
   const [remarcarModal, setRemarcarModal] = useState(false);
