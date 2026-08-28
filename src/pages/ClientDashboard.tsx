@@ -369,7 +369,7 @@ const ClienteDashboard = () => {
     valorPago: metodoPagamento === 'pix' ? pixData?.valorPago : 0,
     formaPagamento: metodoPagamento === 'pix' ? 'PIX' : 'No local (na arena)',
     status: metodoPagamento === 'pix' ? 'Pago via PIX' : 'Pré-confirmada (pagar na arena)',
-    itens: cart.map((i: any) => ({ nome: i.nome, quantidade: 1, tipo: i.tipo })),
+    itens: itensConfirmados.map((i: any) => ({ nome: i.nome, quantidade: 1, tipo: i.tipo })),
     reservaId: reservaIdAtual,
   });
 
