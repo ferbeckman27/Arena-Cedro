@@ -48,7 +48,9 @@ Deno.serve(async (req) => {
         .select("id, codigo_pix, qr_code_base64, id_mercado_pago, valor, status")
         .eq("reserva_id", reserva_id)
         .eq("forma_pagamento", "pix")
-        .in("status", ["pendente", "pago", "aprovado"])
+        .eq("status", "pendente")
+        .eq("valor", valorComDesconto)
+        .gte("created_at", new Date(Date.now() - 8 * 60000).toISOString())
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

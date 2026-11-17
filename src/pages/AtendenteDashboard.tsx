@@ -53,7 +53,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { usePixPayment, calcularPrecoReserva } from "@/hooks/usePixPayment";
 import { PixPaymentSection } from "@/components/booking/PixPaymentSection";
-import { enviarConfirmacoesReserva } from "@/lib/whatsapp";
+import { enviarConfirmacoesReserva, enviarAvisoFidelidadeCompleta, PIX_CHAVE_EMAIL } from "@/lib/whatsapp";
 
 const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full ${className}`} />;
 
@@ -93,7 +93,7 @@ const AtendenteDashboard = () => {
   const [funcionarioId, setFuncionarioId] = useState<string | null>(null);
   // Financeiro - liquidação customizada
   const [liquidarValorCustom, setLiquidarValorCustom] = useState("");
-  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "dinheiro" | "fidelidade">("dinheiro");
+  const [liquidarMetodo, setLiquidarMetodo] = useState<"pix" | "pix_email" | "dinheiro" | "fidelidade">("dinheiro");
   const {
     isCarregandoPix: isCarregandoPixFinanceiro,
     pixData: pixDataFinanceiro,
@@ -893,6 +893,7 @@ const AtendenteDashboard = () => {
         .single();
       if (reserva?.cliente_id && Number(reserva.valor_restante || 0) <= 0) {
         await supabase.rpc("incrementar_fidelidade", { cli_id: reserva.cliente_id });
+        await avisarSeFidelidadeCompleta(reserva.cliente_id);
       }
     }
     toast({ title: "Pagamento confirmado!" });
@@ -918,6 +919,15 @@ const AtendenteDashboard = () => {
       carregarReservasFinancas();
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message });
+    }
+  };
+
+  const avisarSeFidelidadeCompleta = async (cliId: number) => {
+    const { data: cli } = await supabase.from("clientes").select("nome, sobrenome, telefone, reservas_concluidas").eq("id", cliId).maybeSingle();
+    if (cli && Number(cli.reservas_concluidas) === 10) {
+      const nome = `${cli.nome}${cli.sobrenome ? " " + cli.sobrenome : ""}`;
+      const ok = enviarAvisoFidelidadeCompleta(nome, cli.telefone);
+      toast({ title: "🏆 Cartão fidelidade completo!", description: ok ? `Mensagem aberta no WhatsApp de ${nome}.` : `${nome} não tem telefone cadastrado para receber o aviso.` });
     }
   };
 
@@ -980,7 +990,9 @@ const AtendenteDashboard = () => {
       // Para PIX, o pagamento JÁ foi inserido pela edge `criar-pix` e confirmado
       // pelo webhook do Mercado Pago — NÃO inserir de novo (causava duplicação).
       // Para dinheiro, inserimos manualmente como aprovado.
-      if (metodo !== "pix") {
+      const metodoOriginal = metodo;
+      if (metodo === "pix_email") metodo = "pix";
+      if (metodoOriginal !== "pix") {
         await supabase.from("pagamentos").insert([
           {
             reserva_id: id,
@@ -1032,6 +1044,7 @@ const AtendenteDashboard = () => {
 
       if (pagamentoCompleto && reserva?.cliente_id) {
         await supabase.rpc("incrementar_fidelidade", { cli_id: reserva.cliente_id });
+        await avisarSeFidelidadeCompleta(reserva.cliente_id);
       }
       toast({ title: pagamentoCompleto ? "✅ Pagamento Total Confirmado" : "💰 Pagamento Parcial Registrado" });
       setLiquidarValorCustom("");
@@ -3267,10 +3280,11 @@ const AtendenteDashboard = () => {
                 {/* Método de pagamento */}
                 <div>
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Forma de Pagamento</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
                       { value: "dinheiro" as const, label: "Dinheiro", icon: "💵", disabled: false },
-                      { value: "pix" as const, label: "PIX", icon: "📱", disabled: false },
+                      { value: "pix" as const, label: "PIX QR Code", icon: "📱", disabled: false },
+                      { value: "pix_email" as const, label: "PIX E-mail", icon: "📧", disabled: false },
                       { value: "fidelidade" as const, label: "Fidelidade", icon: "⚽", disabled: !fidelidadeDisponivel },
                     ].map((m) => (
                       <button
@@ -3350,6 +3364,19 @@ const AtendenteDashboard = () => {
                   </div>
                 )}
 
+                {liquidarMetodo === "pix_email" && (
+                  <div className="bg-white/5 border border-[#22c55e]/20 rounded-xl p-4 space-y-2">
+                    <p className="text-[10px] text-[#22c55e] font-bold uppercase text-center">Chave PIX (e-mail)</p>
+                    <div className="flex gap-2">
+                      <Input value={PIX_CHAVE_EMAIL} readOnly className="bg-white/5 border-white/10 text-white text-xs h-9 flex-1" />
+                      <Button size="sm" variant="outline" className="h-9 border-[#22c55e] text-[#22c55e]" onClick={() => { navigator.clipboard.writeText(PIX_CHAVE_EMAIL); toast({ title: "Chave copiada!" }); }}>
+                        <Copy size={12} />
+                      </Button>
+                    </div>
+                    <p className="text-[9px] text-yellow-400 font-bold text-center">Confira o comprovante antes de confirmar.</p>
+                  </div>
+                )}
+
                 {/* PIX QR Code quando gerado */}
                 {pixDataFinanceiro && liquidarMetodo === "pix" && (
                   <div className="bg-white/5 border border-[#22c55e]/20 rounded-xl p-4 space-y-3">
@@ -3398,7 +3425,10 @@ const AtendenteDashboard = () => {
                         toast({ variant: "destructive", title: "Valor inválido" });
                         return;
                       }
-                      if (liquidarMetodo === "pix") {
+                      if (liquidarMetodo === "pix_email") {
+                        handleLiquidarReserva(darBaixaReserva.id, val, "pix_email");
+                        setDarBaixaAberto(false);
+                      } else if (liquidarMetodo === "pix") {
                         handleGerarPixFinanceiro(darBaixaReserva.id, val);
                       } else {
                         handleLiquidarReserva(darBaixaReserva.id, val, "dinheiro");
@@ -3409,6 +3439,7 @@ const AtendenteDashboard = () => {
                     {isCarregandoPixFinanceiro ? "Gerando PIX..." :
                      liquidarMetodo === "fidelidade" ? `⚽ Aplicar Cortesia Fidelidade — R$ ${restante.toFixed(2)}` :
                      liquidarMetodo === "pix" ? `Gerar PIX — R$ ${liquidarValorCustom || "0.00"}` :
+                     liquidarMetodo === "pix_email" ? `Confirmar PIX E-mail — R$ ${liquidarValorCustom || "0.00"}` :
                      `Confirmar Dinheiro — R$ ${liquidarValorCustom || "0.00"}`}
                   </Button>
                 )}

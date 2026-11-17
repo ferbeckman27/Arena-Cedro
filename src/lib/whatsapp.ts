@@ -92,3 +92,21 @@ export function enviarConfirmacoesReserva(r: ReservaWhatsApp) {
   window.setTimeout(() => enviarConfirmacaoArena(r), enviouCliente ? 800 : 0);
   return enviouCliente;
 }
+
+export const PIX_CHAVE_EMAIL = "arenacedro@gmail.com";
+
+/** Abre o WhatsApp do cliente avisando que o cartão fidelidade foi completado. */
+export function enviarAvisoFidelidadeCompleta(clienteNome: string, telefone?: string | null) {
+  const tel = (telefone || "").replace(/\D/g, "");
+  if (!tel) return false;
+  const numero = tel.startsWith("55") ? tel : `55${tel}`;
+  const texto =
+    `*ARENA CEDRO — CARTÃO FIDELIDADE COMPLETO!* 🏆⚽${nl}${nl}` +
+    `Parabéns, ${clienteNome}! Você completou os 10 jogos do seu cartão fidelidade e ganhou *1 jogo grátis*.${nl}${nl}` +
+    `📅 Você tem *7 dias* para agendar o seu jogo do cartão fidelidade.${nl}` +
+    `☀️ Os jogos do cartão fidelidade são sempre no *horário diurno* (09:00 às 18:00).${nl}` +
+    `⚠️ O cartão fidelidade *não acumula*.${nl}${nl}` +
+    `Agende pelo WhatsApp (98) 99991-0535. Obrigado pela preferência! 💚`;
+  abrir(numero, texto);
+  return true;
+}
